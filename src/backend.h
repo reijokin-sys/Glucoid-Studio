@@ -29,6 +29,7 @@ class Backend : public QObject {
     Q_PROPERTY(QVariantMap response READ response NOTIFY changed)
     Q_PROPERTY(QVariantMap analysis READ analysis NOTIFY changed)
     Q_PROPERTY(QVariantMap comparisonChart READ comparisonChart NOTIFY changed)
+    Q_PROPERTY(QVariantList dayComparisonCharts READ dayComparisonCharts NOTIFY changed)
     Q_PROPERTY(QVariantMap analysisSettings READ analysisSettings NOTIFY changed)
     Q_PROPERTY(QVariantList importHistory READ importHistory NOTIFY changed)
     Q_PROPERTY(QVariantList profileVersions READ profileVersions NOTIFY changed)
@@ -93,6 +94,7 @@ public:
     Q_INVOKABLE QVariantMap acceptResponse();
     QVariantMap analysis()const{return m_analysis;}
     QVariantMap comparisonChart()const{return m_comparisonChart;}
+    QVariantList dayComparisonCharts()const{return m_dayComparisonCharts;}
     QVariantMap analysisSettings()const;
     QVariantList importHistory()const{return db.imports().toVariantList();}
     QVariantList profileVersions()const;
@@ -158,6 +160,7 @@ private:
     Studio::Transport transport;
     Studio::Importer::Fetch jugglucoFetch;
     QVariantMap m_chart,m_currentDayChart,m_analysis,m_comparisonChart;
+    QVariantList m_dayComparisonCharts;
     QVariantList m_diary,m_deletedDiary,m_summaries;
     Studio::Connection config;
     QJsonObject lastRecommendation,responseResult,responseDraft;

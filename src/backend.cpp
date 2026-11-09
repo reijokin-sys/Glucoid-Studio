@@ -530,6 +530,30 @@ void Backend::refreshAnalysis(){
     const qint64 a=QDateTime(selected.addDays(-1),QTime(0,0),zone).toMSecsSinceEpoch(),b=QDateTime(selected,QTime(0,0),zone).toMSecsSinceEpoch();
     QVariantList segments,seg;double max=15;qint64 prior=0;for(auto v:selectSeries(db.readings(a,b),db.readings(a,b,"history"),a,b,settings["fillHistory"].toBool(),gap)){Reading r;r.time=v.from;r.mmol=v.value;if(prior&&r.time-prior>gap*1000){segments<<QVariant(seg);seg.clear();}seg<<QVariantMap{{"x",double(r.time)},{"y",r.mmol}};prior=r.time;max=std::max(max,r.mmol+2);}if(!seg.isEmpty())segments<<QVariant(seg);
     m_comparisonChart={{"from",double(a)},{"to",double(b)},{"segments",segments},{"markers",QVariantList{}},{"max",max},{"low",settings["low"].toVariant()},{"high",settings["high"].toVariant()}};
+    // Daily comparison uses the same standard stream/history policy as the
+    // front page, independent of the retained research-chart switches.
+    const auto comparisonDay=QDate::fromString(dateWindow,Qt::ISODate);
+    const auto anchor=comparisonDay.isValid()?comparisonDay:today;
+    const auto comparisonFrom=anchor.addDays(-3).startOfDay(zone).toMSecsSinceEpoch();
+    const auto comparisonTo=anchor.addDays(1).startOfDay(zone).toMSecsSinceEpoch();
+    const auto comparisonStream=db.readings(comparisonFrom-summaryPreRollMs,comparisonTo,"stream");
+    const auto comparisonHistory=db.readings(comparisonFrom-summaryPreRollMs,comparisonTo,"history");
+    const auto comparisonAmounts=db.amounts(comparisonFrom,comparisonTo);
+    m_dayComparisonCharts.clear();
+    for(int offset=0;offset<4;++offset){
+        auto chart=currentDayChartData(comparisonStream,comparisonHistory,
+            anchor.addDays(-offset),zone,number(settings,"low"),number(settings,"high"));
+        QJsonArray markers;
+        const auto from=qint64(chart["from"].toDouble()),to=qint64(chart["to"].toDouble());
+        for(auto value:comparisonAmounts){
+            auto entry=value.toObject();const auto time=qint64(entry["time"].toDouble());
+            if(time>=from&&time<to){
+                entry["timeText"]=QDateTime::fromMSecsSinceEpoch(time,zone).toString("dd.MM.yyyy HH:mm");
+                markers.append(entry);
+            }
+        }
+        chart["markers"]=markers;m_dayComparisonCharts.append(chart.toVariantMap());
+    }
     requestAutomaticAnalysis();
     refreshCurrentReading();
 }

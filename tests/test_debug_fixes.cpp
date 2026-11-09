@@ -59,6 +59,60 @@ QString functionBody(const QString &source, const QString &marker) {
 class DebugFixesTest : public QObject {
     Q_OBJECT
 private slots:
+    void comparisonColorSegmentsPreserveCrossingsAndGaps() {
+        QFile file(QStringLiteral(STUDIO_SOURCE_DIR)+"/qml/chartsegments.js");QVERIFY(file.open(QIODevice::ReadOnly));
+        auto source=QString::fromUtf8(file.readAll());source.remove(".pragma library");QJSEngine engine;
+        QVERIFY(!engine.evaluate(source).isError());
+        auto evaluate=[&](const QString&points,double low=4,double high=10){
+            auto result=engine.evaluate("JSON.stringify(split("+points+","+QString::number(low)+","+QString::number(high)+"))");
+            return QJsonDocument::fromJson(result.toString().toUtf8()).array();
+        };
+        const auto crossing=evaluate("[[{x:0,y:2},{x:100,y:12}]]");QCOMPARE(crossing.size(),3);
+        QCOMPARE(crossing[0].toObject()["outside"].toBool(),true);
+        QCOMPARE(crossing[1].toObject()["outside"].toBool(),false);
+        QCOMPARE(crossing[2].toObject()["outside"].toBool(),true);
+        auto middle=crossing[1].toObject()["points"].toArray();
+        QCOMPARE(middle[0].toObject()["x"].toDouble(),20.0);QCOMPARE(middle[0].toObject()["y"].toDouble(),4.0);
+        QCOMPARE(middle[1].toObject()["x"].toDouble(),80.0);QCOMPARE(middle[1].toObject()["y"].toDouble(),10.0);
+        const auto edges=evaluate("[[{x:0,y:4},{x:100,y:10}]]");QCOMPARE(edges.size(),1);QVERIFY(!edges[0].toObject()["outside"].toBool());
+        const auto gaps=evaluate("[[{x:0,y:2},{x:10,y:3}],[{x:100,y:2},{x:110,y:3}]]");QCOMPARE(gaps.size(),2);
+        QCOMPARE(gaps[0].toObject()["points"].toArray().last().toObject()["x"].toDouble(),10.0);
+        QCOMPARE(gaps[1].toObject()["points"].toArray().first().toObject()["x"].toDouble(),100.0);
+        const auto unset=evaluate("[[{x:0,y:2},{x:100,y:12}]]",0,10);QCOMPARE(unset.size(),1);QVERIFY(!unset[0].toObject()["outside"].toBool());
+        const auto single=evaluate("[[{x:0,y:12}]]");QCOMPARE(single.size(),1);QVERIFY(single[0].toObject()["outside"].toBool());
+    }
+    void fourComparisonDaysUseLocalDatesAndPreserveEntries_data() {
+        QTest::addColumn<QDate>("anchor");QTest::newRow("spring")<<QDate(2026,3,30);QTest::newRow("autumn")<<QDate(2026,10,26);
+    }
+    void fourComparisonDaysUseLocalDatesAndPreserveEntries() {
+        QFETCH(QDate,anchor);const QTimeZone zone("Europe/Helsinki");QTemporaryDir dir;Store store(dir.path()+"/studio.sqlite3");
+        const QJsonObject settings{{"timezone","Europe/Helsinki"},{"low",4},{"high",10},{"maxGapMinutes",1},{"fillHistory",false}};
+        QVERIFY(store.setMeta("analysisSettings",QString::fromUtf8(QJsonDocument(settings).toJson())));
+        QList<Reading> rows;
+        for(int offset=0;offset<4;++offset){
+            const auto at=anchor.addDays(-offset).startOfDay(zone).toMSecsSinceEpoch();
+            rows<<sample(at,"history")<<sample(at+60000);
+            const auto noon=QDateTime(anchor.addDays(-offset),QTime(12,0),zone).toMSecsSinceEpoch();
+            QVERIFY(!store.addLocal(noon,20,"carbs","","synthetic").isEmpty());
+            const auto id=store.addLocal(noon+60000,2,"rapid","Synthetic rapid","synthetic");QVERIFY(!id.isEmpty());
+            if(offset==2)QVERIFY(store.setDeleted(id,true));
+        }
+        const auto start=anchor.addDays(-3).startOfDay(zone).toMSecsSinceEpoch(),stop=anchor.addDays(1).startOfDay(zone).toMSecsSinceEpoch();
+        QVERIFY(store.ingest(rows,{},start-1,stop,false));
+        const auto glucoseBefore=store.query("SELECT * FROM glucose ORDER BY id"),amountsBefore=store.query("SELECT * FROM amounts ORDER BY id");
+        Backend backend(dir.path());backend.setWindow(anchor.toString(Qt::ISODate),1);const auto charts=backend.dayComparisonCharts();QCOMPARE(charts.size(),4);
+        for(int i=0;i<4;++i){
+            const auto day=anchor.addDays(-i);const auto chart=charts[i].toMap();
+            QCOMPARE(chart["date"].toString(),day.toString(Qt::ISODate));
+            QCOMPARE(qint64(chart["from"].toDouble()),day.startOfDay(zone).toMSecsSinceEpoch());
+            QCOMPARE(qint64(chart["to"].toDouble()),day.addDays(1).startOfDay(zone).toMSecsSinceEpoch());
+            QVERIFY(!chart["segments"].toList().isEmpty());QCOMPARE(chart["markers"].toList().size(),i==2?1:2);
+            for(const auto&entry:chart["markers"].toList()){const auto marker=entry.toMap();QVERIFY(!marker["deleted"].toBool());QVERIFY(marker["timeText"].toString().startsWith(day.toString("dd.MM.yyyy")));}
+        }
+        const auto dst=charts[1].toMap();QCOMPARE(qint64(dst["to"].toDouble()-dst["from"].toDouble()),qint64(anchor.month()==3?23:25)*3600000);
+        auto altered=settings.toVariantMap();altered["maxGapMinutes"]=60;altered["fillHistory"]=true;QVERIFY(backend.saveAnalysisSettings(altered));QCOMPARE(backend.dayComparisonCharts(),charts);
+        QCOMPARE(store.query("SELECT * FROM glucose ORDER BY id"),glucoseBefore);QCOMPARE(store.query("SELECT * FROM amounts ORDER BY id"),amountsBefore);
+    }
     void dailyAnalysisRecoversAfterMalformedImport() {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());

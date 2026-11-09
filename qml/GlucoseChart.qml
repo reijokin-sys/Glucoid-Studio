@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import "theme.js" as Theme
+import "chartsegments.js" as ChartSegments
 import QtQuick.Controls
 import QtGraphs
 
@@ -8,6 +9,21 @@ Item {
     id: root
     // QQuickItem.data is the default visual-child list. Never shadow it.
     required property var chartData
+    property string sourceName: "tietolähde"
+    property bool highlightOutsideTarget: false
+    readonly property var renderedSegments: {
+        const data = chartData || {}
+        return highlightOutsideTarget
+            ? ChartSegments.split(data.segments, data.low, data.high)
+            : (data.segments || []).map(points => ({points: points, outside: false}))
+    }
+    readonly property int expectedPointCount: {
+        let count = 0
+        for (const segment of renderedSegments) count += segment.points.length
+        const data = chartData || {}
+        for (const limit of [data.low, data.high]) if (limit > 0) count += 2
+        return count
+    }
     property var created: []
     readonly property var graph: graphLoader.item
     implicitHeight: 380
@@ -28,14 +44,15 @@ Item {
         s.visible = points.length > 0
     }
     function redraw() {
+        if (!visible) return
         if (!graphLoader.active) { graphLoader.active=true;return }
         if (!graph) return
         // Keep live QObject identities until GraphsView itself is destroyed.
         // Removing/deleting rendered series reproduced a SIGSEGV in
         // QMetaObject::cast during Qt Graphs' pending polish work.
         let used = 0
-        for (let points of ((chartData || {}).segments || [])) {
-            updateSeries(used++, points, Theme.accentTeal, 2)
+        for (const segment of renderedSegments) {
+            updateSeries(used++, segment.points, segment.outside ? Theme.alertRed : Theme.accentTeal, 2)
         }
         const limits = [(chartData || {}).low, (chartData || {}).high]
         for (let i = 0; i < limits.length; ++i) {
@@ -48,7 +65,8 @@ Item {
             created[i].visible = false
         }
     }
-    onChartDataChanged: redrawTimer.restart()
+    onRenderedSegmentsChanged: redrawTimer.restart()
+    onVisibleChanged: if (visible) redrawTimer.restart()
     Component.onCompleted: redrawTimer.start()
     Timer { id:redrawTimer;interval:100;onTriggered:root.redraw() }
     Canvas {
@@ -108,7 +126,7 @@ Item {
             visible: !!root.graph && ratio>=0 && ratio<=1
             HoverHandler { id: hover }
             ToolTip.visible: hover.hovered
-            ToolTip.text: new Date(modelData.time).toLocaleString(Qt.locale("fi_FI"),"dd.MM HH:mm")+" · "+modelData.label+" "+modelData.value+" · "+(modelData.local ? "paikallinen" : "Juggluco")
+            ToolTip.text: (modelData.timeText || new Date(modelData.time).toLocaleString(Qt.locale("fi_FI"),"dd.MM HH:mm"))+" · "+modelData.label+" "+modelData.value+" · "+(modelData.local ? "paikallinen" : root.sourceName)
         }
     }
     Label { anchors.centerIn: parent; visible: !(root.chartData.segments || []).length; text: "Tällä aikavälillä ei ole mittauksia" }

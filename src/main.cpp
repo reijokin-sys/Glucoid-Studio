@@ -126,7 +126,7 @@ int main(int argc,char**argv){
     const QString service=QString(simple?"fi.reijo.GlucoidStudio.s":parser.isSet("research")?"fi.reijo.GlucoidStudio.research.s":"fi.reijo.GlucoidStudio.legacy.s")+QString::fromLatin1(QCryptographicHash::hash(root.toUtf8(),QCryptographicHash::Sha256).toHex().left(16));
     auto bus=QDBusConnection::sessionBus();
     if(!testing&&!bus.registerService(service)){QDBusInterface other(service,"/Activation","fi.reijo.GlucoidStudio.Activation",bus);other.call("Open");return other.isValid()?0:1;}
-    QQmlApplicationEngine engine;engine.rootContext()->setContextProperty("studio",&backend);engine.rootContext()->setContextProperty("demoMode",synthetic);engine.rootContext()->setContextProperty("uiTestMode",testing);
+    QQmlApplicationEngine engine;engine.rootContext()->setContextProperty("studio",&backend);engine.rootContext()->setContextProperty("appVersion",QCoreApplication::applicationVersion());engine.rootContext()->setContextProperty("demoMode",synthetic);engine.rootContext()->setContextProperty("uiTestMode",testing);
     engine.rootContext()->setContextProperty("uiTestWidth",testing?qEnvironmentVariableIntValue("STUDIO_UI_TEST_WIDTH"):0);
     if(synthetic)backend.seedDemo();
     engine.loadFromModule("GlucoidStudio",parser.isSet("legacy")?"LegacyMain":parser.isSet("research")?"ResearchMain":"Main");if(engine.rootObjects().isEmpty())return 1;
@@ -150,7 +150,7 @@ int main(int argc,char**argv){
         auto frames=std::make_shared<int>(0);
         QObject::connect(activation.window,&QQuickWindow::frameSwapped,app.get(),[frames]{++*frames;});
         QObject::connect(timer,&QTimer::timeout,app.get(),[&,timer,step,checks,settling,first,lastViewport,frames]{
-            auto*component=engine.rootObjects().first()->findChild<QObject*>("glucoseChart");QObject*viewport=nullptr;
+            auto*component=findItem(activation.window->contentItem(),"glucoseChart");QObject*viewport=nullptr;
             if(component){auto v=component->property("graph");viewport=v.value<QObject*>();if(!viewport)viewport=v.value<QJSValue>().toQObject();}
             QQmlListReference series(viewport,"seriesList");
             if(!viewport||!series.count()){if(++*step>10){QTextStream(stderr)<<"Stress test: chart did not initialize\n";app->exit(1);}return;}
@@ -164,6 +164,7 @@ int main(int argc,char**argv){
             qsizetype expected=0;const auto chart=backend.chart();for(auto seg:chart.value("segments").toList())expected+=seg.toList().size();
             if(chart.value("low").toDouble()>0)expected+=2;
             if(chart.value("high").toDouble()>0)expected+=2;
+            if(simple&&component)expected=component->property("expectedPointCount").toInt();
             // Qt Graphs polishing and the QML debounce are asynchronous.
             // Permit a bounded settling interval without scheduling another change.
             if(points!=expected){if(++*settling<=10)return;QTextStream(stderr)<<"Stress test: missing/old points after refresh cycle="<<*checks<<" actual="<<points<<" expected="<<expected<<"\n";app->exit(1);return;}
@@ -211,8 +212,11 @@ int main(int argc,char**argv){
                     const bool references=meanCard&&cvCard
                         &&meanCard->property("valueColor").value<QColor>()==QColor("#5fd0b0")
                         &&cvCard->property("valueColor").value<QColor>()==QColor("#5fd0b0");
-                    const bool ok=tabs&&tabs->property("count").toInt()==3&&fits(tabs)&&fits(metrics)&&periods&&currentDay&&gmiOk&&references&&!root->findChild<QObject*>("saveReviewedEpisode");
-                    QTextStream(stdout)<<"Simple navigation=3 summary-fits="<<ok<<" period-buttons="<<periods<<" current-day-chart="<<currentDay<<" gmi="<<gmiOk<<" references="<<references<<"\n";if(!ok){app->exit(1);return;}
+                    auto *page=findItem(activation.window->contentItem(),"mainApplicationPage");
+                    const bool versionVisible=root->property("title").toString().contains(QCoreApplication::applicationVersion())
+                        &&page&&page->property("title").toString().contains(QCoreApplication::applicationVersion());
+                    const bool ok=tabs&&tabs->property("count").toInt()==3&&fits(tabs)&&fits(metrics)&&periods&&currentDay&&gmiOk&&references&&versionVisible&&!root->findChild<QObject*>("saveReviewedEpisode");
+                    QTextStream(stdout)<<"Simple navigation=3 summary-fits="<<ok<<" period-buttons="<<periods<<" current-day-chart="<<currentDay<<" gmi="<<gmiOk<<" references="<<references<<" version-visible="<<versionVisible<<"\n";if(!ok){app->exit(1);return;}
                     QMetaObject::invokeMethod(root,"showView",Q_ARG(QVariant,3));++*index;return;
                 }
                 if(*index==2){
@@ -276,7 +280,7 @@ int main(int argc,char**argv){
                 QMetaObject::invokeMethod(engine.rootObjects().first(),"showView",Q_ARG(QVariant,parser.isSet("legacy")?0:2));activation.window->update();++*index;return;
             }
             if(*index>8){
-                auto*graph=engine.rootObjects().first()->findChild<QObject*>("glucoseChart");
+                auto*graph=findItem(activation.window->contentItem(),"glucoseChart");
                 QObject *viewport=nullptr;
                 if(graph){auto value=graph->property("graph");viewport=value.value<QObject*>();if(!viewport)viewport=value.value<QJSValue>().toQObject();}
                 auto *item=qobject_cast<QQuickItem*>(viewport);QQmlListReference series(viewport,"seriesList");qsizetype points=0;
@@ -287,6 +291,7 @@ int main(int argc,char**argv){
                 for(const auto &segment:chart.value("segments").toList())expectedPoints+=segment.toList().size();
                 if(chart.value("low").toDouble()>0)expectedPoints+=2;
                 if(chart.value("high").toDouble()>0)expectedPoints+=2;
+                if(simple&&graph)expectedPoints=graph->property("expectedPointCount").toInt();
                 const bool populated=points>0&&points==expectedPoints;
                 const bool visible=item&&item->isVisible();
                 const auto plot=viewport?viewport->property("plotArea").toRectF():QRectF();

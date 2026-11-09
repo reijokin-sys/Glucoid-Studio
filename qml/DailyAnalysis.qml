@@ -57,11 +57,10 @@ ScrollView {
                                 Label { text: card.modelData.ratioDays + " kirjauspäivää"; font.pixelSize: 10; opacity: 0.75 }
                             }
                         }
-                        Label { Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 10; opacity: 0.7
-                            text: "HH " + root.n(card.modelData.carbs) + " g · pikainsuliini " + root.n(card.modelData.units) + " U" }
                         Disclosure {
+                            objectName: "dailyCalculationDetails" + card.index
                             Layout.fillWidth: true; padding: 6; title: "Laskennan tiedot"
-                            Label { Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 10; text: "Kaikkien päivien kirjaukset: HH " + root.n(card.modelData.carbs) + " g · pikainsuliini " + root.n(card.modelData.units) + " U. Mukana ovat ateria- ja korjausannokset, eivät perusinsuliinit." }
+                            Label { objectName: "dailyAmountTotals" + card.index; Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 10; text: "Kaikkien päivien kirjaukset: HH " + root.n(card.modelData.carbs) + " g · pikainsuliini " + root.n(card.modelData.units) + " U. Mukana ovat ateria- ja korjausannokset, eivät perusinsuliinit." }
                             Label { Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 10; text: "Suhteesta puuttuu: " + card.modelData.onlyCarbDays + " päivää ilman insuliinikirjausta · " + card.modelData.onlyInsulinDays + " päivää ilman positiivista HH-määrää. Näidenkin päivien kirjaukset sisältyvät yllä oleviin määriin." }
                             Label { Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 10; text: "Päivän suhde = 10 × pikainsuliini / HH. Näytetty suhde on päivittäisten suhteiden keskiarvo, ei kokonaismäärien suhde. Kirjaukset kuuluvat omaan kelloväliinsä ilman aterioiden yhdistämistä." }
                             Label { Layout.fillWidth: true; wrapMode: Text.WordWrap; font.pixelSize: 10; text: "Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo. Stream on ensisijainen, history täydentää aukot (" + root.n(card.modelData.historyFraction * 100) + " % katetusta ajasta). Puuttuva mittaus ei ole nolla. Myös matalat ja korkeat arvot ovat mukana; ateria- ja insuliinikirjaukset eivät rajaa glukoosikeskiarvoa." }

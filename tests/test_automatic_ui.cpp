@@ -29,7 +29,7 @@ class AutomaticUiTest:public QObject {
  };
  static QQuickItem *item(QQuickItem *root,const QString &name){if(root->objectName()==name)return root;for(auto *child:root->childItems())if(auto *found=item(child,name))return found;return nullptr;}
  static void load(QQmlApplicationEngine&engine,Backend&b,int width=1280,bool research=false){
-    b.setAnalysisWindow(7,"2026-10-06");engine.rootContext()->setContextProperty("studio",&b);engine.rootContext()->setContextProperty("demoMode",true);engine.rootContext()->setContextProperty("uiTestMode",true);engine.rootContext()->setContextProperty("uiTestWidth",width);
+    b.setAnalysisWindow(7,"2026-10-06");engine.rootContext()->setContextProperty("studio",&b);engine.rootContext()->setContextProperty("appVersion",QStringLiteral(STUDIO_APP_VERSION));engine.rootContext()->setContextProperty("demoMode",true);engine.rootContext()->setContextProperty("uiTestMode",true);engine.rootContext()->setContextProperty("uiTestWidth",width);
     engine.load(QUrl::fromLocalFile(QStringLiteral(STUDIO_SOURCE_DIR)+(research?"/qml/ResearchMain.qml":"/qml/Main.qml")));
  }
 private slots:
@@ -70,6 +70,10 @@ private slots:
         QVERIFY(item(window->contentItem(),"dailyGlucose"+QString::number(i)));
         QVERIFY(item(window->contentItem(),"dailyRatio"+QString::number(i)));
     }
+    auto *totals=item(window->contentItem(),"dailyAmountTotals0"),*details=item(window->contentItem(),"dailyCalculationDetails0");
+    QVERIFY(totals&&details);QVERIFY(!totals->isVisible());
+    QVERIFY(QMetaObject::invokeMethod(details,"toggle"));QTRY_VERIFY(totals->isVisible());
+    QVERIFY(QMetaObject::invokeMethod(details,"toggle"));QTRY_VERIFY(!totals->isVisible());
     QVERIFY(!item(window->contentItem(),"theoreticalDose0"));
     QVERIFY(!item(window->contentItem(),"dayComparisonView"));
     const auto key=b.dailyAnalysis().value("requestKey");
@@ -79,6 +83,9 @@ private slots:
  void mainViewsWithoutNutrition(){
     Fixture f;Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b,900);QVERIFY(!engine.rootObjects().isEmpty());
     auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
+    const auto expectedTitle=QString("Glucoid Studio %1").arg(QStringLiteral(STUDIO_APP_VERSION));
+    QCOMPARE(window->property("title").toString(),expectedTitle);
+    auto *page=item(window->contentItem(),"mainApplicationPage");QVERIFY(page);QCOMPARE(page->property("title").toString(),expectedTitle);
     auto *tabs=item(window->contentItem(),"mainTabs");QVERIFY(tabs);QCOMPARE(tabs->property("count").toInt(),3);
     QVERIFY(!item(window->contentItem(),"nutritionView"));
     QVERIFY(!item(window->contentItem(),"nutritionProtein"));
@@ -173,6 +180,46 @@ private slots:
     auto *field=item(window->contentItem(),"dayDate");QVERIFY(field);const QString shown=field->property("text").toString();QVERIFY(!shown.isEmpty());const qint64 before=qint64(b.chart().value("from").toDouble());
     auto *next=item(window->contentItem(),"nextDay");QVERIFY(next&&next->property("enabled").toBool()&&QMetaObject::invokeMethod(next,"clicked"));QTRY_COMPARE(qint64(b.chart().value("from").toDouble()),before+86400000LL);QTRY_COMPARE(field->property("text").toString(),QDate::fromString(shown,Qt::ISODate).addDays(1).toString(Qt::ISODate));
     auto *previousButton=item(window->contentItem(),"previousDay");QVERIFY(previousButton&&QMetaObject::invokeMethod(previousButton,"clicked"));QTRY_COMPARE(qint64(b.chart().value("from").toDouble()),before);
+ }
+ void dayNavigationIgnoresUnsubmittedDateText(){
+    Fixture f;Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());
+    auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
+    b.setWindow("2026-10-06",1);QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,2));
+    auto *field=item(window->contentItem(),"dayDate");QVERIFY(field);field->setProperty("text","kesken");
+    auto *next=item(window->contentItem(),"nextDay");QVERIFY(next);QVERIFY(QMetaObject::invokeMethod(next,"clicked"));
+    QTRY_COMPARE(b.dayComparisonCharts().first().toMap()["date"].toString(),QString("2026-10-07"));
+ }
+ void dayComparisonShowsFourScrollableColoredCharts_data(){
+    QTest::addColumn<int>("width");QTest::newRow("wide")<<1280;QTest::newRow("narrow")<<900;
+ }
+ void dayComparisonShowsFourScrollableColoredCharts(){
+    QFETCH(int,width);QTemporaryDir dir;Store store(dir.path()+"/studio.sqlite3");const QDate anchor(2026,11,8);const QTimeZone zone("Europe/Helsinki");
+    QVERIFY(store.setMeta("analysisSettings",QString::fromUtf8(QJsonDocument(QJsonObject{{"timezone","Europe/Helsinki"},{"low",4},{"high",10}}).toJson())));
+    QList<Reading> rows;
+    for(int offset=0;offset<4;++offset)for(int i=0;i<4;++i){Reading r;r.key=QString("chart-%1-%2").arg(offset).arg(i);r.sensor="synthetic";r.time=anchor.addDays(-offset).startOfDay(zone).toMSecsSinceEpoch()+i*300000;r.mmol=i==0?2:i==2?12:6;rows<<r;}
+    QVERIFY(store.ingest(rows,{},rows.last().time-86400000,rows.first().time+86400000,false));
+    Backend b(dir.path());QQmlApplicationEngine engine;load(engine,b,width);QVERIFY(!engine.rootObjects().isEmpty());auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
+    b.setWindow(anchor.toString(Qt::ISODate),1);QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,2));
+    auto *profile=item(window->contentItem(),"profileTab");QVERIFY(profile);QCOMPARE(profile->property("text").toString(),QString("Vuorokausiprofiili"));
+    for(int i=0;i<4;++i){
+        auto *chart=item(window->contentItem(),i==0?"glucoseChart":"comparisonChart"+QString::number(i));QVERIFY(chart);
+        QVERIFY(chart->property("highlightOutsideTarget").toBool());QTRY_VERIFY(chart->height()>=320);
+        const auto rect=chart->mapRectToScene(chart->boundingRect());QVERIFY(rect.left()>=-1&&rect.right()<=window->width()+1);
+        const auto model=chart->property("chartData").toMap();QCOMPARE(model["date"].toString(),anchor.addDays(-i).toString(Qt::ISODate));
+    }
+    auto *first=item(window->contentItem(),"glucoseChart");
+    QQmlExpression colored(QQmlEngine::contextForObject(first),first,"created.some(s => s.visible && s.color.toString() === '#ff8b7a')");
+    QTRY_VERIFY(colored.evaluate().toBool());QVERIFY(!colored.hasError());
+    auto *scroll=item(window->contentItem(),"dayComparisonScroll");QVERIFY(scroll);
+    auto *flick=scroll->property("contentItem").value<QObject*>();QVERIFY(flick);
+    QTRY_VERIFY(flick->property("contentHeight").toDouble()>scroll->height());
+    flick->setProperty("contentY",flick->property("contentHeight").toDouble()-scroll->height());QVERIFY(flick->property("contentY").toDouble()>0);
+    auto *last=item(window->contentItem(),"comparisonChart3");QVERIFY(last);
+    QTRY_VERIFY(last->mapRectToScene(last->boundingRect()).bottom()<=scroll->mapRectToScene(scroll->boundingRect()).bottom()+1);
+    auto *next=item(window->contentItem(),"nextDay");QVERIFY(QMetaObject::invokeMethod(next,"clicked"));
+    QTRY_COMPARE(b.dayComparisonCharts().first().toMap()["date"].toString(),anchor.addDays(1).toString(Qt::ISODate));QTRY_COMPARE(flick->property("contentY").toDouble(),0.0);
+    auto *today=item(window->contentItem(),"comparisonToday");QVERIFY(today);QVERIFY(QMetaObject::invokeMethod(today,"clicked"));
+    QTRY_COMPARE(b.dayComparisonCharts().first().toMap()["date"],b.currentDayChart()["date"]);
  }
  void forcedDarkThemeUsesDarkSurfaces(){
     Fixture f;Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());

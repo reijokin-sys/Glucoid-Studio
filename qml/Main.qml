@@ -37,18 +37,21 @@ Kirigami.ApplicationWindow {
     palette.shadow: Theme.bg
     flags:Qt.Window | (uiTestMode ? Qt.WindowStaysOnTopHint : 0)
     width:uiTestWidth>0?uiTestWidth:1280;height:900;minimumWidth:900;minimumHeight:650
-    visible:true;title:"Glucoid Studio"
+    readonly property string applicationTitle: "Glucoid Studio"+(typeof appVersion==="string"&&appVersion.length?" "+appVersion:"")
+    visible:true;title:applicationTitle
     function n(v,d=1){return v===null || v===undefined || !Number.isFinite(Number(v))?"—":Number(v).toLocaleString(Qt.locale("fi_FI"),'f',d)}
     function stamp(v){return v>0?new Date(v).toLocaleString(Qt.locale("fi_FI")):"Ei tietoa"}
     function isoDate(v){const d=new Date(v);const p=x=>String(x).padStart(2,"0");return !isNaN(d.getTime())?d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()):""}
     function longDate(v){const d=new Date(v);return isNaN(d.getTime())?"":d.toLocaleDateString(Qt.locale("fi_FI"),"ddd d.M.yyyy")}
     function shiftDay(v,days){const d=new Date(v);d.setDate(d.getDate()+days);return isoDate(d.getTime())}
+    function shiftDate(date, days){const p=date.split("-").map(Number);return new Date(Date.UTC(p[0],p[1]-1,p[2]+days)).toISOString().slice(0,10)}
     function decimal(v){return String(v).trim().length ? Number(String(v).replace(",",".")) : NaN}
     function referenceColor(available,inRange){return !available?Theme.text:(inRange?Theme.accentTeal:Theme.accentAmber)}
     function showView(index){if(index===0)tabs.currentIndex=0;else if(index===3)tabs.currentIndex=1;else if(index===4)settingsDialog.open();else{tabs.currentIndex=2;curveTabs.currentIndex=index===1?0:1}}
-    Component.onCompleted:{studio.setWindow(window.isoDate(new Date().getTime()),1)}
+    Component.onCompleted:{studio.setWindow(studio.currentDayChart.date || window.isoDate(new Date().getTime()),1)}
     pageStack.initialPage:Kirigami.Page {
-        title:"Glucoid Studio"
+        objectName:"mainApplicationPage"
+        title:window.applicationTitle
         background:Rectangle { color:Theme.bg }
         ColumnLayout {
             anchors.fill:parent;spacing:8
@@ -185,7 +188,7 @@ Kirigami.ApplicationWindow {
                 }
                 DailyAnalysis {}
                 ColumnLayout {
-                    TabBar { id:curveTabs;Layout.fillWidth:true;TabButton{text:"Vuorokausi"}TabButton{text:"Päivävertailu"} }
+                    TabBar { id:curveTabs;Layout.fillWidth:true;TabButton{objectName:"profileTab";text:"Vuorokausiprofiili"}TabButton{text:"Päivävertailu"} }
                     StackLayout {
                         currentIndex:curveTabs.currentIndex;Layout.fillWidth:true;Layout.fillHeight:true
                         ColumnLayout {
@@ -198,26 +201,61 @@ Kirigami.ApplicationWindow {
                                 {color:Theme.chartTargetEdge,text:"Tavoitealue",shape:"square"}] }
                         }
                         ColumnLayout {
+                            id:dayComparisonView
+                            property string displayedDate: ""
                             RowLayout {
                                 Label {text:"Päivä"}
-                                ToolButton { objectName:"previousDay";text:"‹";enabled:studio.chart.from>0;ToolTip.text:"Edellinen päivä";ToolTip.visible:hovered;onClicked:studio.setWindow(window.shiftDay(studio.chart.from,-1),1)}
+                                ToolButton { objectName:"previousDay";text:"‹";enabled:dayComparisonView.displayedDate.length>0;ToolTip.text:"Edellinen päivä";ToolTip.visible:hovered;onClicked:studio.setWindow(window.shiftDate(dayComparisonView.displayedDate,-1),1)}
                                 TextField { objectName:"dayDate";id:dayDate;placeholderText:"vvvv-kk-pp";onAccepted:studio.setWindow(text,1) }
-                                ToolButton { objectName:"nextDay";text:"›";enabled:studio.chart.from>0;ToolTip.text:"Seuraava päivä";ToolTip.visible:hovered;onClicked:studio.setWindow(window.shiftDay(studio.chart.from,1),1)}
+                                ToolButton { objectName:"nextDay";text:"›";enabled:dayComparisonView.displayedDate.length>0;ToolTip.text:"Seuraava päivä";ToolTip.visible:hovered;onClicked:studio.setWindow(window.shiftDate(dayComparisonView.displayedDate,1),1)}
                                 Button {text:"Näytä päivä";onClicked:studio.setWindow(dayDate.text,1)}
-                                Label {text:"Edellinen päivä alla";Layout.fillWidth:true;horizontalAlignment:Text.AlignRight;opacity:0.7}
+                                Button {objectName:"comparisonToday";text:"Tänään";onClicked:studio.setWindow(studio.currentDayChart.date,1)}
+                                Item {Layout.fillWidth:true}
                             }
                             Connections {
                                 target:studio
-                                function onChanged(){if(!dayDate.activeFocus&&studio.chart.from>0)dayDate.text=window.isoDate(studio.chart.from)}
+                                function onChanged(){
+                                    const date=(studio.dayComparisonCharts[0] || {}).date || ""
+                                    if(!dayDate.activeFocus)dayDate.text=date
+                                    if(dayComparisonView.displayedDate!==date){
+                                        dayComparisonView.displayedDate=date
+                                        if(dayComparisonScroll.contentItem)dayComparisonScroll.contentItem.contentY=0
+                                    }
+                                }
                             }
-                            Label { objectName:"selectedDayTitle";text:"Valittu päivä · "+window.longDate(studio.chart.from);font.bold:true}
                             Legend { objectName:"dayLegend";Layout.fillWidth:true;items:[
+                                {color:Theme.accentTeal,text:"Glukoosi",shape:"line"},
+                                {color:Theme.alertRed,text:"Tavoitealueen ulkopuolella",shape:"line"},
                                 {color:Theme.accentAmber,text:"HH",shape:"square"},
                                 {color:Theme.accentPurple,text:"Perusinsuliini",shape:"line"},
                                 {color:Theme.accentBlue,text:"Pika-/korjausinsuliini",shape:"line"}] }
-                            GlucoseChart { objectName:"glucoseChart";Layout.fillWidth:true;Layout.fillHeight:true;chartData:studio.chart }
-                            Label { objectName:"previousDayTitle";text:"Edellinen päivä · "+window.longDate(studio.comparisonChart.from);font.bold:true}
-                            GlucoseChart { Layout.fillWidth:true;Layout.fillHeight:true;chartData:studio.comparisonChart }
+                            ScrollView {
+                                id:dayComparisonScroll;objectName:"dayComparisonScroll"
+                                Layout.fillWidth:true;Layout.fillHeight:true;contentWidth:availableWidth;clip:true
+                                ColumnLayout {
+                                    width:dayComparisonScroll.availableWidth;spacing:16
+                                    Repeater {
+                                        model:4
+                                        delegate:ColumnLayout {
+                                            required property int index
+                                            readonly property var modelData:studio.dayComparisonCharts[index] || ({})
+                                            objectName:"comparisonDay"+index
+                                            Layout.fillWidth:true
+                                            Label {
+                                                objectName:index===0?"selectedDayTitle":index===1?"previousDayTitle":"comparisonDayTitle"+index
+                                                Layout.fillWidth:true;wrapMode:Text.WordWrap;font.bold:true
+                                                text:(index===0?"Valittu päivä":index===1?"Edellinen päivä":index+" päivää aiemmin")+" · "+modelData.dateLabel
+                                            }
+                                            GlucoseChart {
+                                                objectName:index===0?"glucoseChart":"comparisonChart"+index
+                                                Layout.fillWidth:true;Layout.preferredHeight:320;Layout.minimumHeight:320
+                                                chartData:modelData;highlightOutsideTarget:true
+                                                sourceName:studio.connection.source==="nightscout"?"Nightscout":"Juggluco"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

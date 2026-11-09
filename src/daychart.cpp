@@ -54,6 +54,6 @@ QJsonObject currentDayChartData(const QList<Reading> &stream,
         {"max", maximum}, {"low", targets ? QJsonValue(low) : QJsonValue()},
         {"high", targets ? QJsonValue(high) : QJsonValue()}, {"ticks", ticks},
         {"dateLabel", QLocale("fi_FI").toString(day, "ddd d.M.yyyy")},
-        {"timezone", QString::fromUtf8(zone.id())}};
+        {"timezone", QString::fromUtf8(zone.id())}, {"date", day.toString(Qt::ISODate)}};
 }
 }

@@ -38,7 +38,8 @@ Kirigami.ApplicationWindow {
     flags:Qt.Window | (uiTestMode ? Qt.WindowStaysOnTopHint : 0)
     width:uiTestWidth>0?uiTestWidth:1280;height:900;minimumWidth:900;minimumHeight:650
     Component.onCompleted:{episodeRevision=studio.dataRevision;episodeProfileVersion=studio.profile.version || 0;studio.setWindow(studio.analysis.lastDate,1);studio.startAutomaticAnalysis(false)}
-    visible:true;title:"Glucoid Studio — analyysi"
+    readonly property string applicationTitle: "Glucoid Studio"+(typeof appVersion==="string"&&appVersion.length?" "+appVersion:"")
+    visible:true;title:applicationTitle+" — analyysi"
     property var selectedIds: ({})
     property var assessment: ({})
     property string episodeResult:""
@@ -82,7 +83,7 @@ Kirigami.ApplicationWindow {
         }
     } }
     pageStack.initialPage:Kirigami.Page {
-        title:"Glucoid Studio"
+        title:window.applicationTitle
         ColumnLayout {
             anchors.fill:parent;spacing:10
             RowLayout {

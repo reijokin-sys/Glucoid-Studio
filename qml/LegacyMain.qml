@@ -38,7 +38,8 @@ Kirigami.ApplicationWindow {
     width: 1240; height: 860
     minimumWidth: 960; minimumHeight: 680
     visible: true
-    title: "Glucoid Studio"+(demoMode ? " — esimerkkiaineisto" : "")
+    readonly property string applicationTitle: "Glucoid Studio"+(typeof appVersion==="string"&&appVersion.length?" "+appVersion:"")
+    title: applicationTitle+(demoMode ? " — esimerkkiaineisto" : "")
     property var selectedIds: ({})
     property var calculation: ({})
     property var assessment: ({})
@@ -83,7 +84,7 @@ Kirigami.ApplicationWindow {
         return "Tutkimuslaskelma: "+n(result.units,2)+" U\nHH-osuus: "+n(result.meal,2)+" U\nGlukoosikorjaus: "+n(result.correction,2)+" U\nAktiivinen pikainsuliini: "+n(result.iob,2)+" U\nEnnen pyöristystä: "+n(result.unrounded,2)+" U\n"+result.message
     }
     pageStack.initialPage: Kirigami.Page {
-        title: "Glucoid Studio"
+        title: window.applicationTitle
         ColumnLayout {
             anchors.fill: parent
             spacing: 10
