@@ -30,6 +30,7 @@ ja viiden minuutin välein sovelluksen ollessa auki.
 
 Ohjelma kuvaa tallennettuja tietoja. Se ei takaa lähdetietojen oikeellisuutta.
 GMI on sensoridatasta laskettu arvio, ei mitattu laboratorio-HbA1c.
+GMI:n viitearvoväri näytetään myös viikon jaksolle; lyhyt tai vajaa jakso merkitään suuntaa-antavaksi.
 Historialliset, kliinisesti validoimattomat tutkimustyökalut ovat erillisessä
 `--research`-tilassa; niitä ei pidä käyttää itsenäisiin lääkityspäätöksiin.
 
@@ -40,7 +41,7 @@ Qt 6.10:lle ja KDE/Kirigami 6:lle. Se käyttää jakelun kirjastoja eikä sisäl
 niiden omia kopioita.
 
 ```sh
-sudo apt install ./glucoid-studio_1.5.0_amd64.deb
+sudo apt install ./glucoid-studio_1.5.1_amd64.deb
 glucoid-studio
 ```
 
@@ -124,14 +125,14 @@ Glucoid Studio is a local glucose and treatment-entry history viewer for the Lin
 
 Juggluco network access requires a working Linux WireGuard interface and the phone's numeric tunnel address. Studio binds the connection to that interface and does not fall back to an unprotected route. USB/ADB is an alternative. Independent Nightscout access uses HTTPS/API v3 and does not require WireGuard. Read credentials are stored in KDE Wallet. Import runs on startup and every five minutes while the application is open.
 
-The application describes recorded data; it cannot guarantee that source data is correct. GMI is an estimate derived from sensor readings, not a laboratory HbA1c measurement. Historical, clinically unvalidated research tools remain available separately with `--research`; they must not be used for independent medication decisions.
+The application describes recorded data; it cannot guarantee that source data is correct. GMI is an estimate derived from sensor readings, not a laboratory HbA1c measurement. Its reference color is also shown for a one-week period; short or incomplete periods remain marked as indicative. Historical, clinically unvalidated research tools remain available separately with `--research`; they must not be used for independent medication decisions.
 
 #### Installation
 
 The release `.deb` targets **Ubuntu/Kubuntu 26.04 amd64**, Qt 6.10 and KDE/Kirigami 6. It uses distribution-provided libraries rather than bundled copies.
 
 ```sh
-sudo apt install ./glucoid-studio_1.5.0_amd64.deb
+sudo apt install ./glucoid-studio_1.5.1_amd64.deb
 glucoid-studio
 ```
 

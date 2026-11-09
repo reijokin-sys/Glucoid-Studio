@@ -504,7 +504,7 @@ void Backend::refreshAnalysis(){
         {"gmiTarget",referenceGmiTarget},{"tirTarget",referenceTirTarget},
         {"cvTarget",referenceCvTarget},{"coverageTarget",referenceCoverageTarget}};
     reference["meanInRange"]=result.contains("mean")&&result["mean"].toDouble()>=referenceMeanLow&&result["mean"].toDouble()<=referenceMeanHigh;
-    reference["gmiInRange"]=result.contains("gmi")&&result["gmi"].toDouble()<referenceGmiTarget&&result["gmiAdequate"].toBool();
+    reference["gmiInRange"]=result.contains("gmi")&&result["gmi"].toDouble()<referenceGmiTarget;
     reference["tirInRange"]=result.contains("inRange")&&result["inRange"].toDouble()>=referenceTirTarget;
     reference["cvInRange"]=result.contains("cv")&&result["cv"].toDouble()<=referenceCvTarget;
     reference["coverageInRange"]=result["coverage"].toDouble()>=referenceCoverageTarget;

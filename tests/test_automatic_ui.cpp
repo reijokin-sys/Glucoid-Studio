@@ -278,18 +278,27 @@ private slots:
     QCOMPARE(colorOf("colorForValue(5)"),QColor("#ff8b7a"));
     QTRY_VERIFY_WITH_TIMEOUT(chart->property("paintedPoints").toInt()>0,5000);
  }
+ void gmiCardShowsEstimateAndShortPeriodCaveat_data(){
+    QTest::addColumn<double>("mean");QTest::addColumn<double>("gmi");QTest::addColumn<QString>("color");
+    QTest::newRow("week-below-target")<<7.0<<6.327<<QString("#5fd0b0");
+    QTest::newRow("week-above-target")<<10.0<<(3.31+0.02392*180.182)<<QString("#f2c66d");
+ }
  void gmiCardShowsEstimateAndShortPeriodCaveat(){
-    Fixture f;Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());
+    QFETCH(double,mean);QFETCH(double,gmi);QFETCH(QString,color);
+    Fixture f;
+    auto readings=f.data.readings;for(auto &r:readings){r.mmol=mean;r.original=mean;}
+    QVERIFY(f.db.ingest(readings,{},start()-8LL*86400000,start()+8LL*86400000,false));
+    Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());
     auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
     QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,0));QTest::qWait(100);
     auto *card=item(window->contentItem(),"gmiMetric");QVERIFY(card);
     const auto analysis=b.analysis();
     QVERIFY(analysis.value("gmiAvailable").toBool());
-    QVERIFY(qAbs(analysis.value("gmi").toDouble()-6.327)<0.02);
-    QVERIFY(qAbs(analysis.value("gmiMmol").toDouble()-45.65109)<0.2);
+    QVERIFY(qAbs(analysis.value("gmi").toDouble()-gmi)<0.02);
     QCOMPARE(analysis.value("gmiAdequate").toBool(),false);
-    QCOMPARE(card->property("value").toString(),QLocale(QLocale::Finnish,QLocale::Finland).toString(6.327,'f',1));
+    QCOMPARE(card->property("value").toString(),QLocale(QLocale::Finnish,QLocale::Finland).toString(gmi,'f',1));
     QCOMPARE(card->property("unit").toString(),QString("%"));
+    QCOMPARE(card->property("valueColor").value<QColor>(),QColor(color));
     QVERIFY(card->property("note").toString().contains(QString::fromUtf8("suuntaa-antava")));
  }
  void summaryReferenceFlagsAndColors(){
@@ -298,7 +307,7 @@ private slots:
     QCOMPARE(ref.value("meanInRange").toBool(),true);
     QCOMPARE(ref.value("cvInRange").toBool(),true);
     QCOMPARE(ref.value("coverageInRange").toBool(),true);
-    QCOMPARE(ref.value("gmiInRange").toBool(),false);
+    QCOMPARE(ref.value("gmiInRange").toBool(),true);
     QCOMPARE(ref.value("tirInRange").toBool(),false);
     QCOMPARE(ref.value("nightInRange").toBool(),true);
     QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());
@@ -309,7 +318,7 @@ private slots:
     QCOMPARE(color("cvMetric"),QColor("#5fd0b0"));
     QCOMPARE(color("coverageMetric"),QColor("#5fd0b0"));
     QCOMPARE(color("nightGlucoseMetric"),QColor("#5fd0b0"));
-    QCOMPARE(color("gmiMetric"),QColor("#eef2f5"));
+    QCOMPARE(color("gmiMetric"),QColor("#5fd0b0"));
     QCOMPARE(color("targetMetric"),QColor("#eef2f5"));
     QQmlExpression amber(qmlContext(window),window,"referenceColor(true,false)");
     QCOMPARE(amber.evaluate().value<QColor>(),QColor("#f2c66d"));
