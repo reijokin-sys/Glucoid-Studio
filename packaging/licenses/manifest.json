@@ -1,0 +1,80 @@
+[
+  {
+    "package": "libqt6core6t64",
+    "version": "6.10.2+dfsg-7",
+    "file": "libqt6core6t64-copyright",
+    "sha256": "9bc6203f2b6fba7a47138f8370afeff96fff8d67c44ee2752ea4b4e02438d961"
+  },
+  {
+    "package": "libqt6gui6",
+    "version": "6.10.2+dfsg-7",
+    "file": "libqt6gui6-copyright",
+    "sha256": "9bc6203f2b6fba7a47138f8370afeff96fff8d67c44ee2752ea4b4e02438d961"
+  },
+  {
+    "package": "libqt6network6",
+    "version": "6.10.2+dfsg-7",
+    "file": "libqt6network6-copyright",
+    "sha256": "9bc6203f2b6fba7a47138f8370afeff96fff8d67c44ee2752ea4b4e02438d961"
+  },
+  {
+    "package": "libqt6widgets6",
+    "version": "6.10.2+dfsg-7",
+    "file": "libqt6widgets6-copyright",
+    "sha256": "9bc6203f2b6fba7a47138f8370afeff96fff8d67c44ee2752ea4b4e02438d961"
+  },
+  {
+    "package": "libqt6dbus6",
+    "version": "6.10.2+dfsg-7",
+    "file": "libqt6dbus6-copyright",
+    "sha256": "9bc6203f2b6fba7a47138f8370afeff96fff8d67c44ee2752ea4b4e02438d961"
+  },
+  {
+    "package": "libqt6quick6",
+    "version": "6.10.2+dfsg-3",
+    "file": "libqt6quick6-copyright",
+    "sha256": "14da67d32ee6dd71a532a2979097ab83c7ceb7ed13045b29824a78d399842cfe"
+  },
+  {
+    "package": "libqt6qml6",
+    "version": "6.10.2+dfsg-3",
+    "file": "libqt6qml6-copyright",
+    "sha256": "14da67d32ee6dd71a532a2979097ab83c7ceb7ed13045b29824a78d399842cfe"
+  },
+  {
+    "package": "libqt6quickcontrols2-6",
+    "version": "6.10.2+dfsg-3",
+    "file": "libqt6quickcontrols2-6-copyright",
+    "sha256": "14da67d32ee6dd71a532a2979097ab83c7ceb7ed13045b29824a78d399842cfe"
+  },
+  {
+    "package": "libqt6graphs6",
+    "version": "6.10.2-2",
+    "file": "libqt6graphs6-copyright",
+    "sha256": "05c1235947e736dcb80cff24693275ce79294b6fe549fd14410dbf60c2166b38"
+  },
+  {
+    "package": "libqt6quick3d6",
+    "version": "6.10.2-1",
+    "file": "libqt6quick3d6-copyright",
+    "sha256": "0ce491d77ae630300861baeec3a6d50c2ad9c1bb46916f918e6bbc6e166c0103"
+  },
+  {
+    "package": "libkf6wallet6",
+    "version": "6.24.0-0ubuntu1",
+    "file": "libkf6wallet6-copyright",
+    "sha256": "16f49371be49259640bf8d6f24d73bc257618bba069dca50253a94b87d8589fe"
+  },
+  {
+    "package": "qml6-module-org-kde-kirigami",
+    "version": "6.24.0-0ubuntu1",
+    "file": "qml6-module-org-kde-kirigami-copyright",
+    "sha256": "b4278537fd09e915c250288d83b222f024fc2845e0a63d3a4ad306e3de5c9ef2"
+  },
+  {
+    "package": "libsqlite3-0",
+    "version": "3.46.1-9ubuntu0.3",
+    "file": "libsqlite3-0-copyright",
+    "sha256": "7b1679aaa97e6e49ec12460eefa85a82b432053bc468dd89dbdb50f2326589f3"
+  }
+]

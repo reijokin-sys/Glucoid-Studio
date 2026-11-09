@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Desktop Entry]
+Type=Application
+Name=Glucoid Studio
+Comment=Paikallinen Juggluco- ja Nightscout-glukoosihistorian tarkastelu
+Exec=glucoid-studio %u
+Icon=office-chart-line
+Terminal=false
+Categories=Education;Science;MedicalSoftware;
+MimeType=x-scheme-handler/glucoid-studio;
+StartupWMClass=glucoid-studio

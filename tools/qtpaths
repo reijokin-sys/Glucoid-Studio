@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Local compatibility for xdg-utils on Plasma 6; no system-wide alias.
+exec /usr/bin/qtpaths6 "$@"

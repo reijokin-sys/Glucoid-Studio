@@ -1,0 +1,32 @@
+# Raskaat riippuvuudet ja käännöskansiot
+node_modules/
+vendor/
+.venv/
+env/
+dist/
+build/
+out/
+
+# Versionhallinta ja editorit
+.git/
+.svn/
+.idea/
+.vscode/
+
+# Lokit ja välimuistit
+*.log
+*.tmp
+*.cache
+.next/
+.nuxt/
+coverage/
+
+# Mediatiedostot ja suuret dokumentit
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.mp4
+*.pdf
+*.zip
+*.tar.gz
