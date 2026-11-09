@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 cmake_minimum_required(VERSION 3.22)
-project(GlucoidStudio VERSION 1.5.3 LANGUAGES CXX)
+project(GlucoidStudio VERSION 1.5.4 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -50,6 +50,12 @@ if(BUILD_TESTING)
   target_link_libraries(nightscout-tests PRIVATE studio-core Qt6::Test Qt6::Widgets Qt6::Quick Qt6::QuickControls2 Qt6::Concurrent KF6::Wallet)
   add_test(NAME studio-nightscout COMMAND nightscout-tests)
   set_tests_properties(studio-nightscout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+  # Optional live check against a running Nightscout; skipped without the
+  # environment variables. Synthetic data only.
+  qt_add_executable(nightscout-live-tests tests/test_nightscout_live.cpp)
+  target_link_libraries(nightscout-live-tests PRIVATE studio-core)
+  add_test(NAME studio-nightscout-live COMMAND nightscout-live-tests)
+  set_tests_properties(studio-nightscout-live PROPERTIES SKIP_RETURN_CODE 77)
   qt_add_executable(debug-fixes-tests tests/test_debug_fixes.cpp src/backend.cpp src/backend.h)
   target_compile_definitions(debug-fixes-tests PRIVATE STUDIO_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
   target_compile_options(debug-fixes-tests PRIVATE -Wall -Wextra -Wpedantic)

@@ -44,7 +44,7 @@ Qt 6.10:lle ja KDE/Kirigami 6:lle. Se käyttää jakelun kirjastoja eikä sisäl
 niiden omia kopioita.
 
 ```sh
-sudo apt install ./glucoid-studio_1.5.3_amd64.deb
+sudo apt install ./glucoid-studio_1.5.4_amd64.deb
 glucoid-studio
 ```
 
@@ -136,7 +136,7 @@ The application describes recorded data; it cannot guarantee that source data is
 The release `.deb` targets **Ubuntu/Kubuntu 26.04 amd64**, Qt 6.10 and KDE/Kirigami 6. It uses distribution-provided libraries rather than bundled copies.
 
 ```sh
-sudo apt install ./glucoid-studio_1.5.3_amd64.deb
+sudo apt install ./glucoid-studio_1.5.4_amd64.deb
 glucoid-studio
 ```
 

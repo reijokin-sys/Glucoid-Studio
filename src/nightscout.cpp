@@ -13,6 +13,10 @@
 #include <memory>
 
 namespace Studio {
+// Nightscout API v3 rejects history timestamps before 2000-01-01 with
+// "Bad or missing Last-Modified header/parameter". The first import must use
+// a valid lower bound instead of 0.
+static constexpr qint64 nightscoutMinTimestamp = 946684800000LL;
 static QUrl baseUrl(const QString& address) {
     QUrl url(address);
     if ((url.scheme() == "https" && url.port() == 443) || (url.scheme() == "http" && url.port() == 80)) url.setPort(-1);
@@ -131,7 +135,8 @@ void NightscoutImporter::beginCollection(const QString& name) {
     collection = name;
     // Legacy v1 uploaders have no server modification clock. Revisit a week
     // of glucose and all treatments, including changes to older treatment dates.
-    cursor = collection == "entries" ? std::max<qint64>(0, db.meta("nightscoutCursor:" + collection).toLongLong() - 7LL * 86400000) : 0;
+    const qint64 stored = db.meta("nightscoutCursor:" + collection).toLongLong();
+    cursor = collection == "entries" ? std::max(nightscoutMinTimestamp, stored - 7LL * 86400000) : nightscoutMinTimestamp;
     collectionFrom = cursor;
     seen.clear();
     limit = 1000;
