@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later; Copyright 2026 Reijo Kinnunen -->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>Glucoid Studio — luonnoksen kulmikas G ja nousunuoli</title>
+  <rect x="4" y="4" width="120" height="120" rx="25" fill="#4c0667"/>
+  <g fill="none" stroke="#77e1c0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M80 80 H104 V106 H24 V59 L45 26 L73 65 L103 41"/>
+    <path d="M86.103977 39.122664 L103 41 L101.122664 57.896023" stroke-linejoin="miter"/>
+  </g>
+</svg>

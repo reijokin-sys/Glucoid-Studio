@@ -6,5 +6,5 @@
 #include <QSet>
 #include <QTimeZone>
 namespace Studio {
-QJsonObject insulinSummary(const QJsonArray&amounts,QDate first,int days,const QTimeZone&zone,const QSet<QString>&completeDays);
+QJsonObject insulinSummary(const QJsonArray& amounts, QDate first, int days, const QTimeZone& zone, const QSet<QString>& completeDays);
 }

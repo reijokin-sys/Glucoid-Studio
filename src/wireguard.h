@@ -3,7 +3,7 @@
 #include <QString>
 class QAbstractSocket;
 namespace Studio {
-QString wireguardNameError(const QString &name);
-QString bindWireguardSocket(QAbstractSocket &socket, const QString &name, bool ipv6);
-QString verifyWireguardSocket(const QAbstractSocket &socket, const QString &name);
-}
+QString wireguardNameError(const QString& name);
+QString bindWireguardSocket(QAbstractSocket& socket, const QString& name, bool ipv6);
+QString verifyWireguardSocket(const QAbstractSocket& socket, const QString& name);
+} // namespace Studio

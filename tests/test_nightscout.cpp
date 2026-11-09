@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "backend.h"
 #include "nightscout.h"
+#include "qmltestfixture.h"
 #include <QFile>
 #include <QJsonDocument>
 #include <QQmlComponent>
@@ -301,10 +302,8 @@ private slots:
         }
         backend.refresh();
         QQmlApplicationEngine engine;
-        engine.rootContext()->setContextProperty("studio",&backend);
-        engine.rootContext()->setContextProperty("demoMode",true);
-        engine.rootContext()->setContextProperty("uiTestMode",true);
-        engine.rootContext()->setContextProperty("uiTestWidth",900);
+        registerStudioQmlTypes();
+        setStudioQmlProperties(engine,backend,QString(),true,true,900);
         engine.load(QUrl::fromLocalFile(QStringLiteral(STUDIO_SOURCE_DIR)+"/qml/Main.qml"));
         QVERIFY(!engine.rootObjects().isEmpty());
         QTRY_COMPARE_WITH_TIMEOUT(backend.dailyAnalysis()["status"].toString(),QString("ready"),15000);

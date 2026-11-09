@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "backend.h"
 #include "response_fixture.h"
+#include "qmltestfixture.h"
 #include <QtTest>
 #include <QTemporaryDir>
 #include <QQmlApplicationEngine>
@@ -29,10 +30,8 @@ class EpisodeUiTest:public QObject{
         }
     };
     static void load(QQmlApplicationEngine &engine,Backend &backend){
-        engine.rootContext()->setContextProperty("studio",&backend);
-        engine.rootContext()->setContextProperty("demoMode",true);
-        engine.rootContext()->setContextProperty("uiTestMode",true);
-        engine.rootContext()->setContextProperty("uiTestWidth",1280);
+        registerStudioQmlTypes();
+        setStudioQmlProperties(engine,backend,QString(),true,true,1280);
         engine.load(QUrl::fromLocalFile(QStringLiteral(STUDIO_SOURCE_DIR)+"/qml/ResearchMain.qml"));
     }
     static void select(QQuickWindow *window,const Fixture &f,bool v2){

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintained C++ sources use one reproducible wrapping rule. The column limit
+# follows the 160-character review indicator; formatting never changes
+# behaviour and is verified by the full test suite.
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 160
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Always
+PointerAlignment: Left
+SortIncludes: Never

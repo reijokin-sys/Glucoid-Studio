@@ -13,9 +13,7 @@ constexpr double theoreticalTargetMmol = 5.0;
 // A negative group pools every clock group (the fallback when one group is too thin).
 // sugarLoad=true replaces the separate carbs and start-glucose terms with one load
 // S = carbs + sugarLoadGramsPerMmol * (start - target); below target counts negative.
-constexpr double sugarLoadGramsPerMmol = 5.0;  // 1 U per 10 g and 1 U per 2 mmol/l
-QJsonObject theoreticalMealDose(const QJsonArray &meals, int group, const QString &cohort,
-                               double target, bool totalWindow = false,
-                               int minimumMeals = 24, int minimumDays = 12,
-                               bool sugarLoad = false);
-}
+constexpr double sugarLoadGramsPerMmol = 5.0; // 1 U per 10 g and 1 U per 2 mmol/l
+QJsonObject theoreticalMealDose(const QJsonArray& meals, int group, const QString& cohort, double target, bool totalWindow = false, int minimumMeals = 24,
+                                int minimumDays = 12, bool sugarLoad = false);
+} // namespace Studio

@@ -1,5 +1,7 @@
 # Glucoid Studio
 
+![Glucoid Studio](packaging/fi.reijo.glucoidstudio.png)
+
 [Suomeksi](#suomeksi-english-below) · [English](#english)
 
 ### Suomeksi (English below)
@@ -10,6 +12,7 @@ Käyttöliittymä on suomeksi. Glucoid Studio on erillinen sovellus;
 
 #### Toiminnot
 
+- Oma lila–mintunvihreä G-kuvake, joka perustuu tekijän käsiluonnokseen.
 - Yhteenveto: aikapainotettu glukoosikeskiarvo, GMI, tavoitealueaika,
   vaihtelu, mittauskattavuus, yöajan keskiarvo ja vuorokausiprofiili.
 - Vuorokausianalyysi seitsemässä kellovälissä, myös 00–06: glukoosin
@@ -41,7 +44,7 @@ Qt 6.10:lle ja KDE/Kirigami 6:lle. Se käyttää jakelun kirjastoja eikä sisäl
 niiden omia kopioita.
 
 ```sh
-sudo apt install ./glucoid-studio_1.5.1_amd64.deb
+sudo apt install ./glucoid-studio_1.5.3_amd64.deb
 glucoid-studio
 ```
 
@@ -116,6 +119,7 @@ Glucoid Studio is a local glucose and treatment-entry history viewer for the Lin
 
 #### Features
 
+- A purple and mint-green G icon based on the author’s hand-drawn sketch.
 - Summary: time-weighted mean glucose, GMI, time in range, variability, data coverage, a nighttime mean and a daily profile.
 - Daily analysis across seven time periods, including 00–06: glucose means and recorded insulin-to-carbohydrate ratios.
 - A current-day chart, a daily profile and a scrollable four-day comparison. Curve portions outside the configured target range are red.
@@ -132,7 +136,7 @@ The application describes recorded data; it cannot guarantee that source data is
 The release `.deb` targets **Ubuntu/Kubuntu 26.04 amd64**, Qt 6.10 and KDE/Kirigami 6. It uses distribution-provided libraries rather than bundled copies.
 
 ```sh
-sudo apt install ./glucoid-studio_1.5.1_amd64.deb
+sudo apt install ./glucoid-studio_1.5.3_amd64.deb
 glucoid-studio
 ```
 

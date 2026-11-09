@@ -3,11 +3,13 @@
 Glucoid Studio source code: Copyright 2026 Reijo Kinnunen.
 SPDX-License-Identifier: GPL-3.0-or-later. The complete GPL version 3 text is
 provided in LICENSE. Synthetic test fixtures are authored for this project.
+The bundled Glucoid Studio icon is original project artwork, based on the
+author's sketch, and is also GPL-3.0-or-later.
 
 The application dynamically links distribution-provided Qt 6 (including
 Qt Graphs), KDE Frameworks/KWallet and SQLite libraries. It uses installed
 Qt Quick and Kirigami QML modules and the desktop icon theme. No Qt, KDE,
-SQLite, font, icon or Juggluco implementation is bundled in the executable.
+SQLite, font, third-party icon or Juggluco implementation is bundled in the executable.
 Qt Graphs is used under its GPLv3 terms, compatible with this application.
 
 The licenses directory includes the copyright and licensing notices from

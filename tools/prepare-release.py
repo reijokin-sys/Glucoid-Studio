@@ -16,7 +16,7 @@ source = out/'source'
 if source.exists():
     raise SystemExit('Source tree already exists; retain it and choose a new release version or inspect before replacing.')
 source.mkdir(parents=True)
-selected = {name: root/name for name in ('CMakeLists.txt', 'LICENSE', '.clineignore')}
+selected = {name: root/name for name in ('CMakeLists.txt', 'LICENSE', '.clineignore', '.clang-format')}
 selected.update({'README.md':root/'github/README.md', '.gitignore':root/'github/.gitignore',
                  'THIRD_PARTY_NOTICES.md':root/'packaging/THIRD_PARTY_NOTICES.md'})
 for directory, suffixes in [('src',{'.cpp','.h'}),('qml',{'.qml','.js'}),('tests',{'.cpp','.h','.py','.tsv'}),('packaging',{'.desktop','.md'})]:
@@ -25,6 +25,8 @@ for directory, suffixes in [('src',{'.cpp','.h'}),('qml',{'.qml','.js'}),('tests
             selected[str(p.relative_to(root))] = p
 for p in sorted((root/'packaging/licenses').glob('*')):
     if p.is_file(): selected[str(p.relative_to(root))] = p
+for name in ('fi.reijo.glucoidstudio.svg','fi.reijo.glucoidstudio.png'):
+    selected['packaging/'+name] = root/'packaging'/name
 selected['tests/security/README.md'] = root/'github/SECURITY_TESTING.md'
 for name in ('build.sh','install.py','qtpaths','restore-backup.py','purge_comparison.py','prepare-release.py','build-release-package.py'):
     selected['tools/'+name] = root/'tools'/name

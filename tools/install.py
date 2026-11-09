@@ -24,6 +24,7 @@ binary = project / 'runtime/glucoid-studio'
 wrapper = home / '.local/bin/glucoid-studio'
 desktop = home / '.local/share/applications/fi.reijo.glucoidstudio.desktop'
 unit = home / '.config/systemd/user/glucoid-studio.service'
+icons = {kind: home / ('.local/share/icons/hicolor/'+folder+'/apps/fi.reijo.glucoidstudio.'+kind) for kind, folder in [('svg','scalable'),('png','256x256')]}
 artifact = project / 'docs/artifacts/installation'
 artifact.mkdir(parents=True, exist_ok=True)
 marker = '# Managed by Glucoid Studio local installer'
@@ -49,6 +50,18 @@ def preserve(path):
         if not target.exists():
             target.write_text(content)
 
+def preserve_icon(kind, path):
+    if not path.exists():
+        return
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    source = project / ('packaging/fi.reijo.glucoidstudio.' + kind)
+    known = previous.get('files', {}).get('icon_' + kind)
+    if digest != known and path.read_bytes() != source.read_bytes():
+        raise SystemExit('Refusing to replace an unmanaged Studio icon.')
+    target = artifact / (path.name + '.' + digest[:16] + '.previous')
+    if not target.exists():
+        shutil.copy2(path, target)
+
 if args.desktop_only:
     if args.remove:
         raise SystemExit('--desktop-only and --remove cannot be combined.')
@@ -67,9 +80,14 @@ if args.desktop_only:
     manifest.write_text(json.dumps(previous, indent=2) + '\n')
     print('Desktop shortcut created: ' + str(shortcut))
 elif args.remove:
+    for kind, path in icons.items():
+        preserve_icon(kind, path)
     systemctl('disable', '--now', 'glucoid-studio.service')
     for path in [wrapper, desktop, unit, shortcut]:
         preserve(path)
+        if path.exists():
+            path.unlink()
+    for path in icons.values():
         if path.exists():
             path.unlink()
     systemctl('daemon-reload')
@@ -87,6 +105,8 @@ elif args.remove:
 else:
     if not build_binary.exists():
         raise SystemExit('Build the application first with tools/build.sh')
+    for kind, path in icons.items():
+        preserve_icon(kind, path)
     binary.parent.mkdir(parents=True, exist_ok=True)
     if binary.exists() and binary.read_bytes()!=build_binary.read_bytes():
         digest=hashlib.sha256(binary.read_bytes()).hexdigest()
@@ -129,6 +149,19 @@ WantedBy=graphical-session.target
         temp.write_text(content)
         temp.chmod(0o755 if path == wrapper else 0o644)
         temp.replace(path)
+    for kind, path in icons.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp = path.with_name(path.name + '.new')
+        shutil.copyfile(project / ('packaging/fi.reijo.glucoidstudio.' + kind), temp)
+        temp.chmod(0o644)
+        temp.replace(path)
+    if previous.get('desktop_shortcut') and shortcut.exists():
+        preserve(shortcut)
+        temp = shortcut.with_name(shortcut.name + '.new')
+        temp.write_text(desktop_text)
+        temp.chmod(0o755)
+        temp.replace(shortcut)
+        previous['desktop_shortcut'] = {'path': str(shortcut), 'sha256': hashlib.sha256(shortcut.read_bytes()).hexdigest()}
     systemctl('daemon-reload')
     if args.enable_collector:
         systemctl('enable', '--now', 'glucoid-studio.service')
@@ -140,6 +173,7 @@ WantedBy=graphical-session.target
     if confirmed_handler != desktop.name:
         raise SystemExit('URI registration did not take effect; integration files and data preserved.')
     hashes = {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in [('launcher', wrapper), ('desktop', desktop), ('service', unit), ('binary', binary)]}
+    hashes.update({'icon_' + kind: hashlib.sha256(path.read_bytes()).hexdigest() for kind, path in icons.items()})
     report = {'time': time.strftime('%Y-%m-%dT%H:%M:%S%z'), 'files': hashes, 'previous_uri_handler': previous_handler, 'data_preserved_on_remove': True, 'collector_mode': 'enabled' if args.enable_collector else 'manual', 'runtime_binary': str(binary)}
     if previous.get('desktop_shortcut'):
         report['desktop_shortcut'] = previous['desktop_shortcut']

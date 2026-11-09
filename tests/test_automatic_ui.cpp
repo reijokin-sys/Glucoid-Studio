@@ -2,6 +2,7 @@
 #include "backend.h"
 #include "automatic_fixture.h"
 #include "target_fixture.h"
+#include "qmltestfixture.h"
 #include <QtTest>
 #include <QTemporaryDir>
 #include <QQmlApplicationEngine>
@@ -29,7 +30,8 @@ class AutomaticUiTest:public QObject {
  };
  static QQuickItem *item(QQuickItem *root,const QString &name){if(root->objectName()==name)return root;for(auto *child:root->childItems())if(auto *found=item(child,name))return found;return nullptr;}
  static void load(QQmlApplicationEngine&engine,Backend&b,int width=1280,bool research=false){
-    b.setAnalysisWindow(7,"2026-10-06");engine.rootContext()->setContextProperty("studio",&b);engine.rootContext()->setContextProperty("appVersion",QStringLiteral(STUDIO_APP_VERSION));engine.rootContext()->setContextProperty("demoMode",true);engine.rootContext()->setContextProperty("uiTestMode",true);engine.rootContext()->setContextProperty("uiTestWidth",width);
+    b.setAnalysisWindow(7,"2026-10-06");registerStudioQmlTypes();
+    setStudioQmlProperties(engine,b,QStringLiteral(STUDIO_APP_VERSION),true,true,width);
     engine.load(QUrl::fromLocalFile(QStringLiteral(STUDIO_SOURCE_DIR)+(research?"/qml/ResearchMain.qml":"/qml/Main.qml")));
  }
 private slots:
