@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "glucose.h"
 #include <QCryptographicHash>
 #include <QSet>
@@ -22,7 +23,7 @@ ParsedReadings parseStream(const QByteArray& data, const QString& kind) {
     const bool mmol = h.contains("mmol/L");
     const int vi = h.indexOf(mmol ? "mmol/L" : "mg/dL");
     if (ti < 0 || si < 0 || ni < 0 || vi < 0) {
-        out.error = "Tuntematon tai katkennut glukoosivienti.";
+        out.error = QCoreApplication::translate("Studio", "Tuntematon tai katkennut glukoosivienti.");
         return out;
     }
     QSet<QString> seen;
@@ -30,13 +31,13 @@ ParsedReadings parseStream(const QByteArray& data, const QString& kind) {
         if (line.trimmed().isEmpty()) continue;
         const auto cols = QString::fromUtf8(line).trimmed().split('\t');
         if (cols.size() != h.size()) {
-            out.error = "Glukoosiviennissä on vajaa rivi.";
+            out.error = QCoreApplication::translate("Studio", "Glukoosiviennissä on vajaa rivi.");
             break;
         }
         bool okT = false, okV = false;
         const double t = cols[ti].toDouble(&okT), v = cols[vi].toDouble(&okV);
         if (!okT || !okV || !std::isfinite(t) || !std::isfinite(v) || t <= 0 || t > 1e11) {
-            out.error = "Virheellinen mittaus tai aikaleima.";
+            out.error = QCoreApplication::translate("Studio", "Virheellinen mittaus tai aikaleima.");
             break;
         }
         if (v <= 0) continue; // sensor error marker is never a normal reading
@@ -50,7 +51,7 @@ ParsedReadings parseStream(const QByteArray& data, const QString& kind) {
         r.originalTimezone = h.contains("TZ") ? cols[h.indexOf("TZ")] : QString();
         r.key = digest(((kind == "stream" ? QString() : kind + ":") + r.sensor + ":" + cols[ni]).toUtf8());
         if (seen.contains(r.key)) {
-            out.error = "Glukoosiviennissä on päällekkäinen lähdetunnus.";
+            out.error = QCoreApplication::translate("Studio", "Glukoosiviennissä on päällekkäinen lähdetunnus.");
             break;
         }
         seen.insert(r.key);

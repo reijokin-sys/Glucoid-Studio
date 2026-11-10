@@ -8,6 +8,7 @@ import QtQuick.Controls
 // fixed 0–20 mmol/l axis, 1 mmol/l grid, target band, hour labels and hover.
 Item {
     id: root
+    property string language: "en"
     required property var chartData
     readonly property int leftMargin: 48
     readonly property int rightMargin: 16
@@ -188,11 +189,11 @@ Item {
     onHoveredPointChanged: canvas.requestPaint()
     ToolTip {
         visible: root.hoveredPoint !== null
-        text: root.hoveredPoint ? root.pointTimeText(root.hoveredPoint) + " · " + Number(root.hoveredPoint.y).toLocaleString(Qt.locale("fi_FI"), 'f', 1) + " mmol/l" : ""
+        text: root.hoveredPoint ? root.pointTimeText(root.hoveredPoint) + " · " + Number(root.hoveredPoint.y).toLocaleString(Qt.locale(root.language === "fi" ? "fi_FI" : "en_GB"), 'f', 1) + " mmol/l" : ""
     }
     Label {
         anchors.centerIn: parent
         visible: canvas.paintedPoints === 0
-        text: "Kuluvan päivän käyrältä ei ole vielä mittauksia"
+        text: qsTranslate("Studio", "Kuluvan päivän käyrältä ei ole vielä mittauksia")
     }
 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "backend.h"
+#include "language.h"
 #include "automatic_fixture.h"
 #include "target_fixture.h"
 #include "qmltestfixture.h"
@@ -19,6 +20,7 @@
 using namespace AutomaticFixture;
 class AutomaticUiTest:public QObject {
  Q_OBJECT
+ QTemporaryDir languageDir;LanguageManager *language=nullptr;
  struct Fixture {
     QTemporaryDir dir;Store db{dir.path()+"/studio.sqlite3"};Data data;
     Fixture(){
@@ -36,10 +38,18 @@ class AutomaticUiTest:public QObject {
  }
 private slots:
  void initTestCase(){
+    language=new LanguageManager(languageDir.path());
+    QVERIFY(language->ready());
+    QCOMPARE(language->language(),QString("en"));
+    QCoreApplication::instance()->setProperty("studioLanguageController",QVariant::fromValue<QObject*>(language));
     QPalette pal=QGuiApplication::palette();
     pal.setColor(QPalette::Window,QColor("#12161a"));pal.setColor(QPalette::Base,QColor("#12161a"));
     pal.setColor(QPalette::WindowText,QColor("#eef2f5"));pal.setColor(QPalette::Text,QColor("#eef2f5"));
     QGuiApplication::setPalette(pal);
+ }
+ void cleanupTestCase(){
+    QCoreApplication::instance()->setProperty("studioLanguageController",QVariant());
+    delete language;language=nullptr;
  }
 
 
@@ -156,9 +166,9 @@ private slots:
     QVERIFY(!item(window->contentItem(),"overnightSummary"));QVERIFY(!item(window->contentItem(),"observationSummary"));
     QVERIFY(!b.automaticBusy());QVERIFY(b.automaticMeals().isEmpty());
     auto *nightMetric=item(window->contentItem(),"nightGlucoseMetric");QVERIFY(nightMetric&&nightMetric->isVisible());
-    QCOMPARE(nightMetric->property("value").toString(),QLocale("fi_FI").toString(b.analysis().value("nightMean").toDouble(),'f',1));
-    QVERIFY(nightMetric->property("note").toString().contains("Aikapainotettu"));
-    QVERIFY(nightMetric->property("note").toString().contains("kattavuus"));
+    QCOMPARE(nightMetric->property("value").toString(),QLocale("en_GB").toString(b.analysis().value("nightMean").toDouble(),'f',1));
+    QVERIFY(nightMetric->property("note").toString().contains("Time-weighted"));
+    QVERIFY(nightMetric->property("note").toString().contains("coverage"));
     QTRY_VERIFY(nightMetric->width()>150);
     const auto metricRect=nightMetric->mapRectToScene(nightMetric->boundingRect());
     QVERIFY(metricRect.left()>=0&&metricRect.right()<=window->width());
@@ -178,7 +188,7 @@ private slots:
     auto *nightMetric=item(window->contentItem(),"nightGlucoseMetric");QVERIFY(nightMetric&&nightMetric->isVisible());
     QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,1));QTest::qWait(100);auto *profileLegend=item(window->contentItem(),"profileLegend");QVERIFY(profileLegend&&profileLegend->isVisible());
     QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,2));QTest::qWait(100);auto *dayLegend=item(window->contentItem(),"dayLegend");QVERIFY(dayLegend&&dayLegend->isVisible());
-    auto *title=item(window->contentItem(),"selectedDayTitle"),*previousTitle=item(window->contentItem(),"previousDayTitle");QVERIFY(title&&title->property("text").toString().startsWith("Valittu päivä · "));QVERIFY(previousTitle&&previousTitle->property("text").toString().startsWith("Edellinen päivä · "));
+    auto *title=item(window->contentItem(),"selectedDayTitle"),*previousTitle=item(window->contentItem(),"previousDayTitle");QVERIFY(title&&title->property("text").toString().startsWith("Selected day · "));QVERIFY(previousTitle&&previousTitle->property("text").toString().startsWith("Previous day · "));
     auto *field=item(window->contentItem(),"dayDate");QVERIFY(field);const QString shown=field->property("text").toString();QVERIFY(!shown.isEmpty());const qint64 before=qint64(b.chart().value("from").toDouble());
     auto *next=item(window->contentItem(),"nextDay");QVERIFY(next&&next->property("enabled").toBool()&&QMetaObject::invokeMethod(next,"clicked"));QTRY_COMPARE(qint64(b.chart().value("from").toDouble()),before+86400000LL);QTRY_COMPARE(field->property("text").toString(),QDate::fromString(shown,Qt::ISODate).addDays(1).toString(Qt::ISODate));
     auto *previousButton=item(window->contentItem(),"previousDay");QVERIFY(previousButton&&QMetaObject::invokeMethod(previousButton,"clicked"));QTRY_COMPARE(qint64(b.chart().value("from").toDouble()),before);
@@ -202,7 +212,7 @@ private slots:
     QVERIFY(store.ingest(rows,{},rows.last().time-86400000,rows.first().time+86400000,false));
     Backend b(dir.path());QQmlApplicationEngine engine;load(engine,b,width);QVERIFY(!engine.rootObjects().isEmpty());auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
     b.setWindow(anchor.toString(Qt::ISODate),1);QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,2));
-    auto *profile=item(window->contentItem(),"profileTab");QVERIFY(profile);QCOMPARE(profile->property("text").toString(),QString("Vuorokausiprofiili"));
+    auto *profile=item(window->contentItem(),"profileTab");QVERIFY(profile);QCOMPARE(profile->property("text").toString(),QString("Daily profile"));
     for(int i=0;i<4;++i){
         auto *chart=item(window->contentItem(),i==0?"glucoseChart":"comparisonChart"+QString::number(i));QVERIFY(chart);
         QVERIFY(chart->property("highlightOutsideTarget").toBool());QTRY_VERIFY(chart->height()>=320);
@@ -239,9 +249,9 @@ private slots:
     QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,0));QTest::qWait(100);
     auto *week1=item(window->contentItem(),"analysisPeriod7"),*week4=item(window->contentItem(),"analysisPeriod28"),*months3=item(window->contentItem(),"analysisPeriod90");
     QVERIFY(week1&&week4&&months3);
-    QCOMPARE(week1->property("text").toString(),QString("1 vk"));
-    QCOMPARE(week4->property("text").toString(),QString("4 vk"));
-    QCOMPARE(months3->property("text").toString(),QString("3 kk"));
+    QCOMPARE(week1->property("text").toString(),QString("1 wk"));
+    QCOMPARE(week4->property("text").toString(),QString("4 wk"));
+    QCOMPARE(months3->property("text").toString(),QString("3 mo"));
     QCOMPARE(week1->property("active").toBool(),true);QCOMPARE(week4->property("active").toBool(),false);
     QVERIFY(QMetaObject::invokeMethod(week4,"clicked"));QTRY_COMPARE(b.analysis().value("days").toInt(),28);
     QCOMPARE(week4->property("active").toBool(),true);QCOMPARE(week1->property("active").toBool(),false);
@@ -298,10 +308,10 @@ private slots:
     QVERIFY(analysis.value("gmiAvailable").toBool());
     QVERIFY(qAbs(analysis.value("gmi").toDouble()-gmi)<0.02);
     QCOMPARE(analysis.value("gmiAdequate").toBool(),false);
-    QCOMPARE(card->property("value").toString(),QLocale(QLocale::Finnish,QLocale::Finland).toString(gmi,'f',1));
+    QCOMPARE(card->property("value").toString(),QLocale("en_GB").toString(gmi,'f',1));
     QCOMPARE(card->property("unit").toString(),QString("%"));
     QCOMPARE(card->property("valueColor").value<QColor>(),QColor(color));
-    QVERIFY(card->property("note").toString().contains(QString::fromUtf8("suuntaa-antava")));
+    QVERIFY(card->property("note").toString().contains(QString::fromUtf8("indicative")));
  }
  void summaryReferenceFlagsAndColors(){
     Fixture f;Backend b(f.dir.path());b.setAnalysisWindow(7,"2026-10-06");
@@ -332,8 +342,8 @@ private slots:
     auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
     QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,2));QTest::qWait(100);
     auto *title=item(window->contentItem(),"selectedDayTitle");QVERIFY(title);
-    const auto expected=QLocale(QLocale::Finnish,QLocale::Finland).toString(QDate::currentDate(),QStringLiteral("ddd d.M.yyyy"));
-    QCOMPARE(title->property("text").toString(),QStringLiteral("Valittu päivä · ")+expected);
+    const auto expected=QLocale("en_GB").toString(QDate::currentDate(),QStringLiteral("ddd d.M.yyyy"));
+    QCOMPARE(title->property("text").toString(),QStringLiteral("Selected day · ")+expected);
  }
 };
 QTEST_MAIN(AutomaticUiTest)

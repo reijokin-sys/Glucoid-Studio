@@ -57,87 +57,87 @@ ScrollView {
     }
     function activate() {
         let r = root.studio.activateObservationProfile(draft);
-        result = r.status === "active" ? "Profiili " + r.version + " on käytössä seurannassa." : (r.reasons || []).join("\n");
+        result = r.status === "active" ? qsTranslate("Studio", "Profiili ") + r.version + qsTranslate("Studio", " on käytössä seurannassa.") : (r.reasons || []).join("\n");
         if (r.status === "active")
             load();
     }
     function approveResponse() {
         let r = root.studio.saveResponseProfile(draft, true);
-        result = r.status === "saved" ? "Profiiliversio " + r.version + " hyväksytty vastearvioon. Annos- ja muutosehdotusten hyväksyntä on erillinen." : (r.reasons || []).join("\n");
+        result = r.status === "saved" ? "Profiiliversio " + r.version + qsTranslate("Studio", " hyväksytty vastearvioon. Annos- ja muutosehdotusten hyväksyntä on erillinen.") : (r.reasons || []).join("\n");
     }
     contentWidth: availableWidth
     ColumnLayout {
         width: root.availableWidth
         spacing: 16
         Kirigami.Heading {
-            text: "Hoitoprofiili"
+            text: qsTranslate("Studio", "Hoitoprofiili")
             level: 2
         }
         Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            text: root.studio.observationProfile.version ? "Seurannassa profiili " + root.studio.observationProfile.version + (root.studio.observationProfile.version === root.draft.version ? " · tämä versio" : " · muokkaat eri versiota") : "Täydennä tiedot ja ota hoito seurantaan."
+            text: root.studio.observationProfile.version ? qsTranslate("Studio", "Seurannassa profiili ") + root.studio.observationProfile.version + (root.studio.observationProfile.version === root.draft.version ? qsTranslate("Studio", " · tämä versio") : qsTranslate("Studio", " · muokkaat eri versiota")) : qsTranslate("Studio", "Täydennä tiedot ja ota hoito seurantaan.")
         }
         TextField {
             visible: root.historicalMode
             Layout.fillWidth: true
-            placeholderText: "Voimassa alkaen: vvvv-kk-pp tt:mm"
+            placeholderText: qsTranslate("Studio", "Voimassa alkaen: vvvv-kk-pp tt:mm")
             text: root.get("effectiveFromText")
             onEditingFinished: root.set("effectiveFromText", text, false)
         }
         ReviewCheckBox {
             visible: root.historicalMode
-            text: "Asetukset olivat voimassa tästä ajasta alkaen"
+            text: qsTranslate("Studio", "Asetukset olivat voimassa tästä ajasta alkaen")
             checked: !!root.draft.historicalConfirmed
             onToggled: root.set("historicalConfirmed", checked, false)
         }
         Disclosure {
             Layout.fillWidth: true
-            title: "Profiilin käyttö ja käsitteet"
+            title: qsTranslate("Studio", "Profiilin käyttö ja käsitteet")
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: "Seuranta käyttää ilmoitettua hoitoa. Vastearvio ja lääkityslaskenta hyväksytään erikseen."
+                text: qsTranslate("Studio", "Seuranta käyttää ilmoitettua hoitoa. Vastearvio ja lääkityslaskenta hyväksytään erikseen.")
             }
             Label {
                 objectName: "responseProfileApprovalStatus"
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: (root.draft.responseApproved ? "Vastearvion hyväksyntä on voimassa. " : "") + "Vastearviossa nykyinen korjauskerroin ja annoslaskurin yksittäinen tavoite voivat puuttua. Muut rajat ja ammattilaisen tarkistus tarvitaan."
+                text: (root.draft.responseApproved ? qsTranslate("Studio", "Vastearvion hyväksyntä on voimassa. ") : "") + qsTranslate("Studio", "Vastearviossa nykyinen korjauskerroin ja annoslaskurin yksittäinen tavoite voivat puuttua. Muut rajat ja ammattilaisen tarkistus tarvitaan.")
             }
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: "Korjauskerroin: yhden insuliiniyksikön aiheuttama glukoosin lasku (mmol/l/U). HH-suhde: yhden yksikön kattama hiilihydraattimäärä (g/U)."
+                text: qsTranslate("Studio", "Korjauskerroin: yhden insuliiniyksikön aiheuttama glukoosin lasku (mmol/l/U). HH-suhde: yhden yksikön kattama hiilihydraattimäärä (g/U).")
             }
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: "Korjausten tavoitealue on erillinen tieto annoslaskurin yksittäisestä tavoitteesta. Tyhjää arvoa ei korvata oletuksella."
+                text: qsTranslate("Studio", "Korjausten tavoitealue on erillinen tieto annoslaskurin yksittäisestä tavoitteesta. Tyhjää arvoa ei korvata oletuksella.")
             }
         }
         Repeater {
             model: [
                 {
-                    title: "Insuliinit",
+                    title: qsTranslate("Studio", "Insuliinit"),
                     open: true,
-                    fields: [["rapidMedicine", "Pikainsuliini", false], ["basalMedicine", "Perusinsuliini", false], ["basalDose", "Perusinsuliinin annos (U)", true], ["basalTime", "Perusinsuliinin aika (HH:mm)", false]]
+                    fields: [["rapidMedicine", qsTranslate("Studio", "Pikainsuliini"), false], ["basalMedicine", qsTranslate("Studio", "Perusinsuliini"), false], ["basalDose", qsTranslate("Studio", "Perusinsuliinin annos (U)"), true], ["basalTime", qsTranslate("Studio", "Perusinsuliinin aika (HH:mm)"), false]]
                 },
                 {
-                    title: "Tavoitteet",
-                    fields: [["targetLow", "Tavoitealueen alaraja (mmol/l)", true], ["targetHigh", "Tavoitealueen yläraja (mmol/l)", true], ["correctionTargetRange.low", "Korjausten tavoite: alaraja (mmol/l)", true], ["correctionTargetRange.high", "Korjausten tavoite: yläraja (mmol/l)", true], ["target", "Annoslaskurin tavoite (mmol/l)", true], ["hypo", "Laskennan estävä matalan raja (mmol/l)", true]]
+                    title: qsTranslate("Studio", "Tavoitteet"),
+                    fields: [["targetLow", qsTranslate("Studio", "Tavoitealueen alaraja (mmol/l)"), true], ["targetHigh", qsTranslate("Studio", "Tavoitealueen yläraja (mmol/l)"), true], ["correctionTargetRange.low", qsTranslate("Studio", "Korjausten tavoite: alaraja (mmol/l)"), true], ["correctionTargetRange.high", qsTranslate("Studio", "Korjausten tavoite: yläraja (mmol/l)"), true], ["target", qsTranslate("Studio", "Annoslaskurin tavoite (mmol/l)"), true], ["hypo", qsTranslate("Studio", "Laskennan estävä matalan raja (mmol/l)"), true]]
                 },
                 {
-                    title: "Vaikutusmalli ja tarkistaja",
-                    fields: [["actionModel.name", "Mallin nimi ja versio", false], ["actionModel.reference", "Mallin lähde ja soveltuvuus", false], ["actionModel.durationMinutes", "Pikainsuliinin vaikutusaika (min)", true], ["basalReportedAction.durationMinutes", "Perusinsuliinin vaikutusaika (min, arvio)", true], ["basalStableDays", "Perusannoksen tasaantumisaika (vrk)", true], ["timezone", "Aikavyöhyke", false], ["reviewer", "Profiilin tarkistanut ammattilainen", false], ["maxGlucoseAgeMinutes", "Mittauksen enimmäisikä (min)", true], ["maxBolus", "Enimmäisannos (U)", true], ["doseIncrement", "Annosporras (U)", true]]
+                    title: qsTranslate("Studio", "Vaikutusmalli ja tarkistaja"),
+                    fields: [["actionModel.name", qsTranslate("Studio", "Mallin nimi ja versio"), false], ["actionModel.reference", qsTranslate("Studio", "Mallin lähde ja soveltuvuus"), false], ["actionModel.durationMinutes", qsTranslate("Studio", "Pikainsuliinin vaikutusaika (min)"), true], ["basalReportedAction.durationMinutes", qsTranslate("Studio", "Perusinsuliinin vaikutusaika (min, arvio)"), true], ["basalStableDays", qsTranslate("Studio", "Perusannoksen tasaantumisaika (vrk)"), true], ["timezone", qsTranslate("Studio", "Aikavyöhyke"), false], ["reviewer", qsTranslate("Studio", "Profiilin tarkistanut ammattilainen"), false], ["maxGlucoseAgeMinutes", qsTranslate("Studio", "Mittauksen enimmäisikä (min)"), true], ["maxBolus", qsTranslate("Studio", "Enimmäisannos (U)"), true], ["doseIncrement", "Annosporras (U)", true]]
                 },
                 {
-                    title: "Kelpuutettavan aineiston rajat",
-                    fields: [["rules.minimumEpisodes", "Jaksojen vähimmäismäärä", true], ["rules.minimumDays", "Erillisten päivien vähimmäismäärä", true], ["rules.minCoverage", "Datan vähimmäiskattavuus (0–1)", true], ["rules.maxGapMinutes", "Mittausvälin enimmäispituus (min)", true], ["rules.consensus", "Yhdensuuntaisten havaintojen osuus (>0,5–1)", true], ["rules.minReviewDays", "Muutosten vähimmäisarviointiväli (vrk)", true], ["rules.mealWindowMinutes", "Aterian seurantajakso (min)", true], ["rules.correctionWindowMinutes", "Korjauksen seurantajakso (min)", true], ["rules.basalWindowMinutes", "Paaston/yön seurantajakso (min)", true], ["rules.mealDeviation", "Aterian poikkeamaraja (mmol/l)", true], ["rules.correctionDeviation", "Korjauksen poikkeamaraja (mmol/l)", true], ["rules.basalDeviation", "Perusinsuliinijakson poikkeamaraja (mmol/l)", true]]
+                    title: qsTranslate("Studio", "Kelpuutettavan aineiston rajat"),
+                    fields: [["rules.minimumEpisodes", qsTranslate("Studio", "Jaksojen vähimmäismäärä"), true], ["rules.minimumDays", qsTranslate("Studio", "Erillisten päivien vähimmäismäärä"), true], ["rules.minCoverage", qsTranslate("Studio", "Datan vähimmäiskattavuus (0–1)"), true], ["rules.maxGapMinutes", qsTranslate("Studio", "Mittausvälin enimmäispituus (min)"), true], ["rules.consensus", qsTranslate("Studio", "Yhdensuuntaisten havaintojen osuus (>0,5–1)"), true], ["rules.minReviewDays", qsTranslate("Studio", "Muutosten vähimmäisarviointiväli (vrk)"), true], ["rules.mealWindowMinutes", qsTranslate("Studio", "Aterian seurantajakso (min)"), true], ["rules.correctionWindowMinutes", qsTranslate("Studio", "Korjauksen seurantajakso (min)"), true], ["rules.basalWindowMinutes", qsTranslate("Studio", "Paaston/yön seurantajakso (min)"), true], ["rules.mealDeviation", qsTranslate("Studio", "Aterian poikkeamaraja (mmol/l)"), true], ["rules.correctionDeviation", qsTranslate("Studio", "Korjauksen poikkeamaraja (mmol/l)"), true], ["rules.basalDeviation", qsTranslate("Studio", "Perusinsuliinijakson poikkeamaraja (mmol/l)"), true]]
                 },
                 {
-                    title: "Muutosehdotusten rajat",
-                    fields: [["rules.stepPercent", "Yhden muutosehdotuksen askel (%)", true], ["rules.maxChangePercent", "Suurin sallittu muutos (%)", true], ["rules.minimumIcr", "HH-suhteen alaraja (g/U)", true], ["rules.maximumIcr", "HH-suhteen yläraja (g/U)", true], ["rules.minimumIsf", "Korjauskertoimen alaraja (mmol/l/U)", true], ["rules.maximumIsf", "Korjauskertoimen yläraja (mmol/l/U)", true], ["rules.minimumBasal", "Perusinsuliiniannoksen alaraja (U)", true], ["rules.maximumBasal", "Perusinsuliiniannoksen yläraja (U)", true]]
+                    title: qsTranslate("Studio", "Muutosehdotusten rajat"),
+                    fields: [["rules.stepPercent", qsTranslate("Studio", "Yhden muutosehdotuksen askel (%)"), true], ["rules.maxChangePercent", qsTranslate("Studio", "Suurin sallittu muutos (%)"), true], ["rules.minimumIcr", qsTranslate("Studio", "HH-suhteen alaraja (g/U)"), true], ["rules.maximumIcr", qsTranslate("Studio", "HH-suhteen yläraja (g/U)"), true], ["rules.minimumIsf", qsTranslate("Studio", "Korjauskertoimen alaraja (mmol/l/U)"), true], ["rules.maximumIsf", qsTranslate("Studio", "Korjauskertoimen yläraja (mmol/l/U)"), true], ["rules.minimumBasal", qsTranslate("Studio", "Perusinsuliiniannoksen alaraja (U)"), true], ["rules.maximumBasal", qsTranslate("Studio", "Perusinsuliiniannoksen yläraja (U)"), true]]
                 }
             ]
             delegate: Disclosure {
@@ -161,7 +161,7 @@ ScrollView {
                         TextField {
                             Layout.fillWidth: true
                             text: root.get(fieldRow.modelData[0])
-                            placeholderText: "Määritettävä"
+                            placeholderText: qsTranslate("Studio", "Määritettävä")
                             onEditingFinished: root.set(fieldRow.modelData[0], text, fieldRow.modelData[2])
                         }
                     }
@@ -172,13 +172,13 @@ ScrollView {
             visible: !root.historicalMode
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            text: "Vaikutuskäyrä: yksi piste riville muodossa minuutti; jäljellä oleva osuus. Alku on 0;1 ja loppu määritetty vaikutusaika;0. Käytä valmisteelle hyväksyttyä lähteistettyä mallia."
+            text: qsTranslate("Studio", "Vaikutuskäyrä: yksi piste riville muodossa minuutti; jäljellä oleva osuus. Alku on 0;1 ja loppu määritetty vaikutusaika;0. Käytä valmisteelle hyväksyttyä lähteistettyä mallia.")
         }
         TextArea {
             visible: !root.historicalMode
             Layout.fillWidth: true
             Layout.preferredHeight: 130
-            placeholderText: "minuutti;osuus"
+            placeholderText: qsTranslate("Studio", "minuutti;osuus")
             text: ((root.draft.actionModel || {}).curve || []).map(p => p.minute + ";" + p.fraction).join("\n")
             onActiveFocusChanged: if (!activeFocus) {
                 let curve = [];
@@ -199,20 +199,20 @@ ScrollView {
         RowLayout {
             visible: !root.historicalMode
             Label {
-                text: "Annoslaskelman pyöristys"
+                text: qsTranslate("Studio", "Annoslaskelman pyöristys")
             }
             ComboBox {
-                model: ["Alaspäin annosportaaseen", "Lähimpään annosportaaseen"]
+                model: [qsTranslate("Studio", "Alaspäin annosportaaseen"), qsTranslate("Studio", "Lähimpään annosportaaseen")]
                 currentIndex: root.draft.rounding === "nearest" ? 1 : 0
                 onActivated: root.set("rounding", currentIndex === 1 ? "nearest" : "down", false)
             }
         }
         Kirigami.Heading {
-            text: "Vuorokauden hoitojaksot"
+            text: qsTranslate("Studio", "Vuorokauden hoitojaksot")
             level: 3
         }
         Label {
-            text: "Jaksot alkavat aikajärjestyksessä, ensimmäinen klo 00:00. HH-suhde on grammoja per yksikkö."
+            text: qsTranslate("Studio", "Jaksot alkavat aikajärjestyksessä, ensimmäinen klo 00:00. HH-suhde on grammoja per yksikkö.")
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
@@ -229,7 +229,7 @@ ScrollView {
                 }
                 TextField {
                     Layout.fillWidth: true
-                    placeholderText: "Jakson nimi"
+                    placeholderText: qsTranslate("Studio", "Jakson nimi")
                     text: slotRow.modelData.name
                     onEditingFinished: slotRow.update("name", text)
                 }
@@ -244,18 +244,18 @@ ScrollView {
                 }
                 TextField {
                     Layout.preferredWidth: 130
-                    placeholderText: "HH-suhde g/U"
+                    placeholderText: qsTranslate("Studio", "HH-suhde g/U")
                     text: slotRow.modelData.icr === null ? "" : slotRow.modelData.icr
                     onEditingFinished: slotRow.update("icr", text.trim().length ? Number(text.replace(",", ".")) : null)
                 }
                 TextField {
                     Layout.preferredWidth: 155
-                    placeholderText: "Korjaus mmol/l/U"
+                    placeholderText: qsTranslate("Studio", "Korjaus mmol/l/U")
                     text: slotRow.modelData.isf === null ? "" : slotRow.modelData.isf
                     onEditingFinished: slotRow.update("isf", text.trim().length ? Number(text.replace(",", ".")) : null)
                 }
                 Button {
-                    text: "Poista jakso"
+                    text: qsTranslate("Studio", "Poista jakso")
                     enabled: slotRow.index > 0
                     onClicked: {
                         let p = JSON.parse(JSON.stringify(root.draft));
@@ -266,7 +266,7 @@ ScrollView {
             }
         }
         Button {
-            text: "Lisää hoitojakso"
+            text: qsTranslate("Studio", "Lisää hoitojakso")
             onClicked: {
                 let p = JSON.parse(JSON.stringify(root.draft));
                 p.slots.push({
@@ -282,22 +282,22 @@ ScrollView {
             Layout.fillWidth: true
             spacing: 8
             Button {
-                text: "Tallenna luonnos"
+                text: qsTranslate("Studio", "Tallenna luonnos")
                 onClicked: root.save(false)
             }
             Button {
-                text: "Ota seurantaan"
+                text: qsTranslate("Studio", "Ota seurantaan")
                 onClicked: root.activate()
             }
         }
         Disclosure {
             objectName: "profileApprovals"
             Layout.fillWidth: true
-            title: "Hyväksy laskentaan"
+            title: qsTranslate("Studio", "Hyväksy laskentaan")
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: "Vastearvio käyttää tarkistettuja havaintoja. Annos- ja muutosehdotukset tarvitsevat täydelliset lääkeasetukset."
+                text: qsTranslate("Studio", "Vastearvio käyttää tarkistettuja havaintoja. Annos- ja muutosehdotukset tarvitsevat täydelliset lääkeasetukset.")
             }
             Flow {
                 Layout.fillWidth: true
@@ -305,11 +305,11 @@ ScrollView {
                 Button {
                     objectName: "approveResponseProfile"
                     visible: root.historicalMode
-                    text: "Hyväksy vastearvioon"
+                    text: qsTranslate("Studio", "Hyväksy vastearvioon")
                     onClicked: root.approveResponse()
                 }
                 Button {
-                    text: "Hyväksy lääkityslaskentaan"
+                    text: qsTranslate("Studio", "Hyväksy lääkityslaskentaan")
                     onClicked: root.save(true)
                 }
             }

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "store.h"
 #include <QDateTime>
 #include <QDir>
@@ -22,22 +23,22 @@ static QJsonObject object(const QJsonValue& v) {
 Store::Store(const QString& path, bool readOnly) : filename(path) {
     if (readOnly) {
         if (sqlite3_open_v2(path.toUtf8(), &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nullptr) != SQLITE_OK) {
-            m_error = "Tietokannan lukeminen epäonnistui.";
+            m_error = QCoreApplication::translate("Studio", "Tietokannan lukeminen epäonnistui.");
             return;
         }
         sqlite3_busy_timeout(db, 10000);
-        if (meta("schema") != "2") m_error = "Tietokannan versio ei ole tuettu.";
+        if (meta("schema") != "2") m_error = QCoreApplication::translate("Studio", "Tietokannan versio ei ole tuettu.");
         m_available = m_error.isEmpty();
         return;
     }
     umask(0077);
     if (!QDir().mkpath(QFileInfo(path).absolutePath())) {
-        m_error = "Tietohakemiston luominen epäonnistui.";
+        m_error = QCoreApplication::translate("Studio", "Tietohakemiston luominen epäonnistui.");
         return;
     }
     QFile::setPermissions(QFileInfo(path).absolutePath(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
     if (sqlite3_open_v2(path.toUtf8(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nullptr) != SQLITE_OK) {
-        m_error = "Tietokannan avaaminen epäonnistui.";
+        m_error = QCoreApplication::translate("Studio", "Tietokannan avaaminen epäonnistui.");
         return;
     }
     sqlite3_busy_timeout(db, 10000);
@@ -95,7 +96,7 @@ Store::Store(const QString& path, bool readOnly) : filename(path) {
             return;
         }
     }
-    if (meta("schema") != "2") m_error = "Tietokannan versio ei ole tuettu.";
+    if (meta("schema") != "2") m_error = QCoreApplication::translate("Studio", "Tietokannan versio ei ole tuettu.");
     // A process interrupted mid-import leaves a visible partial run, not a successful import.
     // Only recover runs after their owning process ended; the importer owns the sync lock.
 
@@ -115,7 +116,7 @@ bool Store::switchDatabase(const QString& path) {
         return false;
     }
     if (db && sqlite3_close(db) != SQLITE_OK) {
-        m_error = "Odota tietokannan käytön päättymistä.";
+        m_error = QCoreApplication::translate("Studio", "Odota tietokannan käytön päättymistä.");
         return false;
     }
     db = next.db;
@@ -160,18 +161,18 @@ bool Store::run(const QString& sql, const QVariantList& args) {
     if (!db) return false;
     sqlite3_stmt* st = nullptr;
     if (sqlite3_prepare_v2(db, sql.toUtf8(), -1, &st, nullptr) != SQLITE_OK) {
-        m_error = "Tietokantakomennon valmistelu epäonnistui.";
+        m_error = QCoreApplication::translate("Studio", "Tietokantakomennon valmistelu epäonnistui.");
         return false;
     }
     if (!bind(st, args)) {
         sqlite3_finalize(st);
-        m_error = "Tietokannan parametrivirhe.";
+        m_error = QCoreApplication::translate("Studio", "Tietokannan parametrivirhe.");
         return false;
     }
     const int r = sqlite3_step(st);
     sqlite3_finalize(st);
     if (r != SQLITE_DONE && r != SQLITE_ROW) {
-        m_error = "Tietokantakomento epäonnistui.";
+        m_error = QCoreApplication::translate("Studio", "Tietokantakomento epäonnistui.");
         return false;
     }
     return true;
@@ -180,12 +181,12 @@ QJsonArray Store::query(const QString& sql, const QVariantList& args) const {
     QJsonArray rows;
     sqlite3_stmt* st = nullptr;
     if (!db || sqlite3_prepare_v2(db, sql.toUtf8(), -1, &st, nullptr) != SQLITE_OK) {
-        m_error = "Tietokantakysely epäonnistui.";
+        m_error = QCoreApplication::translate("Studio", "Tietokantakysely epäonnistui.");
         return rows;
     }
     if (!bind(st, args)) {
         sqlite3_finalize(st);
-        m_error = "Tietokannan parametrivirhe.";
+        m_error = QCoreApplication::translate("Studio", "Tietokannan parametrivirhe.");
         return rows;
     }
     int r;
@@ -203,7 +204,7 @@ QJsonArray Store::query(const QString& sql, const QVariantList& args) const {
         rows.append(o);
     }
     sqlite3_finalize(st);
-    if (r != SQLITE_DONE) m_error = "Tietokannan lukeminen jäi kesken.";
+    if (r != SQLITE_DONE) m_error = QCoreApplication::translate("Studio", "Tietokannan lukeminen jäi kesken.");
     return rows;
 }
 QString Store::meta(const QString& key) const {
@@ -218,20 +219,20 @@ QString Store::revision() const {
 }
 bool Store::ingest(const QList<Reading>& readings, const QList<Amount>& amounts, qint64 from, qint64 to, bool authoritative, bool allowEmpty) {
     if (to <= from) {
-        m_error = "Virheellinen tuontijakso.";
+        m_error = QCoreApplication::translate("Studio", "Virheellinen tuontijakso.");
         return false;
     }
     if (std::any_of(readings.cbegin(), readings.cend(), [&](const Reading& r) { return r.time < from || r.time >= to; })) {
-        m_error = "Mittaus ei kuulu pyydettyyn aikaväliin.";
+        m_error = QCoreApplication::translate("Studio", "Mittaus ei kuulu pyydettyyn aikaväliin.");
         return false;
     }
     if (std::any_of(amounts.cbegin(), amounts.cend(), [&](const Amount& a) { return a.time < from || a.time >= to; })) {
-        m_error = "Merkintä ei kuulu pyydettyyn aikaväliin.";
+        m_error = QCoreApplication::translate("Studio", "Merkintä ei kuulu pyydettyyn aikaväliin.");
         return false;
     }
     const auto old = query("SELECT id FROM amounts WHERE local=0 AND active=1 AND time>=? AND time<?", {from, to});
     if (authoritative && !allowEmpty && amounts.isEmpty() && !old.isEmpty()) {
-        m_error = "Merkintälähde palautti tyhjää. Aiemmat merkinnät säilytettiin; tarkista vienti.";
+        m_error = QCoreApplication::translate("Studio", "Merkintälähde palautti tyhjää. Aiemmat merkinnät säilytettiin; tarkista vienti.");
         return false;
     }
     if (!run("SAVEPOINT normalized_ingest")) return false;
@@ -449,7 +450,7 @@ bool Store::saveCalculation(const QString& kind, const QJsonObject& result) {
 }
 bool Store::backup(const QString& target) {
     if (QFileInfo::exists(target)) {
-        m_error = "Varmuuskopion kohde on jo olemassa.";
+        m_error = QCoreApplication::translate("Studio", "Varmuuskopion kohde on jo olemassa.");
         return false;
     }
     QDir().mkpath(QFileInfo(target).absolutePath());
@@ -470,7 +471,7 @@ bool Store::backup(const QString& target) {
     }
     sqlite3_close(dest);
     QFile::setPermissions(target, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
-    if (!ok) m_error = "Varmuuskopion eheystarkistus epäonnistui.";
+    if (!ok) m_error = QCoreApplication::translate("Studio", "Varmuuskopion eheystarkistus epäonnistui.");
     return ok;
 }
 QString Store::beginImport(qint64 from, qint64 to, const QString& transport) {
@@ -500,13 +501,13 @@ bool Store::importChunk(const QString& runId, const QString& kind, const QByteAr
     }
     const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces), folder = QFileInfo(filename).absolutePath() + "/imports/" + runId;
     if (!QDir().mkpath(folder)) {
-        m_error = "Tuontiarkiston luominen epäonnistui.";
+        m_error = QCoreApplication::translate("Studio", "Tuontiarkiston luominen epäonnistui.");
         return false;
     }
     const QString chunkPath = folder + "/" + id + ".tsv";
     QFile f(chunkPath);
     if (!f.open(QIODevice::WriteOnly) || f.write(bytes) != bytes.size()) {
-        m_error = "Raakaviennin tallennus epäonnistui.";
+        m_error = QCoreApplication::translate("Studio", "Raakaviennin tallennus epäonnistui.");
         return false;
     }
     f.close();

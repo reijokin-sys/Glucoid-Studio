@@ -7,10 +7,14 @@ The bundled Glucoid Studio icon is original project artwork, based on the
 author's sketch, and is also GPL-3.0-or-later.
 
 The application dynamically links distribution-provided Qt 6 (including
-Qt Graphs), KDE Frameworks/KWallet and SQLite libraries. It uses installed
-Qt Quick and Kirigami QML modules and the desktop icon theme. No Qt, KDE,
-SQLite, font, third-party icon or Juggluco implementation is bundled in the executable.
+Qt Graphs), KDE Frameworks (KWallet and KF6I18n) and SQLite libraries. It
+uses installed Qt Quick and Kirigami QML modules and the desktop icon theme.
+Qt translation catalogs from qt6-translations-l10n are embedded as data for
+the English and Finnish interface; their copyright notice is included in
+packaging/licenses. No Qt, KDE, SQLite, font, third-party icon or Juggluco
+implementation binary is bundled in the executable.
 Qt Graphs is used under its GPLv3 terms, compatible with this application.
+The Qt translation catalogs are used under GPL-3 with the Qt 1.0 exception.
 
 The licenses directory includes the copyright and licensing notices from
 the actual Ubuntu packages used for this release. The system libraries and

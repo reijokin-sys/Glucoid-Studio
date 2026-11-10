@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "targetmodel.h"
 #include "domain.h"
 #include "automatic.h"
@@ -122,7 +123,7 @@ QJsonObject theoreticalMealDose(const QJsonArray& meals, int group, const QStrin
         out["message"] = message;
         return out;
     };
-    if (!std::isfinite(target) || target <= 0) return stop("invalid_target", "Teoreettinen tavoite puuttuu.");
+    if (!std::isfinite(target) || target <= 0) return stop("invalid_target", QCoreApplication::translate("Studio", "Teoreettinen tavoite puuttuu."));
     const QString eligibleKey = totalWindow ? "windowEligible" : "modelEligible";
     const QString exclusionsKey = totalWindow ? "windowExclusions" : "modelExclusions";
     const QString unitsKey = totalWindow ? "windowUnits" : "units";
@@ -177,7 +178,7 @@ QJsonObject theoreticalMealDose(const QJsonArray& meals, int group, const QStrin
     out["exclusions"] = excluded;
     out["observedLowMeals"] = lows;
     if (int(rows.size()) < minimumMeals || int(days.size()) < minimumDays)
-        return stop("insufficient_data", QString("Malliin sopivia aterioita %1 / %2 ja päiviä %3 / %4. Aineisto ei riitä tämän mallin sovittamiseen.")
+        return stop("insufficient_data", QString(QCoreApplication::translate("Studio", "Malliin sopivia aterioita %1 / %2 ja päiviä %3 / %4. Aineisto ei riitä tämän mallin sovittamiseen."))
                                              .arg(rows.size())
                                              .arg(minimumMeals)
                                              .arg(days.size())
@@ -199,9 +200,9 @@ QJsonObject theoreticalMealDose(const QJsonArray& meals, int group, const QStrin
     for (int j = 3; j < P; ++j)
         if (maximum[j] - minimum[j] > (j == 5 ? 1 : .05)) columns.push_back(j);
     auto full = fit(rows, columns);
-    if (!full.ok) return stop("unidentifiable", "HH-määrä ja annos vaihtelevat liian samansuuntaisesti: niiden erillisiä vaikutuksia ei voi ratkaista.");
+    if (!full.ok) return stop("unidentifiable", QCoreApplication::translate("Studio", "HH-määrä ja annos vaihtelevat liian samansuuntaisesti: niiden erillisiä vaikutuksia ei voi ratkaista."));
     if (full.b[1] <= 0 || full.b[2] >= 0)
-        return stop("implausible_effect", "Aineisto ei osoita johdonmukaista glukoosia laskevaa insuliinivaikutusta. Annosarviota ei muodosteta.");
+        return stop("implausible_effect", QCoreApplication::translate("Studio", "Aineisto ei osoita johdonmukaista glukoosia laskevaa insuliinivaikutusta. Annosarviota ei muodosteta."));
     const double sensitivity = -full.b[2];
     // Reference is the observed, day-balanced meal, not an extrapolated fasting state.
     reference[2] = 0;
@@ -228,7 +229,7 @@ QJsonObject theoreticalMealDose(const QJsonArray& meals, int group, const QStrin
     auto early = fit(train, columns);
     double error = 0;
     if (!early.ok || early.b[2] >= 0 || early.b[1] <= 0)
-        return stop("unstable", "Aiemmista päivistä ei synny vakaata mallia myöhempien aterioiden arviointiin.");
+        return stop("unstable", QCoreApplication::translate("Studio", "Aiemmista päivistä ei synny vakaata mallia myöhempien aterioiden arviointiin."));
     QMap<QString, int> testDays;
     for (const auto& r : test) ++testDays[r.day];
     error = std::accumulate(test.cbegin(), test.cend(), 0.0,
@@ -238,7 +239,7 @@ QJsonObject theoreticalMealDose(const QJsonArray& meals, int group, const QStrin
     out["heldOutMeals"] = int(test.size());
     out["heldOutDays"] = testDays.size();
     if (error > 2)
-        return stop("poor_prediction", "Aikaisemmilla päivillä sovitettu malli ennustaa myöhempiä aterioita liian epätarkasti (virhe yli 2 mmol/l).");
+        return stop("poor_prediction", QCoreApplication::translate("Studio", "Aikaisemmilla päivillä sovitettu malli ennustaa myöhempiä aterioita liian epätarkasti (virhe yli 2 mmol/l)."));
     std::mt19937 random(20261029);
     std::uniform_int_distribution<int> pick(0, dayList.size() - 1);
     std::vector<double> doses, effects, corrections, responses;
@@ -264,9 +265,9 @@ QJsonObject theoreticalMealDose(const QJsonArray& meals, int group, const QStrin
     }
     out["bootstrapValid"] = int(doses.size());
     out["bootstrapReplicates"] = 200;
-    if (doses.size() < 180) return stop("unstable", "Päivien uudelleenotanta ei anna vakaata annosvastetta. Lisää vertailukelpoisia havaintoja tarvitaan.");
+    if (doses.size() < 180) return stop("unstable", QCoreApplication::translate("Studio", "Päivien uudelleenotanta ei anna vakaata annosvastetta. Lisää vertailukelpoisia havaintoja tarvitaan."));
     double lower = quantile(doses, .05), upper = quantile(doses, .95);
-    if (dose <= 0 || lower <= 0 || upper - lower > dose) return stop("uncertain", "Teoreettisen annoksen epävarmuus on liian suuri numeeriselle arviolle.");
+    if (dose <= 0 || lower <= 0 || upper - lower > dose) return stop("uncertain", QCoreApplication::translate("Studio", "Teoreettisen annoksen epävarmuus on liian suuri numeeriselle arviolle."));
     // Refuse inverse extrapolation outside doses AND carbohydrate-normalized ratios.
     double minRatio = INFINITY, maxRatio = 0;
     for (const auto& r : rows) {
@@ -274,10 +275,10 @@ QJsonObject theoreticalMealDose(const QJsonArray& meals, int group, const QStrin
         maxRatio = std::max(maxRatio, r.x[2] / r.x[1]);
     }
     if (lower < minimum[2] || upper > maximum[2] || lower / reference[1] < minRatio || upper / reference[1] > maxRatio)
-        return stop("outside_observations", "Tavoiteannos tai sen epävarmuus ulottuu havaittujen annosten ulkopuolelle. Malli ei ekstrapoloi annosta.");
+        return stop("outside_observations", QCoreApplication::translate("Studio", "Tavoiteannos tai sen epävarmuus ulottuu havaittujen annosten ulkopuolelle. Malli ei ekstrapoloi annosta."));
     out["status"] = "estimated";
-    const QString basis = totalWindow ? QStringLiteral("pikainsuliinia yhteensä 2 h ikkunassa (ateria + korjaukset)") : QStringLiteral("aterian oma annos");
-    out["message"] = QString("Kokeellinen havaintomalli: %1, jolla 4 h kuluttua glukoosi on palannut lähtötasolle (lähtöglukoosi %2 mmol/l); ei pistosohje.")
+    const QString basis = totalWindow ? QCoreApplication::translate("Studio", "pikainsuliinia yhteensä 2 h ikkunassa (ateria + korjaukset)") : QCoreApplication::translate("Studio", "aterian oma annos");
+    out["message"] = QString(QCoreApplication::translate("Studio", "Kokeellinen havaintomalli: %1, jolla 4 h kuluttua glukoosi on palannut lähtötasolle (lähtöglukoosi %2 mmol/l); ei pistosohje."))
                          .arg(basis)
                          .arg(target);
     out["units"] = dose;
@@ -316,7 +317,7 @@ QJsonObject theoreticalMealDose(const QJsonArray& meals, int group, const QStrin
     out["effectLow"] = quantile(effects, .05);
     out["effectHigh"] = quantile(effects, .95);
     out["correctionEffectPerUnit"] = std::find(columns.cbegin(), columns.cend(), 6) != columns.cend() ? QJsonValue(-full.b[6]) : QJsonValue();
-    out["uncertaintyMeaning"] = "90% day-cluster bootstrap of model mean; not an individual prediction or causal interval";
+    out["uncertaintyMeaning"] = QCoreApplication::translate("Studio", "90% day-cluster bootstrap of model mean; not an individual prediction or causal interval");
     return out;
 }
 } // namespace Studio

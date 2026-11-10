@@ -14,13 +14,13 @@ ScrollView {
     Component.onCompleted: root.studio.refreshDailyAnalysis()
     contentWidth: availableWidth
     function n(value, decimals = 1) {
-        return value === undefined || value === null || !Number.isFinite(Number(value)) ? "—" : Number(value).toLocaleString(Qt.locale("fi_FI"), 'f', decimals);
+        return value === undefined || value === null || !Number.isFinite(Number(value)) ? "—" : Number(value).toLocaleString(Qt.locale(root.studio.language === "fi" ? "fi_FI" : "en_GB"), 'f', decimals);
     }
     ColumnLayout {
         width: root.availableWidth
         spacing: 8
         Label {
-            text: "Vuorokausianalyysi"
+            text: qsTranslate("Studio", "Vuorokausianalyysi")
             font.pixelSize: 18
             font.bold: true
             Layout.fillWidth: true
@@ -30,23 +30,23 @@ ScrollView {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             font.pixelSize: 11
-            text: root.studio.dailyAnalysis.firstDate ? "Koko historia · " + root.studio.dailyAnalysis.firstDate + " – " + root.studio.dailyAnalysis.lastDate + " · " + root.studio.dailyAnalysis.timezone : "Koko historia eiliseen asti"
+            text: root.studio.dailyAnalysis.firstDate ? qsTranslate("Studio", "Koko historia · ") + root.studio.dailyAnalysis.firstDate + " – " + root.studio.dailyAnalysis.lastDate + " · " + root.studio.dailyAnalysis.timezone : qsTranslate("Studio", "Koko historia eiliseen asti")
         }
         Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             font.pixelSize: 11
-            text: "Jokainen päivä painaa yhtä paljon. Glukoosikeskiarvo käyttää kaikkia mitattuja päiviä. Insuliini/HH-suhde käyttää päiviä, joilta on sekä HH- että pikainsuliinikirjaus."
+            text: qsTranslate("Studio", "Jokainen päivä painaa yhtä paljon. Glukoosikeskiarvo käyttää kaikkia mitattuja päiviä. Insuliini/HH-suhde käyttää päiviä, joilta on sekä HH- että pikainsuliinikirjaus.")
         }
         Label {
             visible: root.studio.dailyAnalysis.status === "computing"
             font.pixelSize: 11
-            text: "Lasketaan vuorokausianalyysiä…"
+            text: qsTranslate("Studio", "Lasketaan vuorokausianalyysiä…")
         }
         Label {
             visible: root.studio.dailyAnalysis.status === "error"
             font.pixelSize: 11
-            text: "Aineiston lukeminen ei onnistunut. Päivitä tiedot ja yritä uudelleen."
+            text: qsTranslate("Studio", "Aineiston lukeminen ei onnistunut. Päivitä tiedot ja yritä uudelleen.")
         }
         GridLayout {
             objectName: "dailyPeriodGrid"
@@ -91,7 +91,7 @@ ScrollView {
                                 Layout.fillWidth: true
                                 spacing: 0
                                 Label {
-                                    text: "Glukoosi"
+                                    text: qsTranslate("Studio", "Glukoosi")
                                     font.pixelSize: 10
                                     opacity: 0.75
                                 }
@@ -103,7 +103,7 @@ ScrollView {
                                     color: Theme.accentTeal
                                 }
                                 Label {
-                                    text: "kattavuus " + root.n(card.modelData.coverage * 100) + " %"
+                                    text: qsTranslate("Studio", "kattavuus ") + root.n(card.modelData.coverage * 100) + " %"
                                     font.pixelSize: 10
                                     opacity: 0.75
                                 }
@@ -112,7 +112,7 @@ ScrollView {
                                 Layout.fillWidth: true
                                 spacing: 0
                                 Label {
-                                    text: "Insuliini/HH"
+                                    text: qsTranslate("Studio", "Insuliini/HH")
                                     font.pixelSize: 10
                                     opacity: 0.75
                                 }
@@ -124,7 +124,7 @@ ScrollView {
                                     color: Theme.accentBlue
                                 }
                                 Label {
-                                    text: card.modelData.ratioDays + " kirjauspäivää"
+                                    text: card.modelData.ratioDays + qsTranslate("Studio", " kirjauspäivää")
                                     font.pixelSize: 10
                                     opacity: 0.75
                                 }
@@ -134,31 +134,31 @@ ScrollView {
                             objectName: "dailyCalculationDetails" + card.index
                             Layout.fillWidth: true
                             padding: 6
-                            title: "Laskennan tiedot"
+                            title: qsTranslate("Studio", "Laskennan tiedot")
                             Label {
                                 objectName: "dailyAmountTotals" + card.index
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
                                 font.pixelSize: 10
-                                text: "Kaikkien päivien kirjaukset: HH " + root.n(card.modelData.carbs) + " g · pikainsuliini " + root.n(card.modelData.units) + " U. Mukana ovat ateria- ja korjausannokset, eivät perusinsuliinit."
+                                text: qsTranslate("Studio", "Kaikkien päivien kirjaukset: HH ") + root.n(card.modelData.carbs) + " g · pikainsuliini " + root.n(card.modelData.units) + qsTranslate("Studio", " U. Mukana ovat ateria- ja korjausannokset, eivät perusinsuliinit.")
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
                                 font.pixelSize: 10
-                                text: "Suhteesta puuttuu: " + card.modelData.onlyCarbDays + " päivää ilman insuliinikirjausta · " + card.modelData.onlyInsulinDays + " päivää ilman positiivista HH-määrää. Näidenkin päivien kirjaukset sisältyvät yllä oleviin määriin."
+                                text: qsTranslate("Studio", "Suhteesta puuttuu: ") + card.modelData.onlyCarbDays + qsTranslate("Studio", " päivää ilman insuliinikirjausta · ") + card.modelData.onlyInsulinDays + qsTranslate("Studio", " päivää ilman positiivista HH-määrää. Näidenkin päivien kirjaukset sisältyvät yllä oleviin määriin.")
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
                                 font.pixelSize: 10
-                                text: "Päivän suhde = 10 × pikainsuliini / HH. Näytetty suhde on päivittäisten suhteiden keskiarvo, ei kokonaismäärien suhde. Kirjaukset kuuluvat omaan kelloväliinsä ilman aterioiden yhdistämistä."
+                                text: qsTranslate("Studio", "Päivän suhde = 10 × pikainsuliini / HH. Näytetty suhde on päivittäisten suhteiden keskiarvo, ei kokonaismäärien suhde. Kirjaukset kuuluvat omaan kelloväliinsä ilman aterioiden yhdistämistä.")
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
                                 font.pixelSize: 10
-                                text: "Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo. Stream on ensisijainen, history täydentää aukot (" + root.n(card.modelData.historyFraction * 100) + " % katetusta ajasta). Puuttuva mittaus ei ole nolla. Myös matalat ja korkeat arvot ovat mukana; ateria- ja insuliinikirjaukset eivät rajaa glukoosikeskiarvoa."
+                                text: qsTranslate("Studio", "Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo. Stream on ensisijainen, history täydentää aukot (") + root.n(card.modelData.historyFraction * 100) + qsTranslate("Studio", " % katetusta ajasta). Puuttuva mittaus ei ole nolla. Myös matalat ja korkeat arvot ovat mukana; ateria- ja insuliinikirjaukset eivät rajaa glukoosikeskiarvoa.")
                             }
                         }
                     }
@@ -170,7 +170,7 @@ ScrollView {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             font.pixelSize: 11
-            text: "Aineistossa on luokittelemattomia kirjauksia. Tarkista tietolähteen kirjausluokat asetuksissa."
+            text: qsTranslate("Studio", "Aineistossa on luokittelemattomia kirjauksia. Tarkista tietolähteen kirjausluokat asetuksissa.")
         }
     }
 }

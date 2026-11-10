@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "nightscout.h"
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -6,6 +7,7 @@
 #include <QJsonDocument>
 #include <QNetworkRequest>
 #include <QTimer>
+#include <QtConcurrent/QtConcurrentRun>
 #include <QUrl>
 #include <QUrlQuery>
 #include <algorithm>
@@ -29,7 +31,7 @@ QString nightscoutAddressError(const QString& address) {
     const bool loopback = url.host() == "127.0.0.1" || url.host() == "localhost" || url.host() == "::1";
     if (!url.isValid() || url.host().isEmpty() || !url.userInfo().isEmpty() || url.hasQuery() || url.hasFragment() ||
         (url.scheme() != "https" && !(url.scheme() == "http" && loopback)))
-        return "Anna Nightscoutin HTTPS-osoite ilman tunnuksia, kyselyä tai fragmenttia. HTTP sallitaan vain localhost-kokeessa.";
+        return QCoreApplication::translate("Studio", "Anna Nightscoutin HTTPS-osoite ilman tunnuksia, kyselyä tai fragmenttia. HTTP sallitaan vain localhost-kokeessa.");
     return {};
 }
 
@@ -38,10 +40,11 @@ QString nightscoutDatasetPath(const QString& root, const QString& address) {
     return root + "/sources/nightscout-" + QString::fromLatin1(digest) + "/studio.sqlite3";
 }
 
-NightscoutImporter::NightscoutImporter(Store& store, QString address, QString accessToken, QObject* parent)
-    : QObject(parent), db(store), address(std::move(address)), accessToken(std::move(accessToken)) {}
+NightscoutImporter::NightscoutImporter(Store& store, QString address, QString accessToken, QObject* parent, qint64 initialHistoryMs)
+    : QObject(parent), db(store), address(std::move(address)), accessToken(std::move(accessToken)), initialHistoryMs(initialHistoryMs) {}
 
 NightscoutImporter::~NightscoutImporter() {
+    writeWatcher.waitForFinished();
     if (reply) {
         reply->disconnect(this);
         reply->abort();
@@ -55,15 +58,15 @@ void NightscoutImporter::start() {
         return;
     }
     if (accessToken.trimmed().isEmpty()) {
-        finish(false, "Nightscoutin lukutunnus puuttuu avainrenkaasta.");
+        finish(false, QCoreApplication::translate("Studio", "Nightscoutin lukutunnus puuttuu avainrenkaasta."));
         return;
     }
     run = db.beginImport(0, QDateTime::currentMSecsSinceEpoch(), "nightscout");
     if (run.isEmpty()) {
-        finish(false, "Nightscout-tuonnin aloitus epäonnistui.");
+        finish(false, QCoreApplication::translate("Studio", "Nightscout-tuonnin aloitus epäonnistui."));
         return;
     }
-    emit progress("Tarkistetaan Nightscoutin käyttöoikeus…");
+    emit progress(QCoreApplication::translate("Studio", "Tarkistetaan Nightscoutin käyttöoikeus…"));
     // The official v2 endpoint exchanges the persistent access token for a JWT.
     // Never log request URLs or network error strings: the exchange URL contains
     // the credential. No redirect is followed, including during this exchange.
@@ -72,7 +75,7 @@ void NightscoutImporter::start() {
         jwt = object["token"].toString();
         accessToken.clear();
         if (jwt.isEmpty() || jwt.contains('\r') || jwt.contains('\n')) {
-            finish(false, "Nightscout ei palauttanut kelvollista käyttöoikeutta.");
+            finish(false, QCoreApplication::translate("Studio", "Nightscout ei palauttanut kelvollista käyttöoikeutta."));
             return;
         }
         beginCollection("entries");
@@ -105,7 +108,7 @@ void NightscoutImporter::request(const QString& relative, bool authorization, st
         reply = nullptr;
         if (complete) return;
         if (*oversized || bytes->size() > 64 * 1024 * 1024) {
-            finish(false, "Nightscoutin vastaus ylittää kokorajan.");
+            finish(false, QCoreApplication::translate("Studio", "Nightscoutin vastaus ylittää kokorajan."));
             return;
         }
         if (!networkError && status == 200) {
@@ -121,22 +124,28 @@ void NightscoutImporter::request(const QString& relative, bool authorization, st
             return;
         }
         if (status == 401 || status == 403)
-            finish(false, "Nightscout hylkäsi lukutunnuksen tai lukuoikeus puuttuu.");
+            finish(false, QCoreApplication::translate("Studio", "Nightscout hylkäsi lukutunnuksen tai lukuoikeus puuttuu."));
         else if (status >= 300 && status < 400)
-            finish(false, "Nightscout ohjaa toiseen osoitteeseen. Anna palvelimen lopullinen HTTPS-osoite.");
+            finish(false, QCoreApplication::translate("Studio", "Nightscout ohjaa toiseen osoitteeseen. Anna palvelimen lopullinen HTTPS-osoite."));
         else if (status == 404)
-            finish(false, "Nightscout API v3 ei ole saatavilla tässä palvelinosoitteessa.");
+            finish(false, QCoreApplication::translate("Studio", "Nightscout API v3 ei ole saatavilla tässä palvelinosoitteessa."));
         else
-            finish(false, "Nightscout-yhteys epäonnistui. Tarkista yhteys, HTTPS-varmenne ja palvelin.");
+            finish(false, QCoreApplication::translate("Studio", "Nightscout-yhteys epäonnistui. Tarkista yhteys, HTTPS-varmenne ja palvelin."));
     });
 }
 
 void NightscoutImporter::beginCollection(const QString& name) {
     collection = name;
-    // Legacy v1 uploaders have no server modification clock. Revisit a week
-    // of glucose and all treatments, including changes to older treatment dates.
-    const qint64 stored = db.meta("nightscoutCursor:" + collection).toLongLong();
-    cursor = collection == "entries" ? std::max(nightscoutMinTimestamp, stored - 7LL * 86400000) : nightscoutMinTimestamp;
+    // History is ordered by server modification time, including edits and
+    // tombstones, even for older events. Also revisit 72 hours to catch late
+    // records from legacy uploaders. Keep the older cursor after an outage;
+    // the overlap must never skip changes not yet imported.
+    const QString storedText = db.meta("nightscoutCursor:" + collection);
+    const qint64 stored = storedText.toLongLong();
+    fullHistory = storedText == "full";
+    cursor = fullHistory  ? nightscoutMinTimestamp
+             : stored > 0 ? std::max(nightscoutMinTimestamp, std::min(stored, QDateTime::currentMSecsSinceEpoch() - correctionHistoryMs - 1))
+                          : std::max(nightscoutMinTimestamp, QDateTime::currentMSecsSinceEpoch() - initialHistoryMs);
     collectionFrom = cursor;
     seen.clear();
     limit = 1000;
@@ -145,17 +154,17 @@ void NightscoutImporter::beginCollection(const QString& name) {
 
 void NightscoutImporter::nextPage() {
     if (++pages > 10000) {
-        finish(false, "Nightscout-tuonnin sivuraja ylittyi. Valmiit osat säilyivät.");
+        finish(false, QCoreApplication::translate("Studio", "Nightscout-tuonnin sivuraja ylittyi. Valmiit osat säilyivät."));
         return;
     }
-    emit progress("Tuodaan Nightscoutista " + collection + " · sivu " + QString::number(pages));
+    emit progress(QCoreApplication::translate("Studio", "Tuodaan Nightscoutista ") + collection + " · sivu " + QString::number(pages));
     const auto path = QString("api/v3/%1/history/%2?limit=%3&fields=_all").arg(collection).arg(cursor).arg(limit);
     request(path, true, [this](QByteArray bytes) {
         QJsonParseError error;
         const auto document = QJsonDocument::fromJson(bytes, &error);
         const auto object = document.object();
         if (error.error != QJsonParseError::NoError || !object["result"].isArray() || object["status"].toInt() != 200) {
-            finish(false, "Nightscout palautti virheellisen API v3 -vastauksen. Valmiit osat säilyivät.");
+            finish(false, QCoreApplication::translate("Studio", "Nightscout palautti virheellisen API v3 -vastauksen. Valmiit osat säilyivät."));
             return;
         }
         const auto rows = object["result"].toArray();
@@ -171,7 +180,7 @@ void NightscoutImporter::nextPage() {
                     modified = QDateTime::fromString(fallback.toString(), Qt::ISODateWithMs).toMSecsSinceEpoch();
             }
             if (!std::isfinite(modified) || modified <= cursor || modified < previous || modified > 9e15 || std::floor(modified) != modified) {
-                finish(false, "Nightscoutin historian muutosleima ei kelpaa. Hakurajaa ei siirretty.");
+                finish(false, QCoreApplication::translate("Studio", "Nightscoutin historian muutosleima ei kelpaa. Hakurajaa ei siirretty."));
                 return;
             }
             previous = qint64(modified);
@@ -182,7 +191,7 @@ void NightscoutImporter::nextPage() {
         // advancing an exclusive cursor would silently lose timestamp ties.
         if (rows.size() >= limit && maximum <= cursor + 1) {
             if (limit >= 100000) {
-                finish(false, "Liian monta Nightscout-tapahtumaa samalla muutosleimalla. Hakuraja säilyi.");
+                finish(false, QCoreApplication::translate("Studio", "Liian monta Nightscout-tapahtumaa samalla muutosleimalla. Hakuraja säilyi."));
                 return;
             }
             limit = std::min(100000, limit * 2);
@@ -190,35 +199,67 @@ void NightscoutImporter::nextPage() {
             return;
         }
         const qint64 next = rows.isEmpty() ? cursor : std::max<qint64>(0, maximum - 1);
-        if (!db.importNightscoutPage(run, collection, bytes, next)) {
-            finish(false, db.error());
-            return;
-        }
-        for (const auto& value : rows) {
-            const auto row = value.toObject();
-            seen.insert("nightscout:" + row["identifier"].toString(row["_id"].toString()));
-        }
-        cursor = next;
-        if (rows.size() >= limit) {
-            limit = 1000;
-            QTimer::singleShot(0, this, &NightscoutImporter::nextPage);
-            return;
-        }
-        if (!db.reconcileNightscout(collection, collectionFrom, seen)) {
-            finish(false, db.error());
-            return;
-        }
-        if (collection == "entries") {
-            beginCollection("treatments");
-            return;
-        }
-        const auto warnings = db.query("SELECT count(*) AS n FROM meta WHERE key GLOB 'nightscoutUnsupported:*'");
-        const int count = warnings.isEmpty() ? 0 : warnings[0].toObject()["n"].toInt();
-        finish(true, count ? QString("Nightscout-tuonti valmis. %1 tapahtuman annostyyppiä ei tulkittu; alkuperäiset tiedot säilyivät.").arg(count)
-                           : "Nightscout-tuonti valmis. Historia on käytettävissä paikallisesti.");
+        storePage(bytes, rows, next);
     });
 }
 
+void NightscoutImporter::storePage(const QByteArray& bytes, const QJsonArray& rows, qint64 next) {
+    if (!backgroundWrites) {
+        const bool ok = db.importNightscoutPage(run, collection, bytes, next);
+        pageStored(rows, next, ok, ok ? QString() : db.error());
+        return;
+    }
+    const auto path = db.path(), runId = run, kind = collection;
+    writeWatcher.disconnect(this);
+    connect(&writeWatcher, &QFutureWatcher<QPair<bool, QString>>::finished, this, [this, rows, next] {
+        const auto result = writeWatcher.result();
+        pageStored(rows, next, result.first, result.second);
+    });
+    const bool reconcile = fullHistory && rows.size() < limit;
+    const auto from = collectionFrom;
+    QSet<QString> identifiers;
+    if (reconcile) {
+        identifiers = seen;
+        for (const auto& value : rows) {
+            const auto row = value.toObject();
+            identifiers.insert("nightscout:" + row["identifier"].toString(row["_id"].toString()));
+        }
+    }
+    writeWatcher.setFuture(QtConcurrent::run([path, runId, kind, bytes, next, reconcile, from, identifiers] {
+        Store store(path);
+        bool ok = store.good() && store.importNightscoutPage(runId, kind, bytes, next);
+        if (ok && reconcile) ok = store.reconcileNightscout(kind, from, identifiers);
+        return qMakePair(ok, ok ? QString() : store.error());
+    }));
+}
+void NightscoutImporter::pageStored(const QJsonArray& rows, qint64 next, bool ok, const QString& error) {
+    if (!ok) {
+        finish(false, error);
+        return;
+    }
+    for (const auto& value : rows) {
+        const auto row = value.toObject();
+        seen.insert("nightscout:" + row["identifier"].toString(row["_id"].toString()));
+    }
+    cursor = next;
+    if (rows.size() >= limit) {
+        limit = 1000;
+        QTimer::singleShot(0, this, &NightscoutImporter::nextPage);
+        return;
+    }
+    if (fullHistory && !backgroundWrites && !db.reconcileNightscout(collection, collectionFrom, seen)) {
+        finish(false, db.error());
+        return;
+    }
+    if (collection == "entries") {
+        beginCollection("treatments");
+        return;
+    }
+    const auto warnings = db.query("SELECT count(*) AS n FROM meta WHERE key GLOB 'nightscoutUnsupported:*'");
+    const int count = warnings.isEmpty() ? 0 : warnings[0].toObject()["n"].toInt();
+    finish(true, count ? QString(QCoreApplication::translate("Studio", "Nightscout-tuonti valmis. %1 tapahtuman annostyyppiä ei tulkittu; alkuperäiset tiedot säilyivät.")).arg(count)
+                       : QCoreApplication::translate("Studio", "Nightscout-tuonti valmis. Historia on käytettävissä paikallisesti."));
+}
 void NightscoutImporter::finish(bool success, const QString& message) {
     if (complete) return;
     complete = true;

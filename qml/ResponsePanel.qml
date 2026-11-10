@@ -18,15 +18,15 @@ ScrollView {
     property var missingReasons: (root.studio.response.reasons || []).reduce((all, line) => all.concat(String(line).split("\n")), []).filter(line => line.length > 0)
     function status(s) {
         return ({
-                estimated: "Arvioitavissa",
-                insufficient: "Aineisto ei riitä",
-                conditional: "Ehdollinen arvio",
-                evaluated: "Arvioitu",
-                regimen_changed: "Hoito muuttunut"
+                estimated: qsTranslate("Studio", "Arvioitavissa"),
+                insufficient: qsTranslate("Studio", "Aineisto ei riitä"),
+                conditional: qsTranslate("Studio", "Ehdollinen arvio"),
+                evaluated: qsTranslate("Studio", "Arvioitu"),
+                regimen_changed: qsTranslate("Studio", "Hoito muuttunut")
             })[s] || s || "";
     }
     function n(v) {
-        return v === undefined || v === null ? "—" : Number(v).toLocaleString(Qt.locale("fi_FI"), "f", 2);
+        return v === undefined || v === null ? "—" : Number(v).toLocaleString(Qt.locale(root.studio.language === "fi" ? "fi_FI" : "en_GB"), "f", 2);
     }
     function set(key, value) {
         let p = JSON.parse(JSON.stringify(draft));
@@ -49,17 +49,17 @@ ScrollView {
         width: root.availableWidth
         spacing: 16
         Kirigami.Heading {
-            text: "Insuliinin vaikutus"
+            text: qsTranslate("Studio", "Insuliinin vaikutus")
             level: 2
         }
         Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            text: "Korjausvaste ja HH-suhde neljänä vuorokaudenaikana. Valitse 1 tai 2 viikon jakso."
+            text: qsTranslate("Studio", "Korjausvaste ja HH-suhde neljänä vuorokaudenaikana. Valitse 1 tai 2 viikon jakso.")
         }
         RowLayout {
             Button {
-                text: "Laske vastearvio"
+                text: qsTranslate("Studio", "Laske vastearvio")
                 enabled: !root.studio.busy
                 onClicked: {
                     root.proposal = ({});
@@ -70,7 +70,7 @@ ScrollView {
                 Layout.fillWidth: true
             }
             Label {
-                text: "Vertailu"
+                text: qsTranslate("Studio", "Vertailu")
             }
             ComboBox {
                 id: reference
@@ -86,21 +86,21 @@ ScrollView {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     font.bold: true
-                    text: root.studio.response.status === "blocked" ? "Täydennä tiedot ennen arviota" : "Aloita tarkistamalla profiili ja tapahtumat"
+                    text: root.studio.response.status === "blocked" ? qsTranslate("Studio", "Täydennä tiedot ennen arviota") : qsTranslate("Studio", "Aloita tarkistamalla profiili ja tapahtumat")
                 }
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: root.studio.response.status === "blocked" ? root.missingReasons[0] || "Tarkista laskennan edellytykset." : "Arvio tarvitsee hyväksytyn profiilin, laskennan rajat ja tarkistetut jaksot."
+                    text: root.studio.response.status === "blocked" ? root.missingReasons[0] || qsTranslate("Studio", "Tarkista laskennan edellytykset.") : qsTranslate("Studio", "Arvio tarvitsee hyväksytyn profiilin, laskennan rajat ja tarkistetut jaksot.")
                 }
                 Button {
-                    text: "Avaa hoitoprofiili"
+                    text: qsTranslate("Studio", "Avaa hoitoprofiili")
                     onClicked: root.openProfile()
                 }
                 Disclosure {
                     objectName: "responseMissingDetails"
                     Layout.fillWidth: true
-                    title: "Kaikki puuttuvat tiedot (" + root.missingReasons.length + ")"
+                    title: qsTranslate("Studio", "Kaikki puuttuvat tiedot (") + root.missingReasons.length + ")"
                     visible: root.missingReasons.length > 1
                     Label {
                         Layout.fillWidth: true
@@ -115,14 +115,14 @@ ScrollView {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             visible: root.studio.response.status === "evaluated" && root.studio.response.medicationApproved !== true
-            text: "Vain vastearvio · annos- ja muutosehdotukset edellyttävät erillistä hyväksyntää."
+            text: qsTranslate("Studio", "Vain vastearvio · annos- ja muutosehdotukset edellyttävät erillistä hyväksyntää.")
         }
         Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             visible: !!root.studio.response.unsafe
             font.bold: true
-            text: "Matala glukoosi havaittu. Insuliinia lisäävä muutosehdotus on estetty."
+            text: qsTranslate("Studio", "Matala glukoosi havaittu. Insuliinia lisäävä muutosehdotus on estetty.")
         }
         GridLayout {
             objectName: "responseCards"
@@ -150,7 +150,7 @@ ScrollView {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 Label {
-                                    text: "Korjausvaste"
+                                    text: qsTranslate("Studio", "Korjausvaste")
                                     opacity: 0.75
                                 }
                                 Label {
@@ -167,7 +167,7 @@ ScrollView {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 Label {
-                                    text: "HH-suhteen arvio"
+                                    text: qsTranslate("Studio", "HH-suhteen arvio")
                                     opacity: 0.75
                                 }
                                 Label {
@@ -186,15 +186,15 @@ ScrollView {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
                             opacity: 0.75
-                            text: card.modelData.corrections + " korjausta / " + card.modelData.correctionDays + " päivää  ·  " + card.modelData.meals + " ateriaa / " + card.modelData.mealDays + " päivää"
+                            text: card.modelData.corrections + " korjausta / " + card.modelData.correctionDays + qsTranslate("Studio", " päivää  ·  ") + card.modelData.meals + " ateriaa / " + card.modelData.mealDays + qsTranslate("Studio", " päivää")
                         }
                         Disclosure {
                             Layout.fillWidth: true
-                            title: "Perustelut ja vertailu"
+                            title: qsTranslate("Studio", "Perustelut ja vertailu")
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Korjausvasteen arvioalue: " + root.n(card.modelData.isfLow) + "–" + root.n(card.modelData.isfHigh) + " mmol/l/U"
+                                text: qsTranslate("Studio", "Korjausvasteen arvioalue: ") + root.n(card.modelData.isfLow) + "–" + root.n(card.modelData.isfHigh) + " mmol/l/U"
                             }
                             Label {
                                 Layout.fillWidth: true
@@ -205,7 +205,7 @@ ScrollView {
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "HH-suhteen arvioalue: " + root.n(card.modelData.ratioLow) + "–" + root.n(card.modelData.ratioHigh) + " g/U · nykyinen asetus " + root.n(card.modelData.currentRatio) + " g/U"
+                                text: qsTranslate("Studio", "HH-suhteen arvioalue: ") + root.n(card.modelData.ratioLow) + "–" + root.n(card.modelData.ratioHigh) + qsTranslate("Studio", " g/U · nykyinen asetus ") + root.n(card.modelData.currentRatio) + " g/U"
                             }
                             Label {
                                 Layout.fillWidth: true
@@ -216,14 +216,14 @@ ScrollView {
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Yhden päivän suurin vaikutus: " + root.n(card.modelData.dayInfluencePercent) + " %"
+                                text: qsTranslate("Studio", "Yhden päivän suurin vaikutus: ") + root.n(card.modelData.dayInfluencePercent) + " %"
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
                                 text: {
                                     let r = ((root.studio.response.comparison || {}).groups || [])[card.modelData.index];
-                                    return r && r.status === "compared" ? "Pitkä vertailu: annos/HH " + root.n(r.dosePerCarbChangePercent) + " % (" + root.n(r.dosePerCarbChangeLow) + "–" + root.n(r.dosePerCarbChangeHigh) + ") · korjausvaste " + root.n(r.isfChangePercent) + " % (" + root.n(r.isfChangeLow) + "–" + root.n(r.isfChangeHigh) + ")" : "Pitkän ajan vertailuun ei ole riittävää aineistoa.";
+                                    return r && r.status === "compared" ? qsTranslate("Studio", "Pitkä vertailu: annos/HH ") + root.n(r.dosePerCarbChangePercent) + " % (" + root.n(r.dosePerCarbChangeLow) + "–" + root.n(r.dosePerCarbChangeHigh) + ") · korjausvaste " + root.n(r.isfChangePercent) + " % (" + root.n(r.isfChangeLow) + "–" + root.n(r.isfChangeHigh) + ")" : qsTranslate("Studio", "Pitkän ajan vertailuun ei ole riittävää aineistoa.");
                                 }
                             }
                             Label {
@@ -231,25 +231,25 @@ ScrollView {
                                 wrapMode: Text.WordWrap
                                 text: {
                                     let r = ((root.studio.response.short || {}).groups || [])[card.modelData.index];
-                                    return r ? "Viimeiset 7 päivää: HH-suhde " + root.n(r.ratio) + " g/U · " + r.mealDays + " ateriapäivää · " + root.status(r.status) : "";
+                                    return r ? qsTranslate("Studio", "Viimeiset 7 päivää: HH-suhde ") + root.n(r.ratio) + " g/U · " + r.mealDays + qsTranslate("Studio", " ateriapäivää · ") + root.status(r.status) : "";
                                 }
                             }
                             Disclosure {
                                 Layout.fillWidth: true
-                                title: "Käytetyt tapahtumat"
+                                title: qsTranslate("Studio", "Käytetyt tapahtumat")
                                 Repeater {
                                     model: card.modelData.observations || []
                                     delegate: Label {
                                         required property var modelData
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: modelData.day + " · " + (modelData.kind === "isf" ? "Korjaus" : "Ateria") + " · glukoosin muutos " + root.n(modelData.delta) + " mmol/l · " + modelData.id
+                                        text: modelData.day + " · " + (modelData.kind === "isf" ? qsTranslate("Studio", "Korjaus") : qsTranslate("Studio", "Ateria")) + qsTranslate("Studio", " · glukoosin muutos ") + root.n(modelData.delta) + " mmol/l · " + modelData.id
                                     }
                                 }
                             }
                         }
                         Button {
-                            text: "Tarkista HH-suhteen muutos"
+                            text: qsTranslate("Studio", "Tarkista HH-suhteen muutos")
                             visible: root.studio.response.medicationApproved === true
                             enabled: card.modelData.status === "estimated" && root.studio.response.medicationApproved === true
                             onClicked: root.proposal = root.studio.proposeResponse(card.modelData.index)
@@ -265,10 +265,10 @@ ScrollView {
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: root.proposal.status === "proposal" ? "HH-suhde " + root.n(root.proposal.current) + " → " + root.n(root.proposal.candidate) + " g/U\nSaman HH-määrän annosmuutos " + root.n(root.proposal.doseChangePercent) + " % · suhteen muutos " + root.n(root.proposal.ratioChangePercent) + " %" : (root.proposal.reasons || []).join("\n")
+                    text: root.proposal.status === "proposal" ? "HH-suhde " + root.n(root.proposal.current) + " → " + root.n(root.proposal.candidate) + qsTranslate("Studio", " g/U\nSaman HH-määrän annosmuutos ") + root.n(root.proposal.doseChangePercent) + qsTranslate("Studio", " % · suhteen muutos ") + root.n(root.proposal.ratioChangePercent) + " %" : (root.proposal.reasons || []).join("\n")
                 }
                 Button {
-                    text: "Hyväksy muutos uuteen profiiliin"
+                    text: qsTranslate("Studio", "Hyväksy muutos uuteen profiiliin")
                     visible: root.proposal.status === "proposal"
                     enabled: root.proposal.status === "proposal"
                     onClicked: {
@@ -287,14 +287,14 @@ ScrollView {
         }
         Disclosure {
             Layout.fillWidth: true
-            title: "Pitkän ajan vertailujaksot"
+            title: qsTranslate("Studio", "Pitkän ajan vertailujaksot")
             visible: root.studio.response.status === "evaluated"
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 text: {
                     let p = root.studio.response.reference || {};
-                    return p.from ? "Vertailu: " + new Date(p.from).toLocaleDateString() + " – " + new Date(p.to - 1).toLocaleDateString() + " · " + (root.studio.response.referenceSelection === "entire_window" ? "koko vertailujakso" : "lähin vertailukelpoinen hoitojakso") : "Vertailukelpoista aiempaa jaksoa ei ole.";
+                    return p.from ? "Vertailu: " + new Date(p.from).toLocaleDateString() + " – " + new Date(p.to - 1).toLocaleDateString() + " · " + (root.studio.response.referenceSelection === "entire_window" ? qsTranslate("Studio", "koko vertailujakso") : qsTranslate("Studio", "lähin vertailukelpoinen hoitojakso")) : qsTranslate("Studio", "Vertailukelpoista aiempaa jaksoa ei ole.");
                 }
             }
             Repeater {
@@ -303,13 +303,13 @@ ScrollView {
                     required property var modelData
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: new Date(modelData.from).toLocaleDateString() + " – " + new Date(modelData.to - 1).toLocaleDateString() + " · " + root.status(modelData.status) + (modelData.comparable === false ? " · eri hoito, ei suoraa vertailua" : "") + "\n" + (modelData.groups || []).map(g => g.name + ": korjausvaste " + root.n(g.isf) + " mmol/l/U, HH-suhde " + root.n(g.ratio) + " g/U (" + root.status(g.status) + ")").join("\n")
+                    text: new Date(modelData.from).toLocaleDateString() + " – " + new Date(modelData.to - 1).toLocaleDateString() + " · " + root.status(modelData.status) + (modelData.comparable === false ? qsTranslate("Studio", " · eri hoito, ei suoraa vertailua") : "") + "\n" + (modelData.groups || []).map(g => g.name + ": korjausvaste " + root.n(g.isf) + qsTranslate("Studio", " mmol/l/U, HH-suhde ") + root.n(g.ratio) + " g/U (" + root.status(g.status) + ")").join("\n")
                 }
             }
         }
         Disclosure {
             Layout.fillWidth: true
-            title: "Arviosta pois jätetyt tapahtumat (" + (root.studio.response.excluded || []).length + ")"
+            title: qsTranslate("Studio", "Arviosta pois jätetyt tapahtumat (") + (root.studio.response.excluded || []).length + ")"
             visible: (root.studio.response.excluded || []).length > 0
             Repeater {
                 model: root.studio.response.excluded || []
@@ -324,57 +324,57 @@ ScrollView {
         Disclosure {
             objectName: "responseCandidatesSection"
             Layout.fillWidth: true
-            title: "Tarkistettavat tapahtumat (" + root.studio.responseCandidates.length + ")"
+            title: qsTranslate("Studio", "Tarkistettavat tapahtumat (") + root.studio.responseCandidates.length + ")"
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: "Avaa tapahtuma ja vahvista annokset sekä kirjausten kattavuus."
+                text: qsTranslate("Studio", "Avaa tapahtuma ja vahvista annokset sekä kirjausten kattavuus.")
             }
             Repeater {
                 model: root.studio.responseCandidates
                 delegate: Button {
                     required property var modelData
-                    text: modelData.startText + " · " + (modelData.kind === "icr" ? "Ateria" : "Korjaus") + " · " + modelData.linkedIds.length + " kirjausta"
+                    text: modelData.startText + " · " + (modelData.kind === "icr" ? qsTranslate("Studio", "Ateria") : qsTranslate("Studio", "Korjaus")) + " · " + modelData.linkedIds.length + " kirjausta"
                     onClicked: root.selectCandidate(modelData)
                 }
             }
         }
         Disclosure {
             Layout.fillWidth: true
-            title: "Mittausvirheen tarkistus"
+            title: qsTranslate("Studio", "Mittausvirheen tarkistus")
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: "Kirjaa vain erikseen varmistettu mittausvirhe. Aidon matalan glukoosin havaintoa ei saa poistaa tästä. Alkuperäiset tiedot säilyvät, ja lähdemuutos mitätöi tarkistuksen."
+                text: qsTranslate("Studio", "Kirjaa vain erikseen varmistettu mittausvirhe. Aidon matalan glukoosin havaintoa ei saa poistaa tästä. Alkuperäiset tiedot säilyvät, ja lähdemuutos mitätöi tarkistuksen.")
             }
             RowLayout {
                 TextField {
                     id: artifactFrom
-                    placeholderText: "Alku vvvv-kk-pp tt:mm"
+                    placeholderText: qsTranslate("Studio", "Alku vvvv-kk-pp tt:mm")
                     Layout.fillWidth: true
                 }
                 TextField {
                     id: artifactTo
-                    placeholderText: "Loppu vvvv-kk-pp tt:mm"
+                    placeholderText: qsTranslate("Studio", "Loppu vvvv-kk-pp tt:mm")
                     Layout.fillWidth: true
                 }
             }
             TextField {
                 id: artifactReason
-                placeholderText: "Syy mittauksen epäluotettavuuteen"
+                placeholderText: qsTranslate("Studio", "Syy mittauksen epäluotettavuuteen")
                 Layout.fillWidth: true
             }
             TextField {
                 id: artifactEvidence
-                placeholderText: "Mihin varmennus perustuu (esim. vertailumittaus)"
+                placeholderText: qsTranslate("Studio", "Mihin varmennus perustuu (esim. vertailumittaus)")
                 Layout.fillWidth: true
             }
             ReviewCheckBox {
                 id: artifactConfirmed
-                text: "Olen varmistanut ja dokumentoinut mittausartefaktin; kyse ei ole aidon hypoglykemian poissulusta"
+                text: qsTranslate("Studio", "Olen varmistanut ja dokumentoinut mittausartefaktin; kyse ei ole aidon hypoglykemian poissulusta")
             }
             Button {
-                text: "Tallenna artefaktin tarkistus"
+                text: qsTranslate("Studio", "Tallenna artefaktin tarkistus")
                 enabled: artifactConfirmed.checked
                 onClicked: {
                     root.studio.reviewGlucoseArtifact(artifactFrom.text, artifactTo.text, artifactReason.text, artifactEvidence.text, artifactConfirmed.checked);
@@ -389,10 +389,10 @@ ScrollView {
                     Label {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: new Date(artifactRow.modelData.from_time).toLocaleString() + " – " + new Date(artifactRow.modelData.to_time).toLocaleString() + " · " + artifactRow.modelData.reason + " · " + (artifactRow.modelData.current ? "voimassa" : "ei voimassa / lähde muuttunut")
+                        text: new Date(artifactRow.modelData.from_time).toLocaleString() + " – " + new Date(artifactRow.modelData.to_time).toLocaleString() + " · " + artifactRow.modelData.reason + " · " + (artifactRow.modelData.current ? "voimassa" : qsTranslate("Studio", "ei voimassa / lähde muuttunut"))
                     }
                     Button {
-                        text: "Peru tarkistus"
+                        text: qsTranslate("Studio", "Peru tarkistus")
                         enabled: !!artifactRow.modelData.active
                         onClicked: root.studio.removeGlucoseArtifact(artifactRow.modelData.id)
                     }
@@ -402,11 +402,11 @@ ScrollView {
         Disclosure {
             objectName: "responsePolicySection"
             Layout.fillWidth: true
-            title: "Laskennan asetukset"
+            title: qsTranslate("Studio", "Laskennan asetukset")
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: "Määritä neljän ryhmän alkamisajat kasvavassa järjestyksessä. Viimeinen ryhmä jatkuu keskiyön yli ensimmäiseen. Tyhjät kelpuutus- tai muutosrajat estävät laskennan. Tekniset bootstrap-asetukset eivät määritä lääkeannosta."
+                text: qsTranslate("Studio", "Määritä neljän ryhmän alkamisajat kasvavassa järjestyksessä. Viimeinen ryhmä jatkuu keskiyön yli ensimmäiseen. Tyhjät kelpuutus- tai muutosrajat estävät laskennan. Tekniset bootstrap-asetukset eivät määritä lääkeannosta.")
             }
             Repeater {
                 model: root.draft.groups || []
@@ -427,7 +427,7 @@ ScrollView {
                         }
                     }
                     TextField {
-                        placeholderText: "Ulkoinen ISF, valinnainen"
+                        placeholderText: qsTranslate("Studio", "Ulkoinen ISF, valinnainen")
                         text: groupRow.modelData.externalIsf === null ? "" : groupRow.modelData.externalIsf
                         onEditingFinished: root.groupSet(groupRow.index, "externalIsf", text.trim().length ? Number(text.replace(",", ".")) : null)
                     }
@@ -436,20 +436,20 @@ ScrollView {
             Repeater {
                 model: [
                     {
-                        title: "Aineiston riittävyys",
-                        fields: [["minimumEpisodes", "Tapahtumia vähintään / ryhmä"], ["minimumDays", "Erillisiä päiviä vähintään / ryhmä"], ["minimumBasalDays", "Vakaita perusvaikutuksen päiviä vähintään"], ["minCoverage", "Datan vähimmäiskattavuus (0–1)"], ["doseMatchToleranceUnits", "Sallittu annospoikkeama profiilista (U)"], ["minimumDose", "Pienin kelpuutettava annos (U)"], ["minimumCarbs", "Pienin kelpuutettava HH-määrä (g)"]]
+                        title: qsTranslate("Studio", "Aineiston riittävyys"),
+                        fields: [["minimumEpisodes", qsTranslate("Studio", "Tapahtumia vähintään / ryhmä")], ["minimumDays", qsTranslate("Studio", "Erillisiä päiviä vähintään / ryhmä")], ["minimumBasalDays", qsTranslate("Studio", "Vakaita perusvaikutuksen päiviä vähintään")], ["minCoverage", qsTranslate("Studio", "Datan vähimmäiskattavuus (0–1)")], ["doseMatchToleranceUnits", qsTranslate("Studio", "Sallittu annospoikkeama profiilista (U)")], ["minimumDose", qsTranslate("Studio", "Pienin kelpuutettava annos (U)")], ["minimumCarbs", qsTranslate("Studio", "Pienin kelpuutettava HH-määrä (g)")]]
                     },
                     {
-                        title: "Arvion luotettavuus",
-                        fields: [["maxRelativeWidth", "Suurin suhteellinen arvioalueen leveys"], ["maxDayInfluencePercent", "Yhden päivän suurin vaikutus (%)"], ["maxPeriodDriftPercent", "Osajaksojen suurin muutos (%)"], ["maxInvalidFraction", "Suurin puuttuvien estimaattien osuus"]]
+                        title: qsTranslate("Studio", "Arvion luotettavuus"),
+                        fields: [["maxRelativeWidth", qsTranslate("Studio", "Suurin suhteellinen arvioalueen leveys")], ["maxDayInfluencePercent", qsTranslate("Studio", "Yhden päivän suurin vaikutus (%)")], ["maxPeriodDriftPercent", qsTranslate("Studio", "Osajaksojen suurin muutos (%)")], ["maxInvalidFraction", qsTranslate("Studio", "Suurin puuttuvien estimaattien osuus")]]
                     },
                     {
-                        title: "Muutosehdotusten rajat",
-                        fields: [["doseStepPercent", "Saman HH-määrän annosmuutosaskel (%)"], ["maximumChangePercent", "Suurin sallittu annosmuutos (%)"]]
+                        title: qsTranslate("Studio", "Muutosehdotusten rajat"),
+                        fields: [["doseStepPercent", qsTranslate("Studio", "Saman HH-määrän annosmuutosaskel (%)")], ["maximumChangePercent", qsTranslate("Studio", "Suurin sallittu annosmuutos (%)")]]
                     },
                     {
-                        title: "Laskentamenetelmä",
-                        fields: [["bootstrapSamples", "Bootstrap-toistot"], ["blockDays", "Peräkkäisiä päiviä lohkossa"], ["endpointMinutes", "Alku-/loppumediaanin ikkuna (min)"]]
+                        title: qsTranslate("Studio", "Laskentamenetelmä"),
+                        fields: [["bootstrapSamples", "Bootstrap-toistot"], ["blockDays", qsTranslate("Studio", "Peräkkäisiä päiviä lohkossa")], ["endpointMinutes", qsTranslate("Studio", "Alku-/loppumediaanin ikkuna (min)")]]
                     }
                 ]
                 delegate: Disclosure {
@@ -472,7 +472,7 @@ ScrollView {
                                 objectName: "responsePolicyField" + policyField.modelData[0]
                                 Layout.fillWidth: true
                                 text: root.draft[policyField.modelData[0]] === null ? "" : root.draft[policyField.modelData[0]]
-                                placeholderText: "Määritettävä"
+                                placeholderText: qsTranslate("Studio", "Määritettävä")
                                 onEditingFinished: root.set(policyField.modelData[0], text.trim().length ? Number(text.replace(",", ".")) : null)
                             }
                         }
@@ -481,33 +481,33 @@ ScrollView {
             }
             RowLayout {
                 Button {
-                    text: "Tallenna luonnos"
+                    text: qsTranslate("Studio", "Tallenna luonnos")
                     onClicked: {
                         let r = root.studio.saveResponsePolicy(root.draft, false);
-                        root.message = r.status === "saved" ? "Luonnos tallennettu." : (r.reasons || []).join("\n");
+                        root.message = r.status === "saved" ? qsTranslate("Studio", "Luonnos tallennettu.") : (r.reasons || []).join("\n");
                     }
                 }
                 Button {
-                    text: "Hyväksy vastepolitiikka"
+                    text: qsTranslate("Studio", "Hyväksy vastepolitiikka")
                     onClicked: {
                         let r = root.studio.saveResponsePolicy(root.draft, true);
-                        root.message = r.status === "saved" ? "Vastepolitiikka hyväksytty." : (r.reasons || []).join("\n");
+                        root.message = r.status === "saved" ? qsTranslate("Studio", "Vastepolitiikka hyväksytty.") : (r.reasons || []).join("\n");
                     }
                 }
             }
         }
         Disclosure {
             Layout.fillWidth: true
-            title: "Mitä arvio tarkoittaa?"
+            title: qsTranslate("Studio", "Mitä arvio tarkoittaa?")
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: "Korjausvaste kertoo glukoosin laskun insuliiniyksikköä kohti. HH-suhde kertoo hiilihydraattigrammat yksikköä kohti. Arvio ja käytössä oleva hoitoasetus ovat erillisiä."
+                text: qsTranslate("Studio", "Korjausvaste kertoo glukoosin laskun insuliiniyksikköä kohti. HH-suhde kertoo hiilihydraattigrammat yksikköä kohti. Arvio ja käytössä oleva hoitoasetus ovat erillisiä.")
             }
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: "Tutkimusmalli. Bootstrap-arvioalue kuvaa aineiston vaihtelua, mutta ei kaikkia kirjaus- tai imeytymisvirheitä. Lääkemuutokset tarvitsevat erillisen hyväksynnän."
+                text: qsTranslate("Studio", "Tutkimusmalli. Bootstrap-arvioalue kuvaa aineiston vaihtelua, mutta ei kaikkia kirjaus- tai imeytymisvirheitä. Lääkemuutokset tarvitsevat erillisen hyväksynnän.")
             }
         }
     }

@@ -38,6 +38,11 @@ class Backend : public QObject {
     Q_PROPERTY(QVariantList profileVersions READ profileVersions NOTIFY changed)
     Q_PROPERTY(QString status READ status NOTIFY changed)
     Q_PROPERTY(bool busy READ busy NOTIFY changed)
+    Q_PROPERTY(bool backgroundBusy READ backgroundBusy NOTIFY changed)
+    Q_PROPERTY(bool updateInProgress READ updateInProgress NOTIFY changed)
+    Q_PROPERTY(bool updateComplete READ updateComplete NOTIFY changed)
+    Q_PROPERTY(QString language READ language NOTIFY changed)
+    Q_PROPERTY(QString backupStatus READ backupStatus NOTIFY changed)
     Q_PROPERTY(QVariantMap chart READ chart NOTIFY changed)
     Q_PROPERTY(QVariantMap currentDayChart READ currentDayChart NOTIFY changed)
     Q_PROPERTY(QVariantList diary READ diary NOTIFY changed)
@@ -54,6 +59,15 @@ class Backend : public QObject {
   public:
     explicit Backend(const QString& root, QObject* parent = nullptr, Studio::Importer::Fetch jugglucoFetch = {});
     ~Backend() override;
+    void enableBackgroundWork();
+    QString language() const;
+    Q_INVOKABLE bool setLanguage(const QString& language);
+    Q_SLOT void retranslateUi();
+    bool backgroundBusy() const { return summaryRunning || backupRunning; }
+    bool summaryBusy() const { return summaryRunning; }
+    bool updateInProgress() const { return m_busy || summaryRunning || backupRunning || backupPending || dailyRunning || automaticRunning; }
+    bool updateComplete() const { return updateSucceeded && updateBackupSucceeded && summarySucceeded && !updateInProgress(); }
+    QString backupStatus() const { return m_backupStatus; }
     QVariantMap dailyAnalysis() const { return dailyResult.toVariantMap(); }
     Q_INVOKABLE void refreshDailyAnalysis();
     QVariantMap currentReading() const { return m_currentReading; }
@@ -139,6 +153,21 @@ class Backend : public QObject {
     void syncFinished(bool ok);
 
   private:
+    // Isolated read-only worker: no source configuration reads or network work.
+    struct SnapshotReader {};
+    Backend(const QString& root, const QString& databasePath, SnapshotReader);
+    bool updateSucceeded = false, updateBackupSucceeded = false, summarySucceeded = false;
+    bool backgroundWork = false, summaryRunning = false, summaryPending = false;
+    bool backupRunning = false, backupPending = false;
+    QString summaryRequestedKey, runningSummaryKey, completedSummaryKey, m_backupStatus;
+    QString runningBackupPath;
+    QFutureWatcher<QVariantMap> summaryWatcher, backupWatcher;
+    QString summaryKey() const;
+    void requestSummary();
+    void launchSummary();
+    void launchBackup();
+    QString backupNow();
+    static QVariantMap backupSnapshot(const QString& path, const QString& root, const Studio::Connection& config);
     QVariantMap m_currentReading;
     QFutureWatcher<QJsonObject> dailyWatcher;
     QJsonObject dailyResult;

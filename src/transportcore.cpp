@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "transport.h"
 #include "wireguard.h"
 #include <QHostAddress>
@@ -15,15 +16,15 @@ Transport::Transport(QObject* parent) : QObject(parent) {}
 void Transport::get(const Connection& connection, const QString& path, std::function<void(QByteArray, QString)> done) {
     constexpr qsizetype limit = 64 * 1024 * 1024;
     if (busy) {
-        done({}, "Tiedonsiirto on jo käynnissä.");
+        done({}, QCoreApplication::translate("Studio", "Tiedonsiirto on jo käynnissä."));
         return;
     }
     if (!path.startsWith("/x/") || path.contains('\r') || path.contains('\n')) {
-        done({}, "Virheellinen vientipolku.");
+        done({}, QCoreApplication::translate("Studio", "Virheellinen vientipolku."));
         return;
     }
     if (connection.auth != "none" && connection.secret.isEmpty()) {
-        done({}, "Avainrengas on lukittu tai yhteystunnus puuttuu.");
+        done({}, QCoreApplication::translate("Studio", "Avainrengas on lukittu tai yhteystunnus puuttuu."));
         return;
     }
     const QByteArray auth = connection.auth == "none" ? QByteArray() : QCryptographicHash::hash(connection.secret.toUtf8(), QCryptographicHash::Sha1).toHex();
@@ -64,12 +65,12 @@ void Transport::get(const Connection& connection, const QString& path, std::func
             bytes->append(process->readAllStandardOutput());
             process->deleteLater();
             if (*timedOut || code != 0) {
-                done({}, "USB-siirto epäonnistui tai aikakatkaistiin. Tarkista yhteys.");
+                done({}, QCoreApplication::translate("Studio", "USB-siirto epäonnistui tai aikakatkaistiin. Tarkista yhteys."));
                 return;
             }
             const int split = bytes->indexOf("\r\n\r\n");
             if (split < 0) {
-                done({}, "USB-lähde ei palauttanut HTTP-vastausta.");
+                done({}, QCoreApplication::translate("Studio", "USB-lähde ei palauttanut HTTP-vastausta."));
                 return;
             }
             const auto headers = bytes->left(split).split('\n');
@@ -80,7 +81,7 @@ void Transport::get(const Connection& connection, const QString& path, std::func
                 return;
             }
             if (status.size() < 2 || status[1] != "200") {
-                done({}, "Juggluco hylkäsi USB-haun. Tarkista tunnistautuminen ja palvelin.");
+                done({}, QCoreApplication::translate("Studio", "Juggluco hylkäsi USB-haun. Tarkista tunnistautuminen ja palvelin."));
                 return;
             }
             qint64 length = -1;
@@ -95,7 +96,7 @@ void Transport::get(const Connection& connection, const QString& path, std::func
                 if (h.startsWith("transfer-encoding:")) chunked = true;
             }
             if (chunked || length < 0 || body.size() != length || body.size() > limit) {
-                done({}, "Vientivastaus on vajaa tai sen kehystys ei ole tuettu.");
+                done({}, QCoreApplication::translate("Studio", "Vientivastaus on vajaa tai sen kehystys ei ole tuettu."));
                 return;
             }
             done(body, {});
@@ -116,7 +117,7 @@ void Transport::get(const Connection& connection, const QString& path, std::func
     if (!base.isValid() || (base.scheme() != "https" && base.scheme() != "http") || !base.userInfo().isEmpty() || base.hasQuery() || base.hasFragment() ||
         (!base.path().isEmpty() && base.path() != "/")) {
         busy = false;
-        done({}, "Anna palvelimen http/https-juuriosoite ilman tunnuksia tai kyselyparametreja.");
+        done({}, QCoreApplication::translate("Studio", "Anna palvelimen http/https-juuriosoite ilman tunnuksia tai kyselyparametreja."));
         return;
     }
     // Raw HTTP/1.0 request over a socket: the phone's server compares the api-secret
@@ -126,7 +127,7 @@ void Transport::get(const Connection& connection, const QString& path, std::func
     QHostAddress destination;
     if (guarded && (!destination.setAddress(url.host()) || !destination.scopeId().isEmpty())) {
         busy = false;
-        done({}, "WireGuard-yhteys tarvitsee puhelimen numeerisen tunneliosoitteen.");
+        done({}, QCoreApplication::translate("Studio", "WireGuard-yhteys tarvitsee puhelimen numeerisen tunneliosoitteen."));
         return;
     }
     const quint16 port = quint16(url.port(tls ? 443 : 80));
@@ -156,14 +157,14 @@ void Transport::get(const Connection& connection, const QString& path, std::func
         }
         const int split = bytes->indexOf("\r\n\r\n");
         if (split < 0) {
-            done({}, "Palvelin ei palauttanut HTTP-vastausta.");
+            done({}, QCoreApplication::translate("Studio", "Palvelin ei palauttanut HTTP-vastausta."));
             return;
         }
         const auto headers = bytes->left(split).split('\n');
         const auto status = headers.value(0).trimmed().split(' ');
         auto body = bytes->mid(split + 4);
         if (status.size() < 2 || status[1] != "200") {
-            done({}, status.value(1) == "413" ? QString("HTTP 413") : QString("Palvelin hylkäsi haun (HTTP %1).").arg(status.value(1).toInt()));
+            done({}, status.value(1) == "413" ? QString("HTTP 413") : QString(QCoreApplication::translate("Studio", "Palvelin hylkäsi haun (HTTP %1).")).arg(status.value(1).toInt()));
             return;
         }
         qint64 length = -1;
@@ -178,7 +179,7 @@ void Transport::get(const Connection& connection, const QString& path, std::func
             if (h.startsWith("transfer-encoding:")) chunked = true;
         }
         if (chunked || length < 0 || body.size() != length || body.size() > limit) {
-            done({}, "Vastaus on vajaa tai sen kehystys ei ole tuettu.");
+            done({}, QCoreApplication::translate("Studio", "Vastaus on vajaa tai sen kehystys ei ole tuettu."));
             return;
         }
         done(body, {});
@@ -204,7 +205,7 @@ void Transport::get(const Connection& connection, const QString& path, std::func
     connect(socket, &QTcpSocket::readyRead, socket, [socket, bytes, finish] {
         bytes->append(socket->readAll());
         if (bytes->size() > 64 * 1024 * 1024) {
-            finish("Vastaus ylittää kokorajan.");
+            finish(QCoreApplication::translate("Studio", "Vastaus ylittää kokorajan."));
             socket->abort();
         }
     });
@@ -212,11 +213,11 @@ void Transport::get(const Connection& connection, const QString& path, std::func
     connect(socket, &QTcpSocket::errorOccurred, socket, [finish](QAbstractSocket::SocketError e) {
         // The server closes the connection after the response; that is not a failure.
         if (e == QAbstractSocket::RemoteHostClosedError) return;
-        finish("Verkkohaku epäonnistui. Tarkista vaadittu yhteys, palvelin ja tunnistautuminen.");
+        finish(QCoreApplication::translate("Studio", "Verkkohaku epäonnistui. Tarkista vaadittu yhteys, palvelin ja tunnistautuminen."));
     });
     connect(timer, &QTimer::timeout, socket, [socket, finish] {
         socket->abort();
-        finish("Verkkohaku aikakatkaistiin.");
+        finish(QCoreApplication::translate("Studio", "Verkkohaku aikakatkaistiin."));
     });
     if (tls) {
         auto* ssl = static_cast<QSslSocket*>(socket);

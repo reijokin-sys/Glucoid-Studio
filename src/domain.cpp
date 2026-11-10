@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "domain.h"
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -36,7 +37,7 @@ ParsedAmounts parseAmounts(const QByteArray& data) {
     const auto h = header(data, lines);
     const int si = h.indexOf("Source"), ni = h.indexOf("nr"), ti = h.indexOf("UnixTime"), vi = h.indexOf("Value"), li = h.indexOf("Label");
     if (si < 0 || ni < 0 || ti < 0 || vi < 0 || li < 0) {
-        out.error = "Tuntematon tai katkennut merkintävienti.";
+        out.error = QCoreApplication::translate("Studio", "Tuntematon tai katkennut merkintävienti.");
         return out;
     }
     QHash<QString, int> occurrences;
@@ -44,13 +45,13 @@ ParsedAmounts parseAmounts(const QByteArray& data) {
         if (line.trimmed().isEmpty()) continue;
         const auto c = QString::fromUtf8(line).trimmed().split('\t');
         if (c.size() != h.size()) {
-            out.error = "Merkintäviennissä on vajaa rivi.";
+            out.error = QCoreApplication::translate("Studio", "Merkintäviennissä on vajaa rivi.");
             break;
         }
         bool ot = false, ov = false;
         const double t = c[ti].toDouble(&ot), v = c[vi].toDouble(&ov);
         if (!ot || !ov || !std::isfinite(t) || !std::isfinite(v) || t <= 0 || t > 1e11 || v < 0 || c[li].isEmpty()) {
-            out.error = "Virheellinen merkintä.";
+            out.error = QCoreApplication::translate("Studio", "Virheellinen merkintä.");
             break;
         }
         Amount a;
@@ -74,7 +75,7 @@ QJsonObject emptyProfile() {
                   {"rapidMedicine", ""}, {"basalMedicine", ""},  {"basalTime", ""},   {"rounding", "down"}};
     for (const QString k : {"targetLow", "targetHigh", "target", "hypo", "maxGlucoseAgeMinutes", "maxBolus", "doseIncrement", "basalDose", "basalStableDays"})
         p[k] = QJsonValue();
-    p["slots"] = QJsonArray{QJsonObject{{"name", "Koko vuorokausi"}, {"startMinute", 0}, {"icr", QJsonValue()}, {"isf", QJsonValue()}}};
+    p["slots"] = QJsonArray{QJsonObject{{"name", QCoreApplication::translate("Studio", "Koko vuorokausi")}, {"startMinute", 0}, {"icr", QJsonValue()}, {"isf", QJsonValue()}}};
     p["actionModel"] = QJsonObject{{"name", ""}, {"reference", ""}, {"medicine", ""}, {"durationMinutes", QJsonValue()}, {"curve", QJsonArray()}};
     QJsonObject rules;
     for (const QString k : {"minimumEpisodes",    "minimumDays",      "minCoverage",         "maxGapMinutes",     "consensus",
@@ -88,40 +89,40 @@ QJsonObject emptyProfile() {
 static QStringList validateProfileImpl(const QJsonObject& p, bool historical, bool response = false) {
     QStringList e;
     const auto missing = [](const QJsonValue& v) { return v.isNull() || v.isUndefined(); };
-    const QMap<QString, QString> fieldNames{{"targetLow", "tavoitealueen alaraja (mmol/l)"},
-                                            {"targetHigh", "tavoitealueen yläraja (mmol/l)"},
-                                            {"target", "annoslaskurin tavoite (mmol/l)"},
-                                            {"hypo", "matalan glukoosin raja (mmol/l)"},
-                                            {"maxGlucoseAgeMinutes", "mittauksen enimmäisikä (min)"},
-                                            {"maxBolus", "enimmäisannos (U)"},
+    const QMap<QString, QString> fieldNames{{"targetLow", QCoreApplication::translate("Studio", "tavoitealueen alaraja (mmol/l)")},
+                                            {"targetHigh", QCoreApplication::translate("Studio", "tavoitealueen yläraja (mmol/l)")},
+                                            {"target", QCoreApplication::translate("Studio", "annoslaskurin tavoite (mmol/l)")},
+                                            {"hypo", QCoreApplication::translate("Studio", "matalan glukoosin raja (mmol/l)")},
+                                            {"maxGlucoseAgeMinutes", QCoreApplication::translate("Studio", "mittauksen enimmäisikä (min)")},
+                                            {"maxBolus", QCoreApplication::translate("Studio", "enimmäisannos (U)")},
                                             {"doseIncrement", "annosporras (U)"},
-                                            {"basalDose", "perusinsuliinin annos (U)"},
-                                            {"basalStableDays", "perusannoksen tasaantumisaika (vrk)"}};
-    if (p["schema"].toInt() != 1 || !p["researchOnly"].toBool()) e << "Vain tutkimusprofiilin skeema 1 on tuettu.";
+                                            {"basalDose", QCoreApplication::translate("Studio", "perusinsuliinin annos (U)")},
+                                            {"basalStableDays", QCoreApplication::translate("Studio", "perusannoksen tasaantumisaika (vrk)")}};
+    if (p["schema"].toInt() != 1 || !p["researchOnly"].toBool()) e << QCoreApplication::translate("Studio", "Vain tutkimusprofiilin skeema 1 on tuettu.");
     for (const QString k : {"targetLow", "targetHigh", "target", "hypo", "maxGlucoseAgeMinutes", "maxBolus", "doseIncrement", "basalDose", "basalStableDays"})
         if (!(historical && QStringList{"maxGlucoseAgeMinutes", "maxBolus", "doseIncrement"}.contains(k)) && !(response && k == "target" && missing(p[k])) &&
             !positive(number(p, k)))
-            e << "Puuttuva tai virheellinen arvo: " + fieldNames.value(k, k);
+            e << QCoreApplication::translate("Studio", "Puuttuva tai virheellinen arvo: ") + fieldNames.value(k, k);
     if (!(number(p, "hypo") <= number(p, "targetLow") && number(p, "targetLow") <= number(p, "targetHigh")) ||
         (!(response && missing(p["target"])) && !(number(p, "targetLow") <= number(p, "target") && number(p, "target") <= number(p, "targetHigh"))))
-        e << "Tavoite- ja hypoglykemiarajojen järjestys ei kelpaa.";
-    if (!historical && number(p, "doseIncrement") > number(p, "maxBolus")) e << "Annosporras ylittää enimmäisannoksen.";
+        e << QCoreApplication::translate("Studio", "Tavoite- ja hypoglykemiarajojen järjestys ei kelpaa.");
+    if (!historical && number(p, "doseIncrement") > number(p, "maxBolus")) e << QCoreApplication::translate("Studio", "Annosporras ylittää enimmäisannoksen.");
     for (const QString k : {"rapidMedicine", "basalMedicine", "reviewer"})
-        if (p[k].toString().trimmed().isEmpty()) e << "Puuttuva tieto: " + k;
-    if (!QTime::fromString(p["basalTime"].toString(), "HH:mm").isValid()) e << "Perusinsuliinin annostusaika puuttuu.";
-    if (!QTimeZone(p["timezone"].toString().toUtf8()).isValid()) e << "Tuntematon aikavyöhyke.";
-    if (!historical && p["rounding"] != "down" && p["rounding"] != "nearest") e << "Tuntematon pyöristyssääntö.";
+        if (p[k].toString().trimmed().isEmpty()) e << QCoreApplication::translate("Studio", "Puuttuva tieto: ") + k;
+    if (!QTime::fromString(p["basalTime"].toString(), "HH:mm").isValid()) e << QCoreApplication::translate("Studio", "Perusinsuliinin annostusaika puuttuu.");
+    if (!QTimeZone(p["timezone"].toString().toUtf8()).isValid()) e << QCoreApplication::translate("Studio", "Tuntematon aikavyöhyke.");
+    if (!historical && p["rounding"] != "down" && p["rounding"] != "nearest") e << QCoreApplication::translate("Studio", "Tuntematon pyöristyssääntö.");
     const auto periods = p["slots"].toArray();
     int prev = -1;
     QSet<QString> names;
-    if (periods.isEmpty()) e << "HH-suhde- ja korjauskerroinjaksot puuttuvat.";
+    if (periods.isEmpty()) e << QCoreApplication::translate("Studio", "HH-suhde- ja korjauskerroinjaksot puuttuvat.");
     for (const auto& s : periods) {
         const auto o = s.toObject();
         const double start = number(o, "startMinute");
         const QString name = o["name"].toString();
         if (!std::isfinite(start) || start != std::floor(start) || start <= prev || start >= 1440 || (prev == -1 && start != 0) || name.isEmpty() ||
             names.contains(name) || !positive(number(o, "icr")) || (!(response && missing(o["isf"])) && !positive(number(o, "isf"))))
-            e << "Virheellinen hoitojakso: " + name;
+            e << QCoreApplication::translate("Studio", "Virheellinen hoitojakso: ") + name;
         if (std::isfinite(start)) prev = int(start);
         names.insert(name);
     }
@@ -129,37 +130,37 @@ static QStringList validateProfileImpl(const QJsonObject& p, bool historical, bo
     const auto curve = a["curve"].toArray();
     if (a["name"].toString().isEmpty() || a["reference"].toString().isEmpty() || a["medicine"] != p["rapidMedicine"] ||
         !positive(number(a, "durationMinutes")) || (!historical && curve.size() < 2))
-        e << "Insuliinin hyväksyttävä vaikutusmalli puuttuu.";
+        e << QCoreApplication::translate("Studio", "Insuliinin hyväksyttävä vaikutusmalli puuttuu.");
     double lastT = -1, lastF = 1;
     for (int i = 0; !historical && i < curve.size(); ++i) {
         const auto pt = curve[i].toObject();
         const double t = number(pt, "minute"), f = number(pt, "fraction");
         if (!std::isfinite(t) || !std::isfinite(f) || t <= lastT || f < 0 || f > lastF || (i == 0 && (t != 0 || f != 1)) ||
             (i == curve.size() - 1 && (f != 0 || t != number(a, "durationMinutes"))))
-            e << "Vaikutuskäyrän on vähennyttävä arvosta 1 arvoon 0 määritetyssä vaikutusajassa.";
+            e << QCoreApplication::translate("Studio", "Vaikutuskäyrän on vähennyttävä arvosta 1 arvoon 0 määritetyssä vaikutusajassa.");
         lastT = t;
         lastF = f;
     }
     const auto r = p["rules"].toObject();
     for (const QString& k : emptyProfile()["rules"].toObject().keys())
-        if (!positive(number(r, k))) e << "Puuttuva laskentasääntö: " + k;
+        if (!positive(number(r, k))) e << QCoreApplication::translate("Studio", "Puuttuva laskentasääntö: ") + k;
     for (const QString k : {"minimumEpisodes", "minimumDays"})
-        if (number(r, k) != std::floor(number(r, k))) e << "Lukumäärän on oltava kokonaisluku: " + k;
+        if (number(r, k) != std::floor(number(r, k))) e << QCoreApplication::translate("Studio", "Lukumäärän on oltava kokonaisluku: ") + k;
     if (number(r, "consensus") <= 0.5 || number(r, "consensus") > 1 || number(r, "minCoverage") > 1 ||
         number(r, "stepPercent") > number(r, "maxChangePercent") || number(r, "maxChangePercent") >= 100)
-        e << "Laskentasääntöjen osuudet tai muutosrajat eivät kelpaa.";
+        e << QCoreApplication::translate("Studio", "Laskentasääntöjen osuudet tai muutosrajat eivät kelpaa.");
     if (number(r, "mealWindowMinutes") < number(a, "durationMinutes") || number(r, "correctionWindowMinutes") < number(a, "durationMinutes"))
-        e << "Aterian ja korjauksen seurannan on katettava pikainsuliinin koko vaikutusaika.";
+        e << QCoreApplication::translate("Studio", "Aterian ja korjauksen seurannan on katettava pikainsuliinin koko vaikutusaika.");
     for (const auto& name : QStringList{"Icr", "Isf", "Basal"})
-        if (number(r, "minimum" + name) >= number(r, "maximum" + name)) e << "Virheelliset parametrirajat: " + name;
+        if (number(r, "minimum" + name) >= number(r, "maximum" + name)) e << QCoreApplication::translate("Studio", "Virheelliset parametrirajat: ") + name;
     for (const auto& s : periods) {
         auto o = s.toObject();
         if (number(o, "icr") < number(r, "minimumIcr") || number(o, "icr") > number(r, "maximumIcr") || number(o, "isf") < number(r, "minimumIsf") ||
             number(o, "isf") > number(r, "maximumIsf"))
-            e << "Nykyinen hoitoasetus ylittää profiilin rajat.";
+            e << QCoreApplication::translate("Studio", "Nykyinen hoitoasetus ylittää profiilin rajat.");
     }
     if (number(p, "basalDose") < number(r, "minimumBasal") || number(p, "basalDose") > number(r, "maximumBasal"))
-        e << "Nykyinen perusinsuliini ylittää profiilin rajat.";
+        e << QCoreApplication::translate("Studio", "Nykyinen perusinsuliini ylittää profiilin rajat.");
     e.removeDuplicates();
     return e;
 }
@@ -236,45 +237,45 @@ static QJsonObject blocked(const QStringList& why) {
 }
 QJsonObject calculateBolus(const QJsonObject& profile, const QJsonObject& input, const QJsonArray& doses, qint64 now) {
     auto errors = validateProfile(profile);
-    if (!profile["approved"].toBool()) errors << "Hoitoprofiilia ei ole hyväksytty tutkimuslaskentaan.";
+    if (!profile["approved"].toBool()) errors << QCoreApplication::translate("Studio", "Hoitoprofiilia ei ole hyväksytty tutkimuslaskentaan.");
     for (const QString k : {"historyComplete", "carbsComplete", "contextReviewed"})
-        if (!input[k].toBool()) errors << "Vahvista tietojen kattavuus ja tilanteen soveltuvuus: " + k;
-    if (!input["reliable"].toBool()) errors << "Glukoosimittauksen luotettavuutta ei ole vahvistettu.";
+        if (!input[k].toBool()) errors << QCoreApplication::translate("Studio", "Vahvista tietojen kattavuus ja tilanteen soveltuvuus: ") + k;
+    if (!input["reliable"].toBool()) errors << QCoreApplication::translate("Studio", "Glukoosimittauksen luotettavuutta ei ole vahvistettu.");
     const double bg = number(input, "glucose"), carbs = number(input, "carbs"), stamp = number(input, "glucoseTime");
-    if (!positive(bg) || !std::isfinite(carbs) || carbs < 0 || !positive(stamp)) errors << "Virheellinen glukoosi-, aika- tai HH-tieto.";
-    if (bg <= number(profile, "hypo")) errors << "Matala glukoosi estää annosehdotuksen.";
-    if (stamp > now + 60000 || now - stamp > number(profile, "maxGlucoseAgeMinutes") * 60000) errors << "Mittaus on liian vanha tai tulevaisuudessa.";
+    if (!positive(bg) || !std::isfinite(carbs) || carbs < 0 || !positive(stamp)) errors << QCoreApplication::translate("Studio", "Virheellinen glukoosi-, aika- tai HH-tieto.");
+    if (bg <= number(profile, "hypo")) errors << QCoreApplication::translate("Studio", "Matala glukoosi estää annosehdotuksen.");
+    if (stamp > now + 60000 || now - stamp > number(profile, "maxGlucoseAgeMinutes") * 60000) errors << QCoreApplication::translate("Studio", "Mittaus on liian vanha tai tulevaisuudessa.");
     const auto s = slotProfile(profile, slotAt(profile, now));
-    if (s.isEmpty()) errors << "Tämän ajankohdan hoitoasetusta ei ole.";
+    if (s.isEmpty()) errors << QCoreApplication::translate("Studio", "Tämän ajankohdan hoitoasetusta ei ole.");
     const auto action = profile["actionModel"].toObject();
     double iob = 0;
     for (const auto& v : doses) {
         const auto d = v.toObject();
         const double time = number(d, "time"), units = number(d, "value");
         if (!positive(time) || !std::isfinite(units) || units < 0) {
-            errors << "Virheellinen insuliinimerkintä.";
+            errors << QCoreApplication::translate("Studio", "Virheellinen insuliinimerkintä.");
             continue;
         }
         if (time < now - number(action, "durationMinutes") * 60000) continue;
         if (time > now) {
-            errors << "Annosmerkintä on tulevaisuudessa.";
+            errors << QCoreApplication::translate("Studio", "Annosmerkintä on tulevaisuudessa.");
             continue;
         }
-        if (d["kind"] == "unknown" || d["stale"].toBool()) errors << "Annosikkunassa on luokittelematon tai muuttunut merkintä.";
+        if (d["kind"] == "unknown" || d["stale"].toBool()) errors << QCoreApplication::translate("Studio", "Annosikkunassa on luokittelematon tai muuttunut merkintä.");
         if (d["kind"] != "rapid") continue;
         if (d["medicine"] != profile["rapidMedicine"]) {
-            errors << "Pikainsuliini ei vastaa vaikutusmallia.";
+            errors << QCoreApplication::translate("Studio", "Pikainsuliini ei vastaa vaikutusmallia.");
             continue;
         }
         iob += units * remainingFraction(action["curve"].toArray(), (now - time) / 60000.0);
     }
     if (!errors.isEmpty()) return blocked(errors);
     const double meal = carbs / number(s, "icr"), corr = (bg - number(profile, "target")) / number(s, "isf"), raw = meal + corr - iob;
-    if (!std::isfinite(raw)) return blocked({"Laskentatulos ei ole äärellinen."});
-    if (raw > number(profile, "maxBolus")) return blocked({"Laskelma ylittää profiilin enimmäisannoksen."});
+    if (!std::isfinite(raw)) return blocked({QCoreApplication::translate("Studio", "Laskentatulos ei ole äärellinen.")});
+    if (raw > number(profile, "maxBolus")) return blocked({QCoreApplication::translate("Studio", "Laskelma ylittää profiilin enimmäisannoksen.")});
     const double step = number(profile, "doseIncrement"), positiveRaw = std::max(0.0, raw);
     const double units = (profile["rounding"] == "nearest" ? std::round(positiveRaw / step) : std::floor(positiveRaw / step + 1e-10)) * step;
-    if (units > number(profile, "maxBolus")) return blocked({"Pyöristetty annos ylittää enimmäisannoksen."});
+    if (units > number(profile, "maxBolus")) return blocked({QCoreApplication::translate("Studio", "Pyöristetty annos ylittää enimmäisannoksen.")});
     return {{"status", "research"},
             {"researchOnly", true},
             {"profileVersion", profile["version"]},
@@ -286,16 +287,16 @@ QJsonObject calculateBolus(const QJsonObject& profile, const QJsonObject& input,
             {"rounding", profile["rounding"]},
             {"time", double(now)},
             {"validUntil", stamp + number(profile, "maxGlucoseAgeMinutes") * 60000},
-            {"message", raw <= 0 ? "Ei positiivista annosehdotusta." : "Tutkimuslaskelma; ei toteutunut pistos."}};
+            {"message", raw <= 0 ? QCoreApplication::translate("Studio", "Ei positiivista annosehdotusta.") : QCoreApplication::translate("Studio", "Tutkimuslaskelma; ei toteutunut pistos.")}};
 }
 QJsonObject recommend(const QJsonObject& profile, const QString& kind, const QString& slot, const QJsonArray& episodes, qint64 now) {
     auto errors = profile["historical"].toBool() ? validateHistoricalProfile(profile) : validateProfile(profile);
-    if (!profile["approved"].toBool()) errors << "Hoitoprofiilia ei ole hyväksytty tutkimuslaskentaan.";
-    if (kind != "icr" && kind != "isf" && kind != "basal") errors << "Tuntematon arviointikohde.";
+    if (!profile["approved"].toBool()) errors << QCoreApplication::translate("Studio", "Hoitoprofiilia ei ole hyväksytty tutkimuslaskentaan.");
+    if (kind != "icr" && kind != "isf" && kind != "basal") errors << QCoreApplication::translate("Studio", "Tuntematon arviointikohde.");
     const auto r = profile["rules"].toObject(), s = slotProfile(profile, slot);
-    if (kind != "basal" && s.isEmpty()) errors << "Tuntematon hoitojakso.";
+    if (kind != "basal" && s.isEmpty()) errors << QCoreApplication::translate("Studio", "Tuntematon hoitojakso.");
     const double since = number(profile, "effectiveFrom");
-    if (!positive(since) || now - since < number(r, "minReviewDays") * 86400000) errors << "Profiilin muutoksesta ei ole riittävästi seuranta-aikaa.";
+    if (!positive(since) || now - since < number(r, "minReviewDays") * 86400000) errors << QCoreApplication::translate("Studio", "Profiilin muutoksesta ei ole riittävästi seuranta-aikaa.");
     if (!errors.isEmpty()) return blocked(errors);
     QJsonArray included, excluded;
     int up = 0, down = 0;
@@ -307,14 +308,14 @@ QJsonObject recommend(const QJsonObject& profile, const QString& kind, const QSt
         if (e["kind"] != kind || (kind != "basal" && e["slot"] != slot)) continue;
         QStringList reasons;
         const double start = number(e, "start"), end = number(e, "end");
-        if (!e["reviewed"].toBool() || !e["complete"].toBool() || !e["contextClear"].toBool()) reasons << "Tarkistus tai kattavuuden vahvistus puuttuu.";
-        if (e["stale"].toBool()) reasons << "Lähdetiedot ovat muuttuneet.";
-        if (e["profileVersion"] != profile["version"] || start < since) reasons << "Jakso kuuluu eri hoitoprofiiliin.";
+        if (!e["reviewed"].toBool() || !e["complete"].toBool() || !e["contextClear"].toBool()) reasons << QCoreApplication::translate("Studio", "Tarkistus tai kattavuuden vahvistus puuttuu.");
+        if (e["stale"].toBool()) reasons << QCoreApplication::translate("Studio", "Lähdetiedot ovat muuttuneet.");
+        if (e["profileVersion"] != profile["version"] || start < since) reasons << QCoreApplication::translate("Studio", "Jakso kuuluu eri hoitoprofiiliin.");
         if (end > now || end <= start || !positive(number(e, "coverage")) || number(e, "coverage") < number(r, "minCoverage"))
-            reasons << "Seuranta ei kata kelpuutettua jaksoa.";
-        if (kind == "basal" && !e["basalStable"].toBool()) reasons << "Perusinsuliinin vakaa annostus ei ole vahvistettu.";
+            reasons << QCoreApplication::translate("Studio", "Seuranta ei kata kelpuutettua jaksoa.");
+        if (kind == "basal" && !e["basalStable"].toBool()) reasons << QCoreApplication::translate("Studio", "Perusinsuliinin vakaa annostus ei ole vahvistettu.");
         const double deviation = number(e, "deviation");
-        if (!std::isfinite(deviation)) reasons << "Poikkeamaa ei voitu laskea.";
+        if (!std::isfinite(deviation)) reasons << QCoreApplication::translate("Studio", "Poikkeamaa ei voitu laskea.");
         if (!reasons.isEmpty()) {
             excluded.append(QJsonObject{{"id", e["id"]}, {"reasons", QJsonArray::fromStringList(reasons)}});
             continue;
@@ -328,13 +329,13 @@ QJsonObject recommend(const QJsonObject& profile, const QString& kind, const QSt
     QJsonObject out{{"status", "blocked"},  {"researchOnly", true}, {"kind", kind}, {"slot", slot}, {"profileVersion", profile["version"]},
                     {"included", included}, {"excluded", excluded}};
     if (included.size() < number(r, "minimumEpisodes") || days.size() < number(r, "minimumDays"))
-        errors << "Ei riittävästi kelpuutettuja jaksoja ja erillisiä päiviä.";
-    if (up && down) errors << "Ristiriitaiset havainnot: sekä nousuja että laskuja tai hypoglykemiaa.";
+        errors << QCoreApplication::translate("Studio", "Ei riittävästi kelpuutettuja jaksoja ja erillisiä päiviä.");
+    if (up && down) errors << QCoreApplication::translate("Studio", "Ristiriitaiset havainnot: sekä nousuja että laskuja tai hypoglykemiaa.");
     int direction = 0;
     const double count = included.size();
     if (count > 0 && up / count >= number(r, "consensus")) direction = 1;
     if (count > 0 && down / count >= number(r, "consensus")) direction = -1;
-    if (!direction) errors << "Ei yhtenäistä, profiilin rajat ylittävää poikkeamaa.";
+    if (!direction) errors << QCoreApplication::translate("Studio", "Ei yhtenäistä, profiilin rajat ylittävää poikkeamaa.");
     if (!errors.isEmpty()) {
         out["reasons"] = QJsonArray::fromStringList(errors);
         return out;
@@ -343,7 +344,7 @@ QJsonObject recommend(const QJsonObject& profile, const QString& kind, const QSt
     const double sign = kind == "basal" ? direction : -direction;
     const double candidate = current * (1 + sign * number(r, "stepPercent") / 100.0);
     const QString k = kind == "icr" ? "Icr" : kind == "isf" ? "Isf" : "Basal";
-    if (candidate < number(r, "minimum" + k) || candidate > number(r, "maximum" + k)) errors << "Ehdotus ylittää profiilin parametrirajat.";
+    if (candidate < number(r, "minimum" + k) || candidate > number(r, "maximum" + k)) errors << QCoreApplication::translate("Studio", "Ehdotus ylittää profiilin parametrirajat.");
     if (!errors.isEmpty()) {
         out["reasons"] = QJsonArray::fromStringList(errors);
         return out;
@@ -352,7 +353,7 @@ QJsonObject recommend(const QJsonObject& profile, const QString& kind, const QSt
     out["current"] = current;
     out["candidate"] = candidate;
     out["changePercent"] = sign * number(r, "stepPercent");
-    out["rule"] = "Toistuva kelpuutettu poikkeama → hyväksytyn profiilin yksi muutosaskel. Ei kausaalinen estimaatti.";
+    out["rule"] = QCoreApplication::translate("Studio", "Toistuva kelpuutettu poikkeama → hyväksytyn profiilin yksi muutosaskel. Ei kausaalinen estimaatti.");
     out["time"] = double(now);
     return out;
 }

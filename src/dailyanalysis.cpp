@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "dailyanalysis.h"
 #include "store.h"
 #include <QDateTime>
@@ -29,7 +30,7 @@ QString clock(int minutes) {
 }
 } // namespace
 QJsonObject dailyPeriodAnalysis(QList<Reading> stream, QList<Reading> history, const QJsonArray& amounts, const QTimeZone& zone, QDate last) {
-    if (!zone.isValid() || !last.isValid()) return {{"status", "error"}, {"message", "Virheellinen aikavyöhyke tai päivä."}};
+    if (!zone.isValid() || !last.isValid()) return {{"status", "error"}, {"message", QCoreApplication::translate("Studio", "Virheellinen aikavyöhyke tai päivä.")}};
     const qint64 stop = QDateTime(last.addDays(1), QTime(0, 0), zone).toMSecsSinceEpoch();
     QDate first;
     auto include = [&](qint64 t) {
@@ -149,13 +150,13 @@ QJsonObject dailyPeriodAnalysis(QList<Reading> stream, QList<Reading> history, c
 }
 QJsonObject dailyPeriodSnapshot(const QString& database, const QTimeZone& zone, qint64 now) {
     Store db(database, true);
-    if (!db.good() || !db.run("BEGIN")) return {{"status", "error"}, {"message", "Aineiston lukeminen ei onnistunut."}};
+    if (!db.good() || !db.run("BEGIN")) return {{"status", "error"}, {"message", QCoreApplication::translate("Studio", "Aineiston lukeminen ei onnistunut.")}};
     const auto revision = db.revision();
     const auto last = QDateTime::fromMSecsSinceEpoch(now, zone).date().addDays(-1);
     const auto stop = QDateTime(last.addDays(1), QTime(0, 0), zone).toMSecsSinceEpoch();
     const auto stream = db.readings(0, stop), history = db.readings(0, stop, "history");
     const auto amounts = db.amounts(0, stop);
-    if (!db.good() || !db.run("COMMIT")) return {{"status", "error"}, {"message", "Aineiston lukeminen ei onnistunut."}};
+    if (!db.good() || !db.run("COMMIT")) return {{"status", "error"}, {"message", QCoreApplication::translate("Studio", "Aineiston lukeminen ei onnistunut.")}};
     auto result = dailyPeriodAnalysis(stream, history, amounts, zone, last);
     result["sourceRevision"] = revision;
     return result;

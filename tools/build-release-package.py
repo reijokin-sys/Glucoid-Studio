@@ -37,7 +37,7 @@ arch=run('dpkg','--print-architecture',capture_output=True,text=True).stdout.str
 if arch!='amd64':raise SystemExit('This release target is Ubuntu/Kubuntu 26.04 amd64.')
 control=stage/'DEBIAN';control.mkdir()
 size=sum(p.stat().st_size for p in stage.rglob('*') if p.is_file())//1024+1
-(control/'control').write_text(f'Package: glucoid-studio\nVersion: {version}\nArchitecture: {arch}\nMaintainer: Glucoid Studio contributors\nSection: science\nPriority: optional\nInstalled-Size: {size}\nDepends: {deps}\nSuggests: adb\nDescription: Local Juggluco and Nightscout glucose history viewer\n Finnish desktop glucose summaries, daily analysis and charts.\n')
+(control/'control').write_text(f'Package: glucoid-studio\nVersion: {version}\nArchitecture: {arch}\nMaintainer: Glucoid Studio contributors\nSection: science\nPriority: optional\nInstalled-Size: {size}\nDepends: {deps}\nSuggests: adb\nDescription: Local Juggluco and Nightscout glucose history viewer\n Bilingual English/Finnish desktop glucose summaries, daily analysis and charts.\n')
 for p in stage.rglob('*'):p.chmod(0o755 if p.is_dir() or p==binary else 0o644)
 package=out/f'glucoid-studio_{version}_{arch}.deb'
 run('dpkg-deb','--root-owner-group','--build',stage,package)

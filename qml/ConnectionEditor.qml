@@ -32,10 +32,10 @@ ColumnLayout {
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
         font.bold: true
-        text: "Aktiivinen lähde: " + (editor.backend.connection.source === "nightscout" ? "Nightscout" : "Juggluco")
+        text: qsTranslate("Studio", "Aktiivinen lähde: ") + (editor.backend.connection.source === "nightscout" ? "Nightscout" : "Juggluco")
     }
     Label {
-        text: "Mistä tiedot tuodaan"
+        text: qsTranslate("Studio", "Mistä tiedot tuodaan")
     }
     ComboBox {
         id: sourceChoice
@@ -47,10 +47,10 @@ ColumnLayout {
     Label {
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
-        text: editor.nightscout ? "HTTPS-yhteys omaan Nightscout-palvelimeesi. WireGuardia ei tarvita. Lukutunnuksella tulee olla lukuoikeus glukoosiin ja kirjauksiin." : "Jugglucon omat glukoosi- ja merkintäviennit USB:n kautta tai WireGuard-verkkoyhteydellä. Verkkohaku edellyttää toimivaa WireGuard-tunnelia."
+        text: editor.nightscout ? qsTranslate("Studio", "HTTPS-yhteys omaan Nightscout-palvelimeesi. WireGuardia ei tarvita. Lukutunnuksella tulee olla lukuoikeus glukoosiin ja kirjauksiin.") : qsTranslate("Studio", "Jugglucon omat glukoosi- ja merkintäviennit USB:n kautta tai WireGuard-verkkoyhteydellä. Verkkohaku edellyttää toimivaa WireGuard-tunnelia.")
     }
     Label {
-        text: "Tuontitapa"
+        text: qsTranslate("Studio", "Tuontitapa")
         visible: !editor.nightscout
     }
     ComboBox {
@@ -58,10 +58,10 @@ ColumnLayout {
         objectName: "sourceMode"
         visible: !editor.nightscout
         Layout.fillWidth: true
-        model: ["USB / ADB", "Verkko / WireGuard (vaaditaan)"]
+        model: ["USB / ADB", qsTranslate("Studio", "Verkko / WireGuard (vaaditaan)")]
     }
     Label {
-        text: "Palvelimen osoite"
+        text: qsTranslate("Studio", "Palvelimen osoite")
         visible: editor.nightscout || mode.currentIndex === 1
     }
     TextField {
@@ -69,11 +69,11 @@ ColumnLayout {
         objectName: "connectionAddress"
         Layout.fillWidth: true
         visible: editor.nightscout || mode.currentIndex === 1
-        placeholderText: editor.nightscout ? "https://nightscout.example" : "Jugglucon palvelinosoite"
+        placeholderText: editor.nightscout ? "https://nightscout.example" : qsTranslate("Studio", "Jugglucon palvelinosoite")
         inputMethodHints: Qt.ImhUrlCharactersOnly
     }
     Label {
-        text: "WireGuard-liittymä"
+        text: qsTranslate("Studio", "WireGuard-liittymä")
         visible: !editor.nightscout && mode.currentIndex === 1
     }
     TextField {
@@ -85,7 +85,7 @@ ColumnLayout {
         maximumLength: 15
     }
     Label {
-        text: "Tunnistautuminen"
+        text: qsTranslate("Studio", "Tunnistautuminen")
         visible: !editor.nightscout
     }
     ComboBox {
@@ -93,7 +93,7 @@ ColumnLayout {
         objectName: "sourceAuth"
         Layout.fillWidth: true
         visible: !editor.nightscout
-        model: ["API-salaisuus", "Tunnus", "Ei tunnistautumista"]
+        model: [qsTranslate("Studio", "API-salaisuus"), qsTranslate("Studio", "Tunnus"), "Ei tunnistautumista"]
     }
     TextField {
         id: credential
@@ -101,23 +101,23 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: editor.nightscout || auth.currentIndex !== 2
         echoMode: TextInput.Password
-        placeholderText: editor.nightscout ? "Uusi Nightscout-lukutunnus; tyhjä säilyttää tallennetun" : "Uusi tunnus; tyhjä säilyttää tallennetun"
+        placeholderText: editor.nightscout ? qsTranslate("Studio", "Uusi Nightscout-lukutunnus; tyhjä säilyttää tallennetun") : qsTranslate("Studio", "Uusi tunnus; tyhjä säilyttää tallennetun")
     }
     TextField {
         id: serial
         objectName: "sourceSerial"
         Layout.fillWidth: true
         visible: !editor.nightscout && mode.currentIndex === 0
-        placeholderText: "ADB-laite (valinnainen)"
+        placeholderText: qsTranslate("Studio", "ADB-laite (valinnainen)")
     }
     Label {
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
-        text: "Yksi lähde on aktiivinen kerrallaan. Nightscoutin ja Jugglucon historiat säilyvät erillään; lähteeseen voi palata myöhemmin."
+        text: qsTranslate("Studio", "Yksi lähde on aktiivinen kerrallaan. Nightscoutin ja Jugglucon historiat säilyvät erillään; lähteeseen voi palata myöhemmin.")
     }
     Button {
         objectName: "saveSourceConnection"
-        text: "Tallenna tietolähde"
+        text: qsTranslate("Studio", "Tallenna tietolähde")
         enabled: !editor.backend.busy && !editor.backend.automaticBusy
         onClicked: {
             const saved = editor.backend.saveSourceConnection(editor.chosenSource, editor.nightscout ? "network" : (mode.currentIndex === 0 ? "usb" : "wireguard"), address.text, editor.nightscout ? "token" : ["apisecret", "token", "none"][auth.currentIndex], credential.text, serial.text, editor.nightscout ? "" : tunnelInterface.text);
@@ -130,13 +130,13 @@ ColumnLayout {
         spacing: 8
         Button {
             objectName: "syncSelectedSource"
-            text: "Päivitä aktiivinen lähde"
+            text: qsTranslate("Studio", "Päivitä aktiivinen lähde")
             enabled: !editor.backend.busy
             onClicked: editor.backend.sync()
         }
         Button {
             objectName: "fullSyncSelectedSource"
-            text: "Tarkista koko historia"
+            text: qsTranslate("Studio", "Tarkista koko historia")
             enabled: !editor.backend.busy
             onClicked: editor.backend.syncAll()
         }
@@ -145,20 +145,20 @@ ColumnLayout {
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
         visible: editor.backend.connection.source === "nightscout" && editor.backend.connection.unsupportedEvents > 0
-        text: "Nightscoutissa on " + (editor.backend.connection.unsupportedEvents || 0) + " tapahtumaa, joiden annostyyppiä ei tulkittu. Esimerkiksi pumpun perusnopeuksia ja jatkettuja boluksia ei muuteta pistosannoksiksi. Alkuperäiset tiedot säilyvät."
+        text: qsTranslate("Studio", "Nightscoutissa on ") + (editor.backend.connection.unsupportedEvents || 0) + qsTranslate("Studio", " tapahtumaa, joiden annostyyppiä ei tulkittu. Esimerkiksi pumpun perusnopeuksia ja jatkettuja boluksia ei muuteta pistosannoksiksi. Alkuperäiset tiedot säilyvät.")
     }
     Disclosure {
         objectName: "glucoidConnectionImport"
         Layout.fillWidth: true
-        title: "Kopioi yhteys Glucoid-widgetistä"
+        title: qsTranslate("Studio", "Kopioi yhteys Glucoid-widgetistä")
         visible: !editor.nightscout
         Label {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            text: "Jos käytät Glucoid-widgetiä, voit korvata Studion Juggluco-yhteysasetukset sen asetuksilla."
+            text: qsTranslate("Studio", "Jos käytät Glucoid-widgetiä, voit korvata Studion Juggluco-yhteysasetukset sen asetuksilla.")
         }
         Button {
-            text: "Kopioi yhteysasetukset"
+            text: qsTranslate("Studio", "Kopioi yhteysasetukset")
             enabled: !editor.backend.busy && !editor.backend.automaticBusy
             onClicked: {
                 editor.backend.importGlucoid();

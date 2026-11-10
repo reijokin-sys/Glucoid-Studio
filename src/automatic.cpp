@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "automatic.h"
 #include "targetmodel.h"
 #include "store.h"
@@ -73,8 +74,8 @@ QJsonArray groups(const QJsonObject& settings) {
         previous = int(std::isfinite(start) ? start : -1);
     }
     if (valid) return supplied;
-    return {QJsonObject{{"name", "Aamu"}, {"startMinute", 360}}, QJsonObject{{"name", "Päivä"}, {"startMinute", 660}},
-            QJsonObject{{"name", "Iltapäivä"}, {"startMinute", 900}}, QJsonObject{{"name", "Ilta / yö"}, {"startMinute", 1140}}};
+    return {QJsonObject{{"name", QCoreApplication::translate("Studio", "Aamu")}, {"startMinute", 360}}, QJsonObject{{"name", QCoreApplication::translate("Studio", "Päivä")}, {"startMinute", 660}},
+            QJsonObject{{"name", QCoreApplication::translate("Studio", "Iltapäivä")}, {"startMinute", 900}}, QJsonObject{{"name", QCoreApplication::translate("Studio", "Ilta / yö")}, {"startMinute", 1140}}};
 }
 int groupAt(const QJsonArray& groups, qint64 time, const QTimeZone& zone) {
     const auto t = QDateTime::fromMSecsSinceEpoch(time, zone).time();
@@ -349,44 +350,44 @@ QJsonObject overnightAnalysis(const QList<Reading>& stream, const QList<Reading>
 
 QString automaticIssueText(const QString& code) {
     static const QMap<QString, QString> text{
-        {"night_entries", "Yön aikana tai sitä edeltävässä vaikutusikkunassa on HH-, pika- tai tunnistamattomia merkintöjä."},
-        {"preceding_hypo", "Yötä edeltäneen 12 tunnin aikana on matala raaka-arvo."},
-        {"missing_dose", "Aterian läheltä ei löytynyt pikainsuliinikirjausta."},
-        {"ambiguous_pairing", "Sama annos voi liittyä useampaan ateriaan."},
-        {"multiple_doses", "Aterian lähellä on useita annoksia; korjausosuutta ei voi erottaa."},
-        {"duplicate_entry", "Samanaikaisissa kirjauksissa on mahdollinen kaksoiskirjaus."},
-        {"excluded_source", "Ateriaan liittyvä kirjaus on poistettu tai jätetty pois arviosta."},
-        {"unknown_label", "Vaikutusjaksolla on tunnistamaton merkintäluokka."},
-        {"unknown_medicine", "Pikainsuliinin valmistetta ei tunnistettu."},
-        {"mixed_medicine", "Ateriaan liittyy eri pikainsuliinivalmisteita."},
-        {"previous_rapid", "Aiemman pikainsuliinin vaikutus voi jatkua aterialle."},
-        {"previous_meal", "Aiemman aterian vaikutus voi jatkua tälle aterialle."},
-        {"next_meal", "Seurannan aikana on toinen ateria tai HH-kirjaus."},
-        {"later_dose", "Seurannan aikana on lisäinsuliinia; aterian oma vaste sekoittuu."},
-        {"carbs_before_endpoint", "Kahden tunnin päätöspisteen sisällä on toinen ateria tai HH-kirjaus."},
-        {"missing_glucose", "Glukoositietoa puuttuu seurannasta tai alku-/loppuikkunasta."},
-        {"hypo", "Raakamittauksissa on matala glukoosiarvo. Ei tavoiteannoksen vertailuun."},
-        {"sensor_overlap", "Päällekkäisten sensorien arvoja ei voi tulkita yksiselitteisesti."},
-        {"unreliable_reading", "Jaksossa on epäluotettavaksi merkittyjä mittauksia."},
-        {"pending", "Aterian seuranta on vielä kesken."},
-        {"window_assumed", "Seurantaikkuna on tekninen oletus; insuliinin vaikutusaikaa ei ole ilmoitettu."},
-        {"basal_unknown", "Perusinsuliinin toteutumisesta ei ole riittävää kirjaushistoriaa."},
+        {"night_entries", QCoreApplication::translate("Studio", "Yön aikana tai sitä edeltävässä vaikutusikkunassa on HH-, pika- tai tunnistamattomia merkintöjä.")},
+        {"preceding_hypo", QCoreApplication::translate("Studio", "Yötä edeltäneen 12 tunnin aikana on matala raaka-arvo.")},
+        {"missing_dose", QCoreApplication::translate("Studio", "Aterian läheltä ei löytynyt pikainsuliinikirjausta.")},
+        {"ambiguous_pairing", QCoreApplication::translate("Studio", "Sama annos voi liittyä useampaan ateriaan.")},
+        {"multiple_doses", QCoreApplication::translate("Studio", "Aterian lähellä on useita annoksia; korjausosuutta ei voi erottaa.")},
+        {"duplicate_entry", QCoreApplication::translate("Studio", "Samanaikaisissa kirjauksissa on mahdollinen kaksoiskirjaus.")},
+        {"excluded_source", QCoreApplication::translate("Studio", "Ateriaan liittyvä kirjaus on poistettu tai jätetty pois arviosta.")},
+        {"unknown_label", QCoreApplication::translate("Studio", "Vaikutusjaksolla on tunnistamaton merkintäluokka.")},
+        {"unknown_medicine", QCoreApplication::translate("Studio", "Pikainsuliinin valmistetta ei tunnistettu.")},
+        {"mixed_medicine", QCoreApplication::translate("Studio", "Ateriaan liittyy eri pikainsuliinivalmisteita.")},
+        {"previous_rapid", QCoreApplication::translate("Studio", "Aiemman pikainsuliinin vaikutus voi jatkua aterialle.")},
+        {"previous_meal", QCoreApplication::translate("Studio", "Aiemman aterian vaikutus voi jatkua tälle aterialle.")},
+        {"next_meal", QCoreApplication::translate("Studio", "Seurannan aikana on toinen ateria tai HH-kirjaus.")},
+        {"later_dose", QCoreApplication::translate("Studio", "Seurannan aikana on lisäinsuliinia; aterian oma vaste sekoittuu.")},
+        {"carbs_before_endpoint", QCoreApplication::translate("Studio", "Kahden tunnin päätöspisteen sisällä on toinen ateria tai HH-kirjaus.")},
+        {"missing_glucose", QCoreApplication::translate("Studio", "Glukoositietoa puuttuu seurannasta tai alku-/loppuikkunasta.")},
+        {"hypo", QCoreApplication::translate("Studio", "Raakamittauksissa on matala glukoosiarvo. Ei tavoiteannoksen vertailuun.")},
+        {"sensor_overlap", QCoreApplication::translate("Studio", "Päällekkäisten sensorien arvoja ei voi tulkita yksiselitteisesti.")},
+        {"unreliable_reading", QCoreApplication::translate("Studio", "Jaksossa on epäluotettavaksi merkittyjä mittauksia.")},
+        {"pending", QCoreApplication::translate("Studio", "Aterian seuranta on vielä kesken.")},
+        {"window_assumed", QCoreApplication::translate("Studio", "Seurantaikkuna on tekninen oletus; insuliinin vaikutusaikaa ei ole ilmoitettu.")},
+        {"basal_unknown", QCoreApplication::translate("Studio", "Perusinsuliinin toteutumisesta ei ole riittävää kirjaushistoriaa.")},
         {"basal_continuation_assumed",
-         "Ilmoitetun perushoidon jatkuminen on oletus viimeisimmän vahvistuksen jälkeen; päiväkohtaisia pistoksia ei ole varmennettu."},
-        {"basal_reported", "Perusinsuliinin päivittäinen toteutuminen perustuu käyttäjän ilmoitukseen."},
-        {"basal_report_conflict", "Perusinsuliinikirjaukset poikkeavat käyttäjän ilmoittamasta historiasta."},
-        {"basal_change", "Perusinsuliinin annos tai valmiste vaihtelee lähihistoriassa."},
-        {"regimen_change", "Hoito muuttuu kesken aterian seurannan."},
-        {"starting_outside_goal", "Aterian lähtöglukoosi ei ole valitulla tavoitealueella."},
-        {"missing_endpoint", "Kahden tunnin mittaus tai edeltävä glukoositrendi puuttuu."},
-        {"short_followup", "Myöhempi seuranta ei kata vähintään neljää tuntia."},
-        {"invalid_values", "Mallin lähtötiedoissa on puuttuva tai virheellinen arvo."},
-        {"few_meals", "Aterioita tai erillisiä havaintopäiviä on vielä vähän."},
-        {"cohorts_separated", "Eri insuliini-/perusannosjaksojen keskiarvot on erotettu."},
-        {"wide_spread", "Kirjattu annos–HH-suhde vaihtelee paljon."},
-        {"stale_meals", "Viimeisistä ateriamerkinnöistä on yli kaksi vuorokautta."},
-        {"timing_groups_assumed", "Ateriaryhmät perustuvat teknisiin kellorajoihin, eivät aterian nimimerkintään."},
-        {"unobserved_context", "Liikuntaa, aterian koostumusta ja kirjaamattomia tapahtumia ei voi sulkea pois."}};
+         QCoreApplication::translate("Studio", "Ilmoitetun perushoidon jatkuminen on oletus viimeisimmän vahvistuksen jälkeen; päiväkohtaisia pistoksia ei ole varmennettu.")},
+        {"basal_reported", QCoreApplication::translate("Studio", "Perusinsuliinin päivittäinen toteutuminen perustuu käyttäjän ilmoitukseen.")},
+        {"basal_report_conflict", QCoreApplication::translate("Studio", "Perusinsuliinikirjaukset poikkeavat käyttäjän ilmoittamasta historiasta.")},
+        {"basal_change", QCoreApplication::translate("Studio", "Perusinsuliinin annos tai valmiste vaihtelee lähihistoriassa.")},
+        {"regimen_change", QCoreApplication::translate("Studio", "Hoito muuttuu kesken aterian seurannan.")},
+        {"starting_outside_goal", QCoreApplication::translate("Studio", "Aterian lähtöglukoosi ei ole valitulla tavoitealueella.")},
+        {"missing_endpoint", QCoreApplication::translate("Studio", "Kahden tunnin mittaus tai edeltävä glukoositrendi puuttuu.")},
+        {"short_followup", QCoreApplication::translate("Studio", "Myöhempi seuranta ei kata vähintään neljää tuntia.")},
+        {"invalid_values", QCoreApplication::translate("Studio", "Mallin lähtötiedoissa on puuttuva tai virheellinen arvo.")},
+        {"few_meals", QCoreApplication::translate("Studio", "Aterioita tai erillisiä havaintopäiviä on vielä vähän.")},
+        {"cohorts_separated", QCoreApplication::translate("Studio", "Eri insuliini-/perusannosjaksojen keskiarvot on erotettu.")},
+        {"wide_spread", QCoreApplication::translate("Studio", "Kirjattu annos–HH-suhde vaihtelee paljon.")},
+        {"stale_meals", QCoreApplication::translate("Studio", "Viimeisistä ateriamerkinnöistä on yli kaksi vuorokautta.")},
+        {"timing_groups_assumed", QCoreApplication::translate("Studio", "Ateriaryhmät perustuvat teknisiin kellorajoihin, eivät aterian nimimerkintään.")},
+        {"unobserved_context", QCoreApplication::translate("Studio", "Liikuntaa, aterian koostumusta ja kirjaamattomia tapahtumia ei voi sulkea pois.")}};
     return text.value(code, code);
 }
 
@@ -398,9 +399,9 @@ QJsonObject automaticMealAnalysis(const QList<Reading>& stream, const QList<Read
     std::sort(sortedHistory.begin(), sortedHistory.end(), byTime);
     const double low = number(settings, "targetLow"), high = number(settings, "targetHigh"), hypo = number(settings, "hypo");
     const QTimeZone zone(settings.value("timezone").toString("Europe/Helsinki").toUtf8());
-    if (!zone.isValid() || to <= from) return {{"status", "error"}, {"message", "Tarkista tarkastelujakso ja aikavyöhyke."}};
+    if (!zone.isValid() || to <= from) return {{"status", "error"}, {"message", QCoreApplication::translate("Studio", "Tarkista tarkastelujakso ja aikavyöhyke.")}};
     if (!positive(low) || !positive(high) || low >= high || !positive(hypo) || hypo > low)
-        return {{"status", "needs_targets"}, {"message", "Aterioiden tavoitealue ja matalan glukoosin raja puuttuvat."}};
+        return {{"status", "needs_targets"}, {"message", QCoreApplication::translate("Studio", "Aterioiden tavoitealue ja matalan glukoosin raja puuttuvat.")}};
     const auto periods = groups(settings);
     qint64 readFrom = from - 8LL * 86400000;
     for (auto v : settings["reportedBasalHistory"].toArray()) {
@@ -866,7 +867,7 @@ QJsonObject automaticMealAnalysis(const QList<Reading>& stream, const QList<Read
 
 QJsonObject automaticMealSnapshot(const QString& database, const QJsonObject& settings, qint64 from, qint64 to, qint64 availableUntil) {
     Store db(database, true);
-    if (!db.good() || !db.run("BEGIN")) return {{"status", "error"}, {"message", "Aineiston lukeminen ei onnistunut."}};
+    if (!db.good() || !db.run("BEGIN")) return {{"status", "error"}, {"message", QCoreApplication::translate("Studio", "Aineiston lukeminen ei onnistunut.")}};
     const QString revision = db.revision();
     QJsonArray profiles;
     for (auto v : db.profiles()) {
@@ -882,7 +883,7 @@ QJsonObject automaticMealSnapshot(const QString& database, const QJsonObject& se
     }
     auto stream = db.readings(readFrom, availableUntil + 1, "stream"), history = db.readings(readFrom, availableUntil + 1, "history");
     auto amounts = db.amounts(readFrom, availableUntil + 1, true);
-    if (!db.good() || !db.run("COMMIT")) return {{"status", "error"}, {"message", "Aineiston lukeminen ei onnistunut."}};
+    if (!db.good() || !db.run("COMMIT")) return {{"status", "error"}, {"message", QCoreApplication::translate("Studio", "Aineiston lukeminen ei onnistunut.")}};
     auto result = automaticMealAnalysis(stream, history, amounts, profiles, settings, from, to, availableUntil);
     result["sourceRevision"] = revision;
     result["settings"] = settings;

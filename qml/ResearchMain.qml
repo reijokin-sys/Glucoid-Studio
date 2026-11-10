@@ -91,14 +91,14 @@ Kirigami.ApplicationWindow {
             selectedIds = ({});
             resetEpisodeReview();
             savedEpisodes.expanded = true;
-            episodeResult = "Jakso tallennettu.";
+            episodeResult = qsTranslate("Studio", "Jakso tallennettu.");
         } else {
             episodeNeedsProfile = !!r.requiresProfile;
-            episodeResult = "Jaksoa ei tallennettu.\n" + (r.reasons || []).join("\n");
+            episodeResult = qsTranslate("Studio", "Jaksoa ei tallennettu.\n") + (r.reasons || []).join("\n");
         }
     }
     function n(v, d = 1) {
-        return v === null || v === undefined || !Number.isFinite(Number(v)) ? "—" : Number(v).toLocaleString(Qt.locale("fi_FI"), 'f', d);
+        return v === null || v === undefined || !Number.isFinite(Number(v)) ? "—" : Number(v).toLocaleString(Qt.locale(window.studio.language === "fi" ? "fi_FI" : "en_GB"), 'f', d);
     }
     function decimal(v) {
         let x = String(v).trim();
@@ -128,25 +128,25 @@ Kirigami.ApplicationWindow {
         if (!r.status)
             return "";
         if (r.status === "blocked")
-            return "Ei luotettavaa muutosehdotusta\n" + (r.reasons || []).join("\n");
+            return qsTranslate("Studio", "Ei luotettavaa muutosehdotusta\n") + (r.reasons || []).join("\n");
         if (r.status === "saved")
             return "Tallennettu.";
         return "Nykyinen: " + n(r.current, 2) + " → ehdotus: " + n(r.candidate, 2) + " (" + n(r.changePercent, 1) + " %)\n" + r.rule;
     }
     function kindText(v) {
         return ({
-                carbs: "HH",
-                rapid: "Pikainsuliini",
-                correction: "Korjausinsuliini",
-                basal: "Perusinsuliini",
-                other: "Muu",
-                unknown: "Luokitus puuttuu",
-                icr: "Ateria",
-                isf: "Korjaus"
+                carbs: qsTranslate("Studio", "HH"),
+                rapid: qsTranslate("Studio", "Pikainsuliini"),
+                correction: qsTranslate("Studio", "Korjausinsuliini"),
+                basal: qsTranslate("Studio", "Perusinsuliini"),
+                other: qsTranslate("Studio", "Muu"),
+                unknown: qsTranslate("Studio", "Luokitus puuttuu"),
+                icr: qsTranslate("Studio", "Ateria"),
+                isf: qsTranslate("Studio", "Korjaus")
             })[v] || v;
     }
     function stamp(v) {
-        return v > 0 ? new Date(v).toLocaleString(Qt.locale("fi_FI")) : "Ei tietoa";
+        return v > 0 ? new Date(v).toLocaleString(Qt.locale(window.studio.language === "fi" ? "fi_FI" : "en_GB")) : "Ei tietoa";
     }
     Connections {
         target: window.studio
@@ -167,7 +167,7 @@ Kirigami.ApplicationWindow {
             spacing: 10
             RowLayout {
                 Kirigami.Heading {
-                    text: "Oma seuranta"
+                    text: qsTranslate("Studio", "Oma seuranta")
                     Layout.fillWidth: true
                 }
                 BusyIndicator {
@@ -177,25 +177,25 @@ Kirigami.ApplicationWindow {
                     Layout.preferredHeight: 28
                 }
                 Button {
-                    text: window.studio.busy ? "Tuodaan…" : "Tuo puhelimesta"
+                    text: window.studio.busy ? "Tuodaan…" : qsTranslate("Studio", "Tuo puhelimesta")
                     enabled: !window.studio.busy && !window.demoMode
                     onClicked: window.studio.sync()
                 }
                 ToolButton {
-                    text: "Lisää"
+                    text: qsTranslate("Studio", "Lisää")
                     onClicked: moreMenu.open()
                     Menu {
                         id: moreMenu
                         MenuItem {
-                            text: "Tallenna raportti"
+                            text: qsTranslate("Studio", "Tallenna raportti")
                             onTriggered: window.studio.saveReport()
                         }
                         MenuItem {
-                            text: "Varmuuskopioi"
+                            text: qsTranslate("Studio", "Varmuuskopioi")
                             onTriggered: window.studio.backup()
                         }
                         MenuItem {
-                            text: "Asetukset"
+                            text: qsTranslate("Studio", "Asetukset")
                             onTriggered: tabs.currentIndex = 4
                         }
                     }
@@ -228,7 +228,7 @@ Kirigami.ApplicationWindow {
                     horizontalAlignment: Text.AlignRight
                 }
                 ToolButton {
-                    text: "Vaihda päivää"
+                    text: qsTranslate("Studio", "Vaihda päivää")
                     onClicked: periodPopup.open()
                 }
             }
@@ -236,34 +236,34 @@ Kirigami.ApplicationWindow {
                 Layout.fillWidth: true
                 elide: Text.ElideRight
                 opacity: 0.75
-                text: "Glukoosi: " + window.stamp(window.studio.analysis.lastReading) + "  ·  Kirjaukset: " + window.stamp(window.studio.analysis.lastAmount)
+                text: qsTranslate("Studio", "Glukoosi: ") + window.stamp(window.studio.analysis.lastReading) + "  ·  Kirjaukset: " + window.stamp(window.studio.analysis.lastAmount)
                 HoverHandler {
                     id: freshnessHover
                 }
                 ToolTip.visible: freshnessHover.hovered
-                ToolTip.text: "Viimeisin onnistunut tuonti: " + window.stamp(window.studio.analysis.lastImport)
+                ToolTip.text: qsTranslate("Studio", "Viimeisin onnistunut tuonti: ") + window.stamp(window.studio.analysis.lastImport)
             }
             TabBar {
                 id: tabs
                 objectName: "mainTabs"
                 Layout.fillWidth: true
                 TabButton {
-                    text: "Yhteenveto"
+                    text: qsTranslate("Studio", "Yhteenveto")
                 }
                 TabButton {
-                    text: "Vuorokausi"
+                    text: qsTranslate("Studio", "Vuorokausi")
                 }
                 TabButton {
-                    text: "Päivät"
+                    text: qsTranslate("Studio", "Päivät")
                 }
                 TabButton {
-                    text: "Jaksojen tarkistus"
+                    text: qsTranslate("Studio", "Jaksojen tarkistus")
                 }
                 TabButton {
-                    text: "Asetukset"
+                    text: qsTranslate("Studio", "Asetukset")
                 }
                 TabButton {
-                    text: "Insuliinivaste"
+                    text: qsTranslate("Studio", "Insuliinivaste")
                 }
             }
             StackLayout {
@@ -283,25 +283,25 @@ Kirigami.ApplicationWindow {
                             columnSpacing: 12
                             MetricCard {
                                 Layout.fillWidth: true
-                                title: "Keskiarvo"
+                                title: qsTranslate("Studio", "Keskiarvo")
                                 value: window.n(window.studio.analysis.mean)
                                 unit: "mmol/l"
                             }
                             MetricCard {
                                 Layout.fillWidth: true
-                                title: "Tavoitealueella"
+                                title: qsTranslate("Studio", "Tavoitealueella")
                                 value: window.studio.analysis.targetsSet ? window.n(window.studio.analysis.inRange * 100) : "—"
                                 unit: "%"
                             }
                             MetricCard {
                                 Layout.fillWidth: true
-                                title: "Vaihtelu (CV)"
+                                title: qsTranslate("Studio", "Vaihtelu (CV)")
                                 value: window.n(window.studio.analysis.cv)
                                 unit: "%"
                             }
                             MetricCard {
                                 Layout.fillWidth: true
-                                title: "Datan kattavuus"
+                                title: qsTranslate("Studio", "Datan kattavuus")
                                 value: window.n(window.studio.analysis.coverage * 100)
                                 unit: "%"
                             }
@@ -309,7 +309,7 @@ Kirigami.ApplicationWindow {
                         Label {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
-                            text: window.studio.analysis.targetsSet ? "Alle tavoitealueen " + window.n(window.studio.analysis.below * 100) + " %   ·   Yli tavoitealueen " + window.n(window.studio.analysis.above * 100) + " %" : "Aseta henkilökohtainen tavoitealue asetuksissa."
+                            text: window.studio.analysis.targetsSet ? qsTranslate("Studio", "Alle tavoitealueen ") + window.n(window.studio.analysis.below * 100) + qsTranslate("Studio", " %   ·   Yli tavoitealueen ") + window.n(window.studio.analysis.above * 100) + " %" : qsTranslate("Studio", "Aseta henkilökohtainen tavoitealue asetuksissa.")
                         }
                         ProfileChart {
                             Layout.fillWidth: true
@@ -320,88 +320,88 @@ Kirigami.ApplicationWindow {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
                             opacity: 0.75
-                            text: "Vihreä: keskiarvo  ·  Kulta: mediaani  ·  Alueet: vaihtelu"
+                            text: qsTranslate("Studio", "Vihreä: keskiarvo  ·  Kulta: mediaani  ·  Alueet: vaihtelu")
                         }
                         Disclosure {
                             objectName: "summaryStatistics"
                             Layout.fillWidth: true
-                            title: "Tilastot ja vertailu"
+                            title: qsTranslate("Studio", "Tilastot ja vertailu")
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Mediaani " + window.n(window.studio.analysis.median) + " mmol/l · Keskihajonta " + window.n(window.studio.analysis.sd) + " mmol/l"
+                                text: qsTranslate("Studio", "Mediaani ") + window.n(window.studio.analysis.median) + qsTranslate("Studio", " mmol/l · Keskihajonta ") + window.n(window.studio.analysis.sd) + " mmol/l"
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
                                 text: {
                                     let p = window.studio.analysis.previous || {};
-                                    return "Edellinen " + window.studio.analysis.days + " vrk: keskiarvo " + window.n(p.mean) + " mmol/l · kattavuus " + window.n(p.coverage * 100) + " %" + (p.mean !== undefined && window.studio.analysis.mean !== undefined ? " · muutos " + window.n(window.studio.analysis.mean - p.mean) + " mmol/l" : "");
+                                    return "Edellinen " + window.studio.analysis.days + qsTranslate("Studio", " vrk: keskiarvo ") + window.n(p.mean) + qsTranslate("Studio", " mmol/l · kattavuus ") + window.n(p.coverage * 100) + " %" + (p.mean !== undefined && window.studio.analysis.mean !== undefined ? " · muutos " + window.n(window.studio.analysis.mean - p.mean) + " mmol/l" : "");
                                 }
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Tänään: " + window.n((window.studio.analysis.today || {}).coveredSeconds / 3600) + " h mittauksia. Keskeneräinen päivä ei kuulu raporttijaksoon."
+                                text: qsTranslate("Studio", "Tänään: ") + window.n((window.studio.analysis.today || {}).coveredSeconds / 3600) + qsTranslate("Studio", " h mittauksia. Keskeneräinen päivä ei kuulu raporttijaksoon.")
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Kuvaajan tumma alue: 5.–95. persentiili. Vaaleampi alue: 25.–75. persentiili. Päivät painavat yhtä paljon. Puuttuvaa mittausaikaa ei lasketa tavoitealueella vietettyyn aikaan."
+                                text: qsTranslate("Studio", "Kuvaajan tumma alue: 5.–95. persentiili. Vaaleampi alue: 25.–75. persentiili. Päivät painavat yhtä paljon. Puuttuvaa mittausaikaa ei lasketa tavoitealueella vietettyyn aikaan.")
                             }
                         }
                         Disclosure {
                             id: night
                             objectName: "overnightSummary"
                             Layout.fillWidth: true
-                            title: "Perusinsuliini ja yöglukoosi"
+                            title: qsTranslate("Studio", "Perusinsuliini ja yöglukoosi")
                             property var result: window.studio.automaticMeals.overnight || ({})
                             property var report: (window.studio.automaticSettings.reportedBasalHistory || []).slice(-1)[0] || ({})
                             visible: result.status === "observed"
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Ilmoitettu perusinsuliini " + window.n(night.report.units, 0) + " U päivittäin noin klo " + (night.report.time || "") + " · tieto käyttäjältä"
+                                text: qsTranslate("Studio", "Ilmoitettu perusinsuliini ") + window.n(night.report.units, 0) + qsTranslate("Studio", " U päivittäin noin klo ") + (night.report.time || "") + qsTranslate("Studio", " · tieto käyttäjältä")
                             }
                             Label {
                                 objectName: "overnightChange"
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Viimeisten 14 yön muutosmediaani " + window.n((night.result.last14 || {}).medianChangeQuiet) + " mmol/l · " + ((night.result.last14 || {}).loggedQuietNights || 0) + " yötä ilman kirjattuja ateria-/pikainsuliinisekoittajia"
+                                text: qsTranslate("Studio", "Viimeisten 14 yön muutosmediaani ") + window.n((night.result.last14 || {}).medianChangeQuiet) + " mmol/l · " + ((night.result.last14 || {}).loggedQuietNights || 0) + qsTranslate("Studio", " yötä ilman kirjattuja ateria-/pikainsuliinisekoittajia")
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Matalia viime jaksolla " + ((night.result.last14 || {}).lowNights || 0) + " / " + ((night.result.last14 || {}).nights || 0) + " yössä; koko historiassa " + (night.result.lowNights || 0) + " / " + (night.result.observedNights || 0) + " · klo 00–06"
+                                text: qsTranslate("Studio", "Matalia viime jaksolla ") + ((night.result.last14 || {}).lowNights || 0) + " / " + ((night.result.last14 || {}).nights || 0) + qsTranslate("Studio", " yössä; koko historiassa ") + (night.result.lowNights || 0) + " / " + (night.result.observedNights || 0) + " · klo 00–06"
                             }
                             Label {
-                                text: "Yöarvion perusteet"
+                                text: qsTranslate("Studio", "Yöarvion perusteet")
                                 font.bold: true
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: night.result.from > 0 ? "Saatavilla olevat yöt: " + new Date(night.result.from).toLocaleDateString(Qt.locale("fi_FI")) + " – " + new Date(night.result.to).toLocaleDateString(Qt.locale("fi_FI")) : ""
+                                text: night.result.from > 0 ? qsTranslate("Studio", "Saatavilla olevat yöt: ") + new Date(night.result.from).toLocaleDateString(Qt.locale(window.studio.language === "fi" ? "fi_FI" : "en_GB")) + " – " + new Date(night.result.to).toLocaleDateString(Qt.locale(window.studio.language === "fi" ? "fi_FI" : "en_GB")) : ""
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Koko historian muutosmediaani " + window.n(night.result.medianChangeQuiet) + " mmol/l. Edellisten 14 yön muutosmediaani " + window.n((night.result.previous14 || {}).medianChangeQuiet) + " mmol/l."
+                                text: qsTranslate("Studio", "Koko historian muutosmediaani ") + window.n(night.result.medianChangeQuiet) + qsTranslate("Studio", " mmol/l. Edellisten 14 yön muutosmediaani ") + window.n((night.result.previous14 || {}).medianChangeQuiet) + " mmol/l."
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Ilman kirjattuja sekoittajia: alkumediaani " + window.n(night.result.medianStartQuiet) + ", loppumediaani " + window.n(night.result.medianEndQuiet) + " mmol/l. Yömuutosten keskimmäinen puolikas " + window.n(night.result.changeP25) + "…" + window.n(night.result.changeP75) + " mmol/l."
+                                text: qsTranslate("Studio", "Ilman kirjattuja sekoittajia: alkumediaani ") + window.n(night.result.medianStartQuiet) + ", loppumediaani " + window.n(night.result.medianEndQuiet) + qsTranslate("Studio", " mmol/l. Yömuutosten keskimmäinen puolikas ") + window.n(night.result.changeP25) + "…" + window.n(night.result.changeP75) + " mmol/l."
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Riittävä mittauskattavuus " + (night.result.coveredNights || 0) + " yössä. Kaikkien kattavien öiden muutosmediaani " + window.n(night.result.medianChangeAll) + " mmol/l. Ilman saman tai edeltävän ajan matalia vertailuun jää " + (night.result.assessmentNights || 0) + " yötä."
+                                text: qsTranslate("Studio", "Riittävä mittauskattavuus ") + (night.result.coveredNights || 0) + qsTranslate("Studio", " yössä. Kaikkien kattavien öiden muutosmediaani ") + window.n(night.result.medianChangeAll) + qsTranslate("Studio", " mmol/l. Ilman saman tai edeltävän ajan matalia vertailuun jää ") + (night.result.assessmentNights || 0) + qsTranslate("Studio", " yötä.")
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Ajanjakso on ilmoitetun perushoidon koko saatavilla oleva historia. Hoidon jatkuminen viimeisimmän ilmoituksen jälkeen on oletus; päiväkohtaisia pistoksia ei ole varmennettu. Klo 00–06 on tekninen tarkasteluikkuna; nukkumis- ja paastoaikoja ei ole vahvistettu. Kirjaamaton ruoka, liikunta, alkoholi ja sensorivirheet voivat vaikuttaa. Yöhavainnot eivät määrää uutta annosta."
+                                text: qsTranslate("Studio", "Ajanjakso on ilmoitetun perushoidon koko saatavilla oleva historia. Hoidon jatkuminen viimeisimmän ilmoituksen jälkeen on oletus; päiväkohtaisia pistoksia ei ole varmennettu. Klo 00–06 on tekninen tarkasteluikkuna; nukkumis- ja paastoaikoja ei ole vahvistettu. Kirjaamaton ruoka, liikunta, alkoholi ja sensorivirheet voivat vaikuttaa. Yöhavainnot eivät määrää uutta annosta.")
                             }
                         }
                         Frame {
@@ -414,14 +414,14 @@ Kirigami.ApplicationWindow {
                             contentItem: ColumnLayout {
                                 spacing: 10
                                 Kirigami.Heading {
-                                    text: "Käytössä oleva hoito"
+                                    text: qsTranslate("Studio", "Käytössä oleva hoito")
                                     level: 3
                                 }
                                 Label {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
                                     visible: !tracking.dataActive
-                                    text: "Ota hoitoprofiili seurantaan asetuksissa."
+                                    text: qsTranslate("Studio", "Ota hoitoprofiili seurantaan asetuksissa.")
                                 }
                                 Label {
                                     Layout.fillWidth: true
@@ -436,22 +436,22 @@ Kirigami.ApplicationWindow {
                                     text: {
                                         let g = tracking.observed.glucose || {};
                                         if (tracking.observed.status === "waiting_for_glucose")
-                                            return "Tämän hoidon ajalta puuttuu glukoositietoja.";
+                                            return qsTranslate("Studio", "Tämän hoidon ajalta puuttuu glukoositietoja.");
                                         if (tracking.observed.status === "before_profile_period")
-                                            return "Raporttijakso on ennen tämän hoidon alkua.";
+                                            return qsTranslate("Studio", "Raporttijakso on ennen tämän hoidon alkua.");
                                         if (tracking.observed.status === "timezone_mismatch")
-                                            return "Tarkista raportin ja hoitoprofiilin aikavyöhykkeet.";
-                                        return "Hoidon aikana tavoitealueella " + window.n(g.inRange * 100) + " % · kattavuus " + window.n(g.coverage * 100) + " %.";
+                                            return qsTranslate("Studio", "Tarkista raportin ja hoitoprofiilin aikavyöhykkeet.");
+                                        return qsTranslate("Studio", "Hoidon aikana tavoitealueella ") + window.n(g.inRange * 100) + " % · kattavuus " + window.n(g.coverage * 100) + " %.";
                                     }
                                 }
                                 Disclosure {
                                     Layout.fillWidth: true
-                                    title: "Hoidon tiedot"
+                                    title: qsTranslate("Studio", "Hoidon tiedot")
                                     visible: tracking.dataActive
                                     Label {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Profiili " + tracking.regimen.version + " · alkaen " + new Date(tracking.regimen.effectiveFrom).toLocaleDateString()
+                                        text: qsTranslate("Studio", "Profiili ") + tracking.regimen.version + " · alkaen " + new Date(tracking.regimen.effectiveFrom).toLocaleDateString()
                                     }
                                     Label {
                                         Layout.fillWidth: true
@@ -463,7 +463,7 @@ Kirigami.ApplicationWindow {
                                         wrapMode: Text.WordWrap
                                         text: {
                                             let p = tracking.regimen, r = p.correctionTargetRange || {};
-                                            return "Tavoitealue " + window.n(p.targetLow) + "–" + window.n(p.targetHigh) + " mmol/l" + (r.low > 0 ? " · korjausten tavoite " + window.n(r.low) + "–" + window.n(r.high) + " mmol/l" : "");
+                                            return "Tavoitealue " + window.n(p.targetLow) + "–" + window.n(p.targetHigh) + " mmol/l" + (r.low > 0 ? qsTranslate("Studio", " · korjausten tavoite ") + window.n(r.low) + "–" + window.n(r.high) + " mmol/l" : "");
                                         }
                                     }
                                     Label {
@@ -471,17 +471,17 @@ Kirigami.ApplicationWindow {
                                         wrapMode: Text.WordWrap
                                         text: {
                                             let g = tracking.observed.glucose || {};
-                                            return "Alle tavoitealueen " + window.n(g.below * 100) + " % · yli " + window.n(g.above * 100) + " %.";
+                                            return qsTranslate("Studio", "Alle tavoitealueen ") + window.n(g.below * 100) + " % · yli " + window.n(g.above * 100) + " %.";
                                         }
                                     }
                                     Label {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: tracking.observed.basalComparedDays > 0 ? "Vertailukelpoisia perusannospäiviä " + tracking.observed.basalComparedDays + ", ilmoitettua annosta vastaavia " + tracking.observed.basalMatchingDays + "." : "Perusannoksen vertailu tarvitsee kattavaksi vahvistettuja päiviä ja saman valmisteen kirjaukset."
+                                        text: tracking.observed.basalComparedDays > 0 ? qsTranslate("Studio", "Vertailukelpoisia perusannospäiviä ") + tracking.observed.basalComparedDays + qsTranslate("Studio", ", ilmoitettua annosta vastaavia ") + tracking.observed.basalMatchingDays + "." : qsTranslate("Studio", "Perusannoksen vertailu tarvitsee kattavaksi vahvistettuja päiviä ja saman valmisteen kirjaukset.")
                                     }
                                     Disclosure {
                                         Layout.fillWidth: true
-                                        title: "Perusannoksen päivävertailu"
+                                        title: qsTranslate("Studio", "Perusannoksen päivävertailu")
                                         Repeater {
                                             model: tracking.observed.daily || []
                                             delegate: Label {
@@ -491,13 +491,13 @@ Kirigami.ApplicationWindow {
                                                 text: {
                                                     let r = modelData;
                                                     let why = ({
-                                                            partial_profile_day: "hoito alkoi kesken päivän",
-                                                            unconfirmed_day: "kattavuutta ei vahvistettu",
-                                                            unclassified_or_excluded: "tarkista luokitus tai poissulku",
-                                                            different_medicine: "eri valmiste",
-                                                            single_basal_entry_required: r.basalEntries === 0 ? "kirjaus puuttuu" : "useita kirjauksia"
+                                                            partial_profile_day: qsTranslate("Studio", "hoito alkoi kesken päivän"),
+                                                            unconfirmed_day: qsTranslate("Studio", "kattavuutta ei vahvistettu"),
+                                                            unclassified_or_excluded: qsTranslate("Studio", "tarkista luokitus tai poissulku"),
+                                                            different_medicine: qsTranslate("Studio", "eri valmiste"),
+                                                            single_basal_entry_required: r.basalEntries === 0 ? qsTranslate("Studio", "kirjaus puuttuu") : qsTranslate("Studio", "useita kirjauksia")
                                                         })[r.reason] || r.reason;
-                                                    return r.date + " · " + window.n(r.basalRecorded) + " U · " + (r.comparisonReady ? "ero ilmoitettuun " + window.n(r.basalDifference) + " U" : why);
+                                                    return r.date + " · " + window.n(r.basalRecorded) + " U · " + (r.comparisonReady ? qsTranslate("Studio", "ero ilmoitettuun ") + window.n(r.basalDifference) + " U" : why);
                                                 }
                                             }
                                         }
@@ -505,7 +505,7 @@ Kirigami.ApplicationWindow {
                                     Label {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Seuranta kuvaa kirjattua hoitoa. Annos- ja muutosehdotukset vaativat erillisen hyväksynnän."
+                                        text: qsTranslate("Studio", "Seuranta kuvaa kirjattua hoitoa. Annos- ja muutosehdotukset vaativat erillisen hyväksynnän.")
                                     }
                                 }
                             }
@@ -513,15 +513,15 @@ Kirigami.ApplicationWindow {
                         Disclosure {
                             objectName: "dailyEntries"
                             Layout.fillWidth: true
-                            title: "Annoskirjaukset ja hiilihydraatit"
+                            title: qsTranslate("Studio", "Annoskirjaukset ja hiilihydraatit")
                             summary: {
                                 let p = window.studio.analysis.insulin || {};
-                                return p.completeDays > 0 ? p.completeDays + " vahvistettua päivää · kirjattu keskimäärin " + window.n(p.meanTotal) + " U/vrk" : "Päivien kattavuutta ei ole vielä vahvistettu";
+                                return p.completeDays > 0 ? p.completeDays + qsTranslate("Studio", " vahvistettua päivää · kirjattu keskimäärin ") + window.n(p.meanTotal) + " U/vrk" : qsTranslate("Studio", "Päivien kattavuutta ei ole vielä vahvistettu");
                             }
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Vahvista päivä vain, kun kaikki annokset ja hiilihydraatit ovat mukana. Puuttuva kirjaus on tuntematon määrä."
+                                text: qsTranslate("Studio", "Vahvista päivä vain, kun kaikki annokset ja hiilihydraatit ovat mukana. Puuttuva kirjaus on tuntematon määrä.")
                             }
                             Repeater {
                                 model: (window.studio.analysis.insulin || {}).daily || []
@@ -532,10 +532,10 @@ Kirigami.ApplicationWindow {
                                     Label {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: insulinDay.modelData.date + " · pika " + window.n(insulinDay.modelData.rapid) + " U · perus " + window.n(insulinDay.modelData.basal) + " U · HH " + window.n(insulinDay.modelData.carbs) + " g" + (insulinDay.modelData.unknown ? " · tarkista luokitus/poissulku" : "")
+                                        text: insulinDay.modelData.date + " · pika " + window.n(insulinDay.modelData.rapid) + " U · perus " + window.n(insulinDay.modelData.basal) + " U · HH " + window.n(insulinDay.modelData.carbs) + " g" + (insulinDay.modelData.unknown ? qsTranslate("Studio", " · tarkista luokitus/poissulku") : "")
                                     }
                                     CheckBox {
-                                        text: "Kattava päivä"
+                                        text: qsTranslate("Studio", "Kattava päivä")
                                         checked: insulinDay.modelData.complete
                                         onClicked: window.studio.confirmDay(insulinDay.modelData.date, checked)
                                     }
@@ -544,7 +544,7 @@ Kirigami.ApplicationWindow {
                             Label {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: "Lähdemuutokset mitätöivät vahvistuksen. Kirjattu vuorokausiannos ei ole ennuste insuliinintarpeesta."
+                                text: qsTranslate("Studio", "Lähdemuutokset mitätöivät vahvistuksen. Kirjattu vuorokausiannos ei ole ennuste insuliinintarpeesta.")
                             }
                         }
                     }
@@ -559,10 +559,10 @@ Kirigami.ApplicationWindow {
                     Label {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Vie osoitin käyrälle: kellonaika, havaintopäivät ja kattavuus. Aikaväli 15 min."
+                        text: qsTranslate("Studio", "Vie osoitin käyrälle: kellonaika, havaintopäivät ja kattavuus. Aikaväli 15 min.")
                     }
                     Label {
-                        text: window.studio.analysis.fillHistory ? "Sensorihistoria täydentää minuuttisarjan aukkoja; täydentävää aikaa " + window.n(window.studio.analysis.historySeconds / 3600) + " h" : "Vain minuuttisarja. Sensorihistorian täydennys on pois käytöstä."
+                        text: window.studio.analysis.fillHistory ? qsTranslate("Studio", "Sensorihistoria täydentää minuuttisarjan aukkoja; täydentävää aikaa ") + window.n(window.studio.analysis.historySeconds / 3600) + " h" : qsTranslate("Studio", "Vain minuuttisarja. Sensorihistorian täydennys on pois käytöstä.")
                     }
                 }
                 ColumnLayout {
@@ -571,14 +571,14 @@ Kirigami.ApplicationWindow {
                             id: day
                             Layout.preferredWidth: 150
                             text: window.studio.analysis.lastDate || ""
-                            placeholderText: "vvvv-kk-pp"
+                            placeholderText: qsTranslate("Studio", "vvvv-kk-pp")
                         }
                         Button {
-                            text: "Vertaa edelliseen päivään"
+                            text: qsTranslate("Studio", "Vertaa edelliseen päivään")
                             onClicked: window.studio.setWindow(day.text, 1)
                         }
                         Label {
-                            text: "Valitse tarkistettavaan jaksoon kuuluvat kirjaukset."
+                            text: qsTranslate("Studio", "Valitse tarkistettavaan jaksoon kuuluvat kirjaukset.")
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
                         }
@@ -587,12 +587,14 @@ Kirigami.ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         GlucoseChart {
+                                language: window.studio.language
                             objectName: "glucoseChart"
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             chartData: window.studio.chart
                         }
                         GlucoseChart {
+                                language: window.studio.language
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             chartData: window.studio.comparisonChart
@@ -613,12 +615,12 @@ Kirigami.ApplicationWindow {
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: diaryRow.modelData.timeText + " · " + diaryRow.modelData.label + " · " + window.n(diaryRow.modelData.value) + " · " + window.kindText(diaryRow.modelData.kind) + (diaryRow.modelData.local ? " · aiempi paikallinen" : " · Juggluco")
+                                text: diaryRow.modelData.timeText + " · " + diaryRow.modelData.label + " · " + window.n(diaryRow.modelData.value) + " · " + window.kindText(diaryRow.modelData.kind) + (diaryRow.modelData.local ? qsTranslate("Studio", " · aiempi paikallinen") : " · Juggluco")
                                 elide: Text.ElideRight
                             }
                             ComboBox {
                                 id: purpose
-                                model: ["Valitse käyttötarkoitus", "ateria", "korjaus", "perus", "muu"]
+                                model: [qsTranslate("Studio", "Valitse käyttötarkoitus"), "ateria", "korjaus", "perus", "muu"]
                                 currentIndex: Math.max(0, model.indexOf(diaryRow.modelData.purpose))
                                 onActivated: if (currentIndex > 0)
                                     window.studio.annotate(diaryRow.modelData.id, currentText, "")
@@ -626,11 +628,11 @@ Kirigami.ApplicationWindow {
                             TextField {
                                 id: excludeReason
                                 Layout.preferredWidth: 150
-                                placeholderText: "Poissulun syy"
+                                placeholderText: qsTranslate("Studio", "Poissulun syy")
                                 text: diaryRow.modelData.exclusionReason || ""
                             }
                             Button {
-                                text: diaryRow.modelData.analysisExcluded ? "Palauta arviointiin" : "Jätä pois arviosta"
+                                text: diaryRow.modelData.analysisExcluded ? qsTranslate("Studio", "Palauta arviointiin") : qsTranslate("Studio", "Jätä pois arviosta")
                                 onClicked: {
                                     if (diaryRow.modelData.analysisExcluded)
                                         window.studio.excludeFromAnalysis(diaryRow.modelData.id, "");
@@ -643,7 +645,7 @@ Kirigami.ApplicationWindow {
                     Label {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: "Alkuperäiset kirjaukset säilyvät. Poissulku estää kyseisen tapahtuman vaikutusikkunan lääkityslaskennan; tapahtunutta insuliiniannosta ei tulkita antamattomaksi."
+                        text: qsTranslate("Studio", "Alkuperäiset kirjaukset säilyvät. Poissulku estää kyseisen tapahtuman vaikutusikkunan lääkityslaskennan; tapahtunutta insuliiniannosta ei tulkita antamattomaksi.")
                     }
                 }
                 ScrollView {
@@ -652,78 +654,78 @@ Kirigami.ApplicationWindow {
                         width: parent.width
                         spacing: 12
                         Kirigami.Heading {
-                            text: "Tarkista tapahtuma"
+                            text: qsTranslate("Studio", "Tarkista tapahtuma")
                             level: 2
                         }
                         Label {
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
-                            text: "Valitse kirjaukset Päivät-näkymästä tai Insuliinivasteen tapahtumalistasta."
+                            text: qsTranslate("Studio", "Valitse kirjaukset Päivät-näkymästä tai Insuliinivasteen tapahtumalistasta.")
                         }
                         RowLayout {
                             ComboBox {
                                 id: episodeKind
                                 objectName: "episodeKind"
-                                model: ["HH-suhde / ateria", "Korjauskerroin", "Perusinsuliini / paasto"]
+                                model: [qsTranslate("Studio", "HH-suhde / ateria"), qsTranslate("Studio", "Korjauskerroin"), qsTranslate("Studio", "Perusinsuliini / paasto")]
                                 onCurrentIndexChanged: window.resetEpisodeReview()
                             }
                             TextField {
                                 id: episodeDate
                                 objectName: "episodeStart"
                                 Layout.preferredWidth: 200
-                                placeholderText: "Alku: vvvv-kk-pp tt:mm"
+                                placeholderText: qsTranslate("Studio", "Alku: vvvv-kk-pp tt:mm")
                                 onTextChanged: window.resetEpisodeReview()
                             }
                             Label {
-                                text: Object.keys(window.selectedIds).length + " merkintää valittu"
+                                text: Object.keys(window.selectedIds).length + qsTranslate("Studio", " merkintää valittu")
                             }
                             Button {
-                                text: "Tyhjennä valinta"
+                                text: qsTranslate("Studio", "Tyhjennä valinta")
                                 onClicked: window.selectedIds = ({})
                             }
                         }
                         ReviewCheckBox {
                             id: reviewed
                             objectName: "episodeReviewed"
-                            text: "Olen tarkistanut aterian/korjauksen/paastojakson ja siihen liitetyt annokset"
+                            text: qsTranslate("Studio", "Olen tarkistanut aterian/korjauksen/paastojakson ja siihen liitetyt annokset")
                         }
                         ReviewCheckBox {
                             id: complete
                             objectName: "episodeComplete"
-                            text: "HH- ja annostiedot ovat kattavat koko arviointi- ja vaikutusjaksolta"
+                            text: qsTranslate("Studio", "HH- ja annostiedot ovat kattavat koko arviointi- ja vaikutusjaksolta")
                         }
                         ReviewCheckBox {
                             id: contextClear
                             objectName: "episodeContext"
-                            text: "Ei sekoittavaa liikuntaa, sairautta, alkoholia tai hypoglykemian korjaushiilihydraatteja"
+                            text: qsTranslate("Studio", "Ei sekoittavaa liikuntaa, sairautta, alkoholia tai hypoglykemian korjaushiilihydraatteja")
                         }
                         ReviewCheckBox {
                             id: stable
                             objectName: "episodeBasalStable"
                             visible: true
-                            text: "Perusinsuliinin annostus on ollut vakaa profiilin tasaantumisjakson ajan"
+                            text: qsTranslate("Studio", "Perusinsuliinin annostus on ollut vakaa profiilin tasaantumisjakson ajan")
                         }
                         ReviewCheckBox {
                             id: basalComplete
                             objectName: "episodeBasalComplete"
                             visible: true
-                            text: "Kaikki tasaantumisjakson perusinsuliiniannokset on kirjattu ja toteutuminen tarkistettu"
+                            text: qsTranslate("Studio", "Kaikki tasaantumisjakson perusinsuliiniannokset on kirjattu ja toteutuminen tarkistettu")
                         }
                         ReviewCheckBox {
                             id: responseV2
                             objectName: "episodeV2"
-                            text: "Käytä vastearvion mediaanimenetelmää (v2)"
+                            text: qsTranslate("Studio", "Käytä vastearvion mediaanimenetelmää (v2)")
                             onCheckedChanged: window.resetEpisodeReview()
                         }
                         ReviewCheckBox {
                             id: endStable
                             objectName: "episodeEndStable"
                             visible: responseV2.checked
-                            text: "Vaikutus on päättynyt ja loppuvaste on vakaa; ei tunnettua jatkuvaa imeytymistä"
+                            text: qsTranslate("Studio", "Vaikutus on päättynyt ja loppuvaste on vakaa; ei tunnettua jatkuvaa imeytymistä")
                         }
                         Button {
                             objectName: "saveReviewedEpisode"
-                            text: "Tallenna tarkistettu jakso"
+                            text: qsTranslate("Studio", "Tallenna tarkistettu jakso")
                             enabled: !window.studio.busy
                             onClicked: window.saveReviewedEpisode()
                         }
@@ -737,7 +739,7 @@ Kirigami.ApplicationWindow {
                         Button {
                             objectName: "episodeOpenProfile"
                             visible: window.episodeNeedsProfile
-                            text: "Täydennä hoitoprofiili"
+                            text: qsTranslate("Studio", "Täydennä hoitoprofiili")
                             onClicked: {
                                 tabs.currentIndex = 4;
                                 settingsTabs.currentIndex = 1;
@@ -745,7 +747,7 @@ Kirigami.ApplicationWindow {
                         }
                         Disclosure {
                             Layout.fillWidth: true
-                            title: "Kaikki tarkistettavat kohdat"
+                            title: qsTranslate("Studio", "Kaikki tarkistettavat kohdat")
                             visible: window.episodeResult.split("\n").length > 2
                             Label {
                                 Layout.fillWidth: true
@@ -756,11 +758,11 @@ Kirigami.ApplicationWindow {
                         Disclosure {
                             objectName: "legacyAssessment"
                             Layout.fillWidth: true
-                            title: "Aiempi arviointimenetelmä (v1)"
+                            title: qsTranslate("Studio", "Aiempi arviointimenetelmä (v1)")
                             RowLayout {
                                 ComboBox {
                                     id: assessKind
-                                    model: ["HH-suhde", "Korjauskerroin", "Perusinsuliini"]
+                                    model: ["HH-suhde", qsTranslate("Studio", "Korjauskerroin"), qsTranslate("Studio", "Perusinsuliini")]
                                 }
                                 ComboBox {
                                     id: assessSlot
@@ -769,7 +771,7 @@ Kirigami.ApplicationWindow {
                                     enabled: assessKind.currentIndex !== 2
                                 }
                                 Button {
-                                    text: "Arvioi historiasta"
+                                    text: qsTranslate("Studio", "Arvioi historiasta")
                                     onClicked: window.assessment = window.studio.assess(["icr", "isf", "basal"][assessKind.currentIndex], assessSlot.currentText)
                                 }
                             }
@@ -781,7 +783,7 @@ Kirigami.ApplicationWindow {
                             }
                             Label {
                                 visible: !!window.assessment.status
-                                text: "Mukana " + (window.assessment.included || []).length + " jaksoa · pois jätetty " + (window.assessment.excluded || []).length
+                                text: qsTranslate("Studio", "Mukana ") + (window.assessment.included || []).length + qsTranslate("Studio", " jaksoa · pois jätetty ") + (window.assessment.excluded || []).length
                             }
                             Repeater {
                                 model: window.assessment.included || []
@@ -789,7 +791,7 @@ Kirigami.ApplicationWindow {
                                     required property var modelData
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Mukana: " + modelData.startText + " · lähtö " + window.n(modelData.firstGlucose) + " → loppu " + window.n(modelData.lastGlucose) + " mmol/l · poikkeama " + window.n(modelData.deviation) + " · kattavuus " + window.n(modelData.coverage * 100) + " %"
+                                    text: qsTranslate("Studio", "Mukana: ") + modelData.startText + qsTranslate("Studio", " · lähtö ") + window.n(modelData.firstGlucose) + " → loppu " + window.n(modelData.lastGlucose) + qsTranslate("Studio", " mmol/l · poikkeama ") + window.n(modelData.deviation) + " · kattavuus " + window.n(modelData.coverage * 100) + " %"
                                 }
                             }
                             Repeater {
@@ -798,11 +800,11 @@ Kirigami.ApplicationWindow {
                                     required property var modelData
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Pois jätetty: " + (modelData.reasons || []).join(" · ")
+                                    text: qsTranslate("Studio", "Pois jätetty: ") + (modelData.reasons || []).join(" · ")
                                 }
                             }
                             Button {
-                                text: "Hyväksy tämä yksi muutos uuteen tutkimusprofiiliin"
+                                text: qsTranslate("Studio", "Hyväksy tämä yksi muutos uuteen tutkimusprofiiliin")
                                 enabled: window.assessment.status === "research"
                                 onClicked: {
                                     window.episodeResult = window.resultText(window.studio.acceptRecommendation());
@@ -814,14 +816,14 @@ Kirigami.ApplicationWindow {
                             id: savedEpisodes
                             objectName: "savedEpisodes"
                             Layout.fillWidth: true
-                            title: "Tallennetut jaksot (" + window.studio.episodes.length + ")"
+                            title: qsTranslate("Studio", "Tallennetut jaksot (") + window.studio.episodes.length + ")"
                             Repeater {
                                 model: window.studio.episodes
                                 delegate: Label {
                                     required property var modelData
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: modelData.startText + " · " + modelData.kind + " · " + modelData.slot + " · profiili " + modelData.profileVersion + (modelData.stale ? " · lähdetieto muuttunut, tarkistettava uudelleen" : "")
+                                    text: modelData.startText + " · " + modelData.kind + " · " + modelData.slot + " · profiili " + modelData.profileVersion + (modelData.stale ? qsTranslate("Studio", " · lähdetieto muuttunut, tarkistettava uudelleen") : "")
                                 }
                             }
                         }
@@ -832,10 +834,10 @@ Kirigami.ApplicationWindow {
                         id: settingsTabs
                         Layout.fillWidth: true
                         TabButton {
-                            text: "Tuonti ja raporttiasetukset"
+                            text: qsTranslate("Studio", "Tuonti ja raporttiasetukset")
                         }
                         TabButton {
-                            text: "Historiallinen hoitoprofiili"
+                            text: qsTranslate("Studio", "Historiallinen hoitoprofiili")
                         }
                     }
                     StackLayout {
@@ -845,47 +847,48 @@ Kirigami.ApplicationWindow {
                         ScrollView {
                             contentWidth: availableWidth
                             ColumnLayout {
+                                LanguageSelector { studio: window.studio }
                                 width: parent.width
                                 spacing: 12
                                 Kirigami.Heading {
-                                    text: "Tietojen tuonti"
+                                    text: qsTranslate("Studio", "Tietojen tuonti")
                                     level: 2
                                 }
                                 Label {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Kytke puhelin USB:llä ja tuo uudet tiedot. Tuonnin jälkeen voit irrottaa puhelimen."
+                                    text: qsTranslate("Studio", "Kytke puhelin USB:llä ja tuo uudet tiedot. Tuonnin jälkeen voit irrottaa puhelimen.")
                                 }
                                 RowLayout {
                                     Button {
-                                        text: "Tuo Jugglucosta"
+                                        text: qsTranslate("Studio", "Tuo Jugglucosta")
                                         enabled: !window.studio.busy && !window.demoMode
                                         onClicked: window.studio.sync()
                                     }
                                     Button {
-                                        text: "Tarkista koko historia"
+                                        text: qsTranslate("Studio", "Tarkista koko historia")
                                         enabled: !window.studio.busy && !window.demoMode
                                         onClicked: window.studio.syncAll()
                                     }
                                     Button {
-                                        text: "Tuo TSV-kansiosta…"
+                                        text: qsTranslate("Studio", "Tuo TSV-kansiosta…")
                                         enabled: !window.studio.busy && !window.demoMode
                                         onClicked: window.studio.chooseImportFolder()
                                     }
                                     Button {
-                                        text: "Varmuuskopio"
+                                        text: qsTranslate("Studio", "Varmuuskopio")
                                         onClicked: window.studio.backup()
                                     }
                                 }
                                 Label {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Koko historian tarkistus hakee myös vanhat muutokset. TSV-tuonti tukee Jugglucon alkuperäisiä vientitiedostoja."
+                                    text: qsTranslate("Studio", "Koko historian tarkistus hakee myös vanhat muutokset. TSV-tuonti tukee Jugglucon alkuperäisiä vientitiedostoja.")
                                 }
                                 Disclosure {
                                     objectName: "connectionDetails"
                                     Layout.fillWidth: true
-                                    title: "Tietolähde ja yhteys"
+                                    title: qsTranslate("Studio", "Tietolähde ja yhteys")
                                     ConnectionEditor {
                                         Layout.fillWidth: true
                                         backend: window.studio
@@ -893,12 +896,12 @@ Kirigami.ApplicationWindow {
                                 }
                                 Disclosure {
                                     Layout.fillWidth: true
-                                    title: "Seuranta- ja tutkimusasetukset"
+                                    title: qsTranslate("Studio", "Seuranta- ja tutkimusasetukset")
                                     GridLayout {
                                         Layout.fillWidth: true
                                         columns: 2
                                         Label {
-                                            text: "Aikavyöhyke"
+                                            text: qsTranslate("Studio", "Aikavyöhyke")
                                         }
                                         TextField {
                                             id: zone
@@ -906,7 +909,7 @@ Kirigami.ApplicationWindow {
                                             text: window.studio.analysisSettings.timezone
                                         }
                                         Label {
-                                            text: "Tavoitealueen alaraja (mmol/l)"
+                                            text: qsTranslate("Studio", "Tavoitealueen alaraja (mmol/l)")
                                         }
                                         TextField {
                                             id: low
@@ -914,7 +917,7 @@ Kirigami.ApplicationWindow {
                                             text: window.studio.analysisSettings.low === undefined ? "" : window.studio.analysisSettings.low
                                         }
                                         Label {
-                                            text: "Tavoitealueen yläraja (mmol/l)"
+                                            text: qsTranslate("Studio", "Tavoitealueen yläraja (mmol/l)")
                                         }
                                         TextField {
                                             id: high
@@ -922,7 +925,7 @@ Kirigami.ApplicationWindow {
                                             text: window.studio.analysisSettings.high === undefined ? "" : window.studio.analysisSettings.high
                                         }
                                         Label {
-                                            text: "Tutkimuskäyrien katkosraja (min)"
+                                            text: qsTranslate("Studio", "Tutkimuskäyrien katkosraja (min)")
                                         }
                                         TextField {
                                             id: gap
@@ -933,15 +936,15 @@ Kirigami.ApplicationWindow {
                                     Label {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Glukoosin yhteenveto ja vuorokausiprofiili käyttävät aina streamia ja sen aukkoihin sensorihistoriaa, 20 minuutin teknisellä enimmäisrajalla. Katkosraja ja täydennysvalinta koskevat erillisiä tutkimusanalyysejä ja päiväkäyriä."
+                                        text: qsTranslate("Studio", "Glukoosin yhteenveto ja vuorokausiprofiili käyttävät aina streamia ja sen aukkoihin sensorihistoriaa, 20 minuutin teknisellä enimmäisrajalla. Katkosraja ja täydennysvalinta koskevat erillisiä tutkimusanalyysejä ja päiväkäyriä.")
                                     }
                                     ReviewCheckBox {
                                         id: fill
                                         checked: window.studio.analysisSettings.fillHistory
-                                        text: "Täydennä tutkimuskäyrien aukot sensorihistorialla"
+                                        text: qsTranslate("Studio", "Täydennä tutkimuskäyrien aukot sensorihistorialla")
                                     }
                                     Button {
-                                        text: "Tallenna raporttiasetukset"
+                                        text: qsTranslate("Studio", "Tallenna raporttiasetukset")
                                         onClicked: window.studio.saveAnalysisSettings({
                                             timezone: zone.text,
                                             low: window.decimal(low.text),
@@ -953,14 +956,14 @@ Kirigami.ApplicationWindow {
                                     Label {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Tavoitealueelle ei aseteta hiljaisia hoito-oletuksia. 20 minuutin oletuskatkosraja on tekninen kuvaus-/laskentaraja. Katettuna pidetään vain havaintovälin tukema aika, ei koko pitkää katkosta."
+                                        text: qsTranslate("Studio", "Tavoitealueelle ei aseteta hiljaisia hoito-oletuksia. 20 minuutin oletuskatkosraja on tekninen kuvaus-/laskentaraja. Katettuna pidetään vain havaintovälin tukema aika, ei koko pitkää katkosta.")
                                     }
                                 }
                                 Disclosure {
                                     objectName: "researchTargetSettings"
                                     Layout.fillWidth: true
-                                    title: "Automaattisen tutkimusanalyysin rajat"
-                                    summary: "Aiemman ateria- ja yömuutosanalyysin asetukset"
+                                    title: qsTranslate("Studio", "Automaattisen tutkimusanalyysin rajat")
+                                    summary: qsTranslate("Studio", "Aiemman ateria- ja yömuutosanalyysin asetukset")
                                     onExpandedChanged: if (expanded) {
                                         let s = window.studio.automaticSettings;
                                         goalLow.text = s.targetLow > 0 ? s.targetLow.toString() : "";
@@ -970,18 +973,18 @@ Kirigami.ApplicationWindow {
                                     Label {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Nämä rajat koskevat tutkimustilan ateria- ja yömuutosanalyysiä. Ne eivät muuta öiden keskiarvokorttia tai vuorokausianalyysin keskiarvoja."
+                                        text: qsTranslate("Studio", "Nämä rajat koskevat tutkimustilan ateria- ja yömuutosanalyysiä. Ne eivät muuta öiden keskiarvokorttia tai vuorokausianalyysin keskiarvoja.")
                                     }
                                     Label {
-                                        text: "Tavoitealue (mmol/l)"
+                                        text: qsTranslate("Studio", "Tavoitealue (mmol/l)")
                                     }
                                     RowLayout {
                                         TextField {
                                             id: goalLow
                                             objectName: "automaticTargetLow"
-                                            placeholderText: "Alaraja"
+                                            placeholderText: qsTranslate("Studio", "Alaraja")
                                             Layout.fillWidth: true
-                                            Accessible.name: "Tutkimusanalyysin alaraja (mmol/l)"
+                                            Accessible.name: qsTranslate("Studio", "Tutkimusanalyysin alaraja (mmol/l)")
                                         }
                                         Label {
                                             text: "–"
@@ -989,29 +992,29 @@ Kirigami.ApplicationWindow {
                                         TextField {
                                             id: goalHigh
                                             objectName: "automaticTargetHigh"
-                                            placeholderText: "Yläraja"
+                                            placeholderText: qsTranslate("Studio", "Yläraja")
                                             Layout.fillWidth: true
-                                            Accessible.name: "Tutkimusanalyysin yläraja (mmol/l)"
+                                            Accessible.name: qsTranslate("Studio", "Tutkimusanalyysin yläraja (mmol/l)")
                                         }
                                     }
                                     Label {
-                                        text: "Matalan raja: alle (mmol/l)"
+                                        text: qsTranslate("Studio", "Matalan raja: alle (mmol/l)")
                                     }
                                     TextField {
                                         id: hypo
                                         objectName: "automaticHypo"
                                         Layout.fillWidth: true
-                                        Accessible.name: "Tutkimusanalyysin matalan raja (mmol/l)"
+                                        Accessible.name: qsTranslate("Studio", "Tutkimusanalyysin matalan raja (mmol/l)")
                                     }
                                     Button {
-                                        text: "Tallenna tutkimusrajat"
+                                        text: qsTranslate("Studio", "Tallenna tutkimusrajat")
                                         objectName: "saveAutomaticTargets"
                                         onClicked: window.studio.saveAutomaticTargets(window.decimal(goalLow.text), window.decimal(goalHigh.text), window.decimal(hypo.text))
                                     }
                                 }
                                 Disclosure {
                                     Layout.fillWidth: true
-                                    title: "Merkintöjen luokitus"
+                                    title: qsTranslate("Studio", "Merkintöjen luokitus")
                                     Repeater {
                                         model: window.studio.labels
                                         delegate: RowLayout {
@@ -1023,16 +1026,16 @@ Kirigami.ApplicationWindow {
                                             }
                                             ComboBox {
                                                 id: kind
-                                                model: ["Ei luokitusta", "Hiilihydraatit", "Pikainsuliini", "Perusinsuliini", "Korjausinsuliini", "Muu"]
+                                                model: ["Ei luokitusta", qsTranslate("Studio", "Hiilihydraatit"), qsTranslate("Studio", "Pikainsuliini"), qsTranslate("Studio", "Perusinsuliini"), qsTranslate("Studio", "Korjausinsuliini"), qsTranslate("Studio", "Muu")]
                                                 currentIndex: Math.max(0, ["unknown", "carbs", "rapid", "basal", "correction", "other"].indexOf(labelRow.modelData.kind))
                                             }
                                             TextField {
                                                 id: medicine
-                                                placeholderText: "Insuliinivalmiste"
+                                                placeholderText: qsTranslate("Studio", "Insuliinivalmiste")
                                                 text: labelRow.modelData.medicine
                                             }
                                             Button {
-                                                text: "Vahvista luokitus"
+                                                text: qsTranslate("Studio", "Vahvista luokitus")
                                                 onClicked: window.studio.mapLabel(labelRow.modelData.label, ["unknown", "carbs", "rapid", "basal", "correction", "other"][kind.currentIndex], medicine.text)
                                             }
                                         }
@@ -1040,12 +1043,12 @@ Kirigami.ApplicationWindow {
                                     Label {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Luokan nimi ei yksin määritä lääketieteellistä merkitystä. Jugglucon luokkien järjestely voi muuttaa myös vanhojen tapahtumien tulkintaa. Luokitusmuutos mitätöi siitä riippuvat aiemmat arviot."
+                                        text: qsTranslate("Studio", "Luokan nimi ei yksin määritä lääketieteellistä merkitystä. Jugglucon luokkien järjestely voi muuttaa myös vanhojen tapahtumien tulkintaa. Luokitusmuutos mitätöi siitä riippuvat aiemmat arviot.")
                                     }
                                 }
                                 Disclosure {
                                     Layout.fillWidth: true
-                                    title: "Tuontihistoria"
+                                    title: qsTranslate("Studio", "Tuontihistoria")
                                     Repeater {
                                         model: window.studio.importHistory
                                         delegate: Label {
@@ -1054,12 +1057,12 @@ Kirigami.ApplicationWindow {
                                             wrapMode: Text.WordWrap
                                             text: window.stamp(modelData.started) + " · " + ({
                                                     usb: "USB",
-                                                    network: "Verkko",
-                                                    "files-additive": "Tiedostot"
+                                                    network: qsTranslate("Studio", "Verkko"),
+                                                    "files-additive": qsTranslate("Studio", "Tiedostot")
                                                 })[modelData.transport] + " · " + ({
-                                                    complete: "Valmis",
-                                                    partial: "Kesken",
-                                                    running: "Käynnissä"
+                                                    complete: qsTranslate("Studio", "Valmis"),
+                                                    partial: qsTranslate("Studio", "Kesken"),
+                                                    running: qsTranslate("Studio", "Käynnissä")
                                                 })[modelData.status] + " · " + modelData.chunks + " osaa" + (modelData.status === "partial" ? " · " + (modelData.error || "") : "")
                                         }
                                     }
@@ -1120,13 +1123,13 @@ Kirigami.ApplicationWindow {
         padding: 20
         ColumnLayout {
             Label {
-                text: "Jakson viimeinen päivä"
+                text: qsTranslate("Studio", "Jakson viimeinen päivä")
                 font.bold: true
             }
             TextField {
                 id: lastDate
                 Layout.preferredWidth: 220
-                placeholderText: "vvvv-kk-pp"
+                placeholderText: qsTranslate("Studio", "vvvv-kk-pp")
                 text: window.studio.analysis.lastDate || ""
                 onAccepted: {
                     window.studio.setAnalysisWindow(window.studio.analysis.days, text);
@@ -1134,7 +1137,7 @@ Kirigami.ApplicationWindow {
                 }
             }
             Button {
-                text: "Näytä jakso"
+                text: qsTranslate("Studio", "Näytä jakso")
                 onClicked: {
                     window.studio.setAnalysisWindow(window.studio.analysis.days, lastDate.text);
                     periodPopup.close();

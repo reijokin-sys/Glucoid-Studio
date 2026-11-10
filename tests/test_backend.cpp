@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "backend.h"
+#include "syncpolicy.h"
+#include <QUrlQuery>
+#include <QTimer>
+#include <QElapsedTimer>
 #include "profile_fixture.h"
 #include "response_fixture.h"
 #include "observation_fixture.h"
@@ -18,6 +22,130 @@ class BackendTest:public QObject{
     static QList<Reading> samples(qint64 at){QList<Reading> rows;for(int minute=-240;minute<=360;minute+=5){Reading r;r.key=QString::number(at)+":"+QString::number(minute);r.sensor="synthetic";r.time=at+minute*60000;r.mmol=minute<240?6:9;r.original=r.mmol;r.originalUnit="mmol/L";rows<<r;}return rows;}
     static QVariantMap episode(qint64 at,const QString&kind,const QStringList&ids){return {{"kind",kind},{"startText",QDateTime::fromMSecsSinceEpoch(at,QTimeZone("Europe/Helsinki")).toString("yyyy-MM-dd HH:mm")},{"linkedIds",ids},{"reviewed",true},{"complete",true},{"contextClear",true},{"basalStable",true},{"basalHistoryComplete",true}};}
 private slots:
+    void updateCompletionWaitsForBackupAndRejectsFailedRetry() {
+        QTemporaryDir dir;
+        Store store(dir.path()+"/studio.sqlite3");
+        QVERIFY(store.setMeta("connectionConfigured","1"));
+        QVERIFY(store.setMeta("lastSourceUntil",QString::number(QDateTime::currentSecsSinceEpoch()*1000)));
+        QFile file(dir.path()+"/connection.json");QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("{\"source\":\"juggluco\",\"mode\":\"usb\",\"auth\":\"none\"}");file.close();
+        bool broken=false,completeAtImportFinish=true;
+        Backend backend(dir.path(),nullptr,[&](const QString& path,auto done){
+            if(broken){done({},"synthetic failure");return;}
+            done(path.startsWith("/x/amounts")?QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n"):QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"),{});
+        });
+        backend.enableBackgroundWork();
+        connect(&backend,&Backend::syncFinished,&backend,[&](bool){completeAtImportFinish=backend.updateComplete();});
+        QSignalSpy finished(&backend,&Backend::syncFinished);
+        QVERIFY(!backend.updateComplete());
+        backend.sync();
+        QVERIFY(backend.updateInProgress());QVERIFY(!backend.updateComplete());
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(),1,10000);
+        QVERIFY(finished[0][0].toBool());QVERIFY(!completeAtImportFinish);
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.updateInProgress(),10000);
+        QVERIFY(backend.updateComplete());
+        broken=true;backend.sync();
+        QVERIFY(!backend.updateComplete());
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(),2,10000);
+        QVERIFY(!finished[1][0].toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.updateInProgress(),10000);
+        QVERIFY(!backend.updateComplete());
+    }
+    void backgroundSummaryKeepsLatestSelectionAndBackupIsRestorable() {
+        QTemporaryDir dir;
+        Backend backend(dir.path());
+        backend.seedDemo();
+        const qint64 now=QDateTime::currentSecsSinceEpoch()*1000;
+        Store store(dir.path()+"/studio.sqlite3");
+        const auto run=store.beginImport(now-60000,now,"fixture");
+        const auto data=QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\nsynthetic-extra\t1\t")+QByteArray::number(now/1000-30)+"\t6\n";
+        QVERIFY(store.importChunk(run,"stream",data,now-60000,now));
+        backend.enableBackgroundWork();
+        int beats=0; qint64 maximumGap=0;
+        QElapsedTimer gap;gap.start();
+        QTimer heartbeat;heartbeat.setInterval(5);
+        connect(&heartbeat,&QTimer::timeout,&heartbeat,[&]{maximumGap=std::max(maximumGap,gap.restart());++beats;});
+        heartbeat.start();
+        QElapsedTimer call;call.start();
+        backend.setAnalysisWindow(90,"");
+        backend.setAnalysisWindow(7,""); // invalidate the first worker's result
+        backend.backup();
+        QVERIFY(call.elapsed()<250);
+        QVERIFY(backend.backgroundBusy());
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.backgroundBusy(),30000);
+        heartbeat.stop();
+        QVERIFY(beats>2);
+        QVERIFY2(maximumGap<500,qPrintable(QString::number(maximumGap)));
+        QCOMPARE(backend.analysis()["days"].toInt(),7);
+        Backend reference(dir.path());
+        QCOMPARE(backend.analysis()["mean"],reference.analysis()["mean"]);
+        QVERIFY(backend.backupStatus().contains("varmuuskopioitu"));
+        const auto manifests=QDir(dir.path()+"/backups").entryList({"*.manifest.json"},QDir::Files);
+        QCOMPARE(manifests.size(),1);
+        QString backup=dir.path()+"/backups/"+manifests.first();backup.chop(QString(".manifest.json").size());
+        QProcess restore;
+        restore.start("python3",{QStringLiteral(STUDIO_SOURCE_DIR)+"/tools/restore-backup.py","--backup",backup,"--data-dir",dir.path()+"/restored"});
+        QVERIFY(restore.waitForFinished());QCOMPARE(restore.exitCode(),0);
+        Store restored(dir.path()+"/restored/studio.sqlite3");
+        QVERIFY(restored.good());
+        for(const auto& row:restored.query("SELECT path FROM import_chunks"))QVERIFY(QFile::exists(row.toObject()["path"].toString()));
+    }
+    void backgroundBackupFailureIsVisibleAndPreservesDatabaseCopy() {
+        QTemporaryDir dir;
+        Store store(dir.path()+"/studio.sqlite3");
+        const auto run=store.beginImport(1000,2000,"fixture");
+        QVERIFY(store.importChunk(run,"amounts","Source\tnr\tUnixTime\tValue\tLabel\n",1000,2000));
+        const auto source=store.query("SELECT path FROM import_chunks")[0].toObject()["path"].toString();
+        QVERIFY(QFile::rename(source,source+".fixture-missing"));
+        QVERIFY(store.setMeta("connectionConfigured","1"));
+        QVERIFY(store.setMeta("lastSourceUntil",QString::number(QDateTime::currentSecsSinceEpoch()*1000)));
+        QFile file(dir.path()+"/connection.json");QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("{\"source\":\"juggluco\",\"mode\":\"usb\",\"auth\":\"none\"}");file.close();
+        Backend backend(dir.path(),nullptr,[](const QString& path,auto done){
+            done(path.startsWith("/x/amounts")?QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n"):QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"),{});
+        });
+        backend.enableBackgroundWork();
+        QSignalSpy finished(&backend,&Backend::syncFinished);backend.sync();
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(),1,10000);QVERIFY(finished[0][0].toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(!backend.updateInProgress(),10000);
+        QVERIFY(backend.backupStatus().contains("vajaaksi"));
+        QVERIFY(!backend.updateComplete());
+        QVERIFY(!QDir(dir.path()+"/backups").entryList({"studio-*.sqlite3"},QDir::Files).isEmpty());
+    }
+    void jugglucoSyncWindow_data(){
+        QTest::addColumn<int>("daysSinceSync");
+        QTest::newRow("first-183-days")<<0;
+        QTest::newRow("recent-72-hours")<<1;
+        QTest::newRow("ten-day-outage")<<10;
+    }
+    void jugglucoSyncWindow(){
+        QFETCH(int,daysSinceSync);
+        QTemporaryDir dir;
+        const qint64 now=QDateTime::currentSecsSinceEpoch()*1000;
+        const qint64 last=now-qint64(daysSinceSync)*86400000;
+        Store store(dir.path()+"/studio.sqlite3");
+        QVERIFY(store.setMeta("connectionConfigured","1"));
+        if(daysSinceSync)QVERIFY(store.setMeta("lastSourceUntil",QString::number(last)));
+        QFile file(dir.path()+"/connection.json");QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("{\"source\":\"juggluco\",\"mode\":\"usb\",\"auth\":\"none\"}");file.close();
+        const qint64 expected=!daysSinceSync?now-initialImportHistoryMs:daysSinceSync<3?now-correctionHistoryMs:last;
+        qint64 amountsFrom=0,minimumFrom=now;
+        Backend backend(dir.path(),nullptr,[&](const QString& path,auto done){
+            const QUrlQuery query(QUrl("http://localhost"+path));
+            const qint64 from=query.queryItemValue("starttime").toLongLong()*1000;
+            minimumFrom=std::min(minimumFrom,from);
+            const bool amounts=path.startsWith("/x/amounts");
+            if(amounts)amountsFrom=from;
+            done(amounts?QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n"):QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"),{});
+        });
+        backend.enableBackgroundWork();
+        QSignalSpy done(&backend,&Backend::syncFinished);
+        backend.sync();
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(),1,10000);
+        QVERIFY(done[0][0].toBool());
+        QVERIFY(minimumFrom>=expected && minimumFrom<=expected+10000);
+        QVERIFY(amountsFrom>=expected && amountsFrom<=expected+10000);
+    }
     void standardSummaryIgnoresResearchSwitchesAndRetainsData(){
         const GlucoidFixture::SummaryPolicy f;
         QTemporaryDir dir;Store db(dir.path()+"/studio.sqlite3");

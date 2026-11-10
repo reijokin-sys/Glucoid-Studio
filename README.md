@@ -7,7 +7,8 @@
 ### Suomeksi (English below)
 
 Paikallinen glukoosi- ja kirjaushistorian tarkastelu Linuxin KDE Plasma -työpöydälle.
-Käyttöliittymä on suomeksi. Glucoid Studio on erillinen sovellus;
+Käyttöliittymän kieli valitaan asetuksista: **English (oletus)** tai **Suomi**.
+Glucoid Studio on erillinen sovellus;
 [Glucoid](https://github.com/reijokin-sys/Glucoid) on Plasma-paneelin widget.
 
 #### Toiminnot
@@ -37,6 +38,20 @@ GMI:n viitearvoväri näytetään myös viikon jaksolle; lyhyt tai vajaa jakso m
 Historialliset, kliinisesti validoimattomat tutkimustyökalut ovat erillisessä
 `--research`-tilassa; niitä ei pidä käyttää itsenäisiin lääkityspäätöksiin.
 
+#### Uutta versiossa 1.6.0
+
+- Käyttöliittymä on kaksikielinen: **English (oletus)** tai **Suomi**
+  asetuksista, myös lennossa. Käyttäjän tiedot, merkintänimet ja
+  yhteysasetukset eivät muutu kieltä vaihdettaessa.
+- Ensimmäinen tavallinen tuonti hakee 183 päivää. Jatkopäivitys tarkistaa
+  viimeiset 72 tuntia; pidemmän katkon jälkeen myös koko puuttuva väli haetaan.
+- Nightscoutin muutosleimat tuovat myös vanhempien tapahtumien korjaukset.
+  Vanhojen Juggluco-korjausten tarkistamiseen on oma **Tarkista koko historia** -painike.
+- Tuonnin tallennus, yhteenvedot ja varmuuskopiointi toimivat pääikkunassa
+  taustalla. Valittu välilehti erottuu mintunvihreällä.
+- **Päivitä tiedot** on harmaa työn ajan ja vihreä vasta onnistuneen haun,
+  laskennan ja varmuuskopioinnin valmistuttua. Virhe ei näytä onnistumista.
+
 #### Asennus
 
 Julkaisun .deb on tarkoitettu **Ubuntu/Kubuntu 26.04 amd64** -järjestelmään,
@@ -44,7 +59,7 @@ Qt 6.10:lle ja KDE/Kirigami 6:lle. Se käyttää jakelun kirjastoja eikä sisäl
 niiden omia kopioita.
 
 ```sh
-sudo apt install ./glucoid-studio_1.5.4_amd64.deb
+sudo apt install ./glucoid-studio_1.6.0_amd64.deb
 glucoid-studio
 ```
 
@@ -69,8 +84,10 @@ Poisto säilyttää käyttäjän historian ja avainrengastiedot.
 
 Tarvitaan C++20-kääntäjä, CMake, Ninja, SQLite3, Qt 6.10
 (Core, Gui, Widgets, Quick, QuickControls2, Network, DBus, Test, Graphs,
-Concurrent), KF6Wallet, Kirigami 6:n QML-moduulit, Python 3 ja testejä varten
-OpenSSL. Tarkat ajonaikaiset riippuvuudet ovat .deb-paketin metatiedoissa.
+Concurrent ja LinguistTools), KF6Wallet, KF6I18n, Kirigami 6:n QML-moduulit,
+Python 3 ja testejä varten OpenSSL. Tarkat ajonaikaiset riippuvuudet ovat
+.deb-paketin metatiedoissa. Käännöslähteet ovat `i18n/`-hakemistossa ja
+käännetään osaksi sovellusta.
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
@@ -115,7 +132,7 @@ GPL-3.0-or-later. Katso [LICENSE](LICENSE) ja
 
 ### English
 
-Glucoid Studio is a local glucose and treatment-entry history viewer for the Linux KDE Plasma desktop. The application interface is in Finnish. It is a separate application from [Glucoid](https://github.com/reijokin-sys/Glucoid), the Plasma panel widget.
+Glucoid Studio is a local glucose and treatment-entry history viewer for the Linux KDE Plasma desktop. The interface language is selected in Settings: **English (default)** or **Finnish**. It is a separate application from [Glucoid](https://github.com/reijokin-sys/Glucoid), the Plasma panel widget.
 
 #### Features
 
@@ -131,12 +148,26 @@ Juggluco network access requires a working Linux WireGuard interface and the pho
 
 The application describes recorded data; it cannot guarantee that source data is correct. GMI is an estimate derived from sensor readings, not a laboratory HbA1c measurement. Its reference color is also shown for a one-week period; short or incomplete periods remain marked as indicative. Historical, clinically unvalidated research tools remain available separately with `--research`; they must not be used for independent medication decisions.
 
+#### New in version 1.6.0
+
+- The interface is bilingual: **English (default)** or **Finnish** in
+  Settings, also switched live. User data, entry names and connection
+  settings are unchanged when the language changes.
+- The first normal import covers 183 days. Subsequent updates revisit the
+  last 72 hours; after a longer outage, the entire missing interval is fetched.
+- Nightscout modification timestamps also bring in edits to older events.
+  A separate **Tarkista koko historia** (Check full history) button covers older Juggluco edits.
+- Import storage, summaries and backups run in the background in the main
+  window. The selected tab has a clear mint-green highlight.
+- **Päivitä tiedot** (Update data) stays grey during work and turns green only
+  after the import, calculations and backup succeed. Errors do not show success.
+
 #### Installation
 
 The release `.deb` targets **Ubuntu/Kubuntu 26.04 amd64**, Qt 6.10 and KDE/Kirigami 6. It uses distribution-provided libraries rather than bundled copies.
 
 ```sh
-sudo apt install ./glucoid-studio_1.5.4_amd64.deb
+sudo apt install ./glucoid-studio_1.6.0_amd64.deb
 glucoid-studio
 ```
 
@@ -152,7 +183,7 @@ Removal preserves the user's history and wallet credentials.
 
 #### Building from source
 
-Requirements: a C++20 compiler, CMake, Ninja, SQLite3, Qt 6.10 (Core, Gui, Widgets, Quick, QuickControls2, Network, DBus, Test, Graphs and Concurrent), KF6Wallet, the Kirigami 6 QML modules, Python 3 and OpenSSL for the tests. Exact runtime dependencies are recorded in the `.deb` metadata.
+Requirements: a C++20 compiler, CMake, Ninja, SQLite3, Qt 6.10 (Core, Gui, Widgets, Quick, QuickControls2, Network, DBus, Test, Graphs, Concurrent and LinguistTools), KF6Wallet, KF6I18n, the Kirigami 6 QML modules, Python 3 and OpenSSL for the tests. Exact runtime dependencies are recorded in the `.deb` metadata. Translation sources live in `i18n/` and are compiled into the application.
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON

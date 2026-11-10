@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "domain.h"
+#include "importer.h"
+#include "syncpolicy.h"
+#include <QUrlQuery>
 #include "profile_fixture.h"
 #include "store.h"
 #include "transport.h"
@@ -18,6 +21,43 @@ static QByteArray fixture(const char*name){QFile f(QStringLiteral(FIXTURE_DIR)+"
 class StudioTest:public QObject{
     Q_OBJECT
 private slots:
+    void recentJugglucoSnapshotImportsCorrectionsAndPreservesOlderAndLocal() {
+        QTemporaryDir dir;
+        Store store(dir.path()+"/studio.sqlite3");
+        const qint64 until=QDateTime::currentSecsSinceEpoch()*1000;
+        const qint64 from=until-correctionHistoryMs;
+        const QByteArray header="Source\tnr\tUnixTime\tValue\tLabel\n";
+        auto row=[](int nr,qint64 time,int value){return "0\t"+QByteArray::number(nr)+"\t"+QByteArray::number(time/1000)+"\t"+QByteArray::number(value)+"\tSynthetic carbs\n";};
+        auto run=store.beginImport(from-86400000,until,"fixture");
+        QVERIFY(store.importChunk(run,"amounts",header+row(1,from-3600000,10)+row(2,from+60000,20),from-86400000,until));
+        const auto local=store.addLocal(from+120000,5,"carbs","","synthetic");
+        QByteArray response=header+row(9,from+60000,30)+row(10,from+180000,40);
+        QStringList requests;
+        auto sync=[&] {
+            Importer importer(store,[&](const QString& path,auto done){
+                requests<<path;
+                const QUrlQuery query(QUrl("http://localhost"+path));
+                QCOMPARE(query.queryItemValue("starttime").toLongLong(),from/1000);
+                done(path.startsWith("/x/amounts")?response:QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"),{});
+            });
+            importer.setBackgroundWrites(true);
+            QSignalSpy done(&importer,&Importer::finished);
+            importer.start(from,until,"fixture");
+            QTRY_COMPARE(done.size(),1);
+            QVERIFY2(done[0][0].toBool(),qPrintable(done[0][1].toString()));
+        };
+        sync();
+        QCOMPARE(requests.size(),4);
+        QCOMPARE(store.amounts(0,until).size(),4); // older + edited + backdated + local
+        const auto revision=store.revision();
+        sync();
+        QCOMPARE(store.revision(),revision);
+        response=header; // valid empty window deletes only recent remote records
+        sync();
+        QCOMPARE(store.amounts(0,until).size(),2);
+        QCOMPARE(store.amounts(from,until).first().toObject()["id"].toString(),local);
+        QVERIFY(!store.meta("lastSourceUntil").isEmpty());
+    }
     void stream(){auto r=parseStream(fixture("stream.tsv"));QVERIFY(r.error.isEmpty());QCOMPARE(r.rows.size(),2);QCOMPARE(r.rows[0].mmol,6.0);QCOMPARE(r.rows[0].time,1760000000000LL);}
     void mgdl(){auto bytes=fixture("stream.tsv").replace("mmol/L","mg/dL").replace("\t6.0\t","\t108.0\t");auto r=parseStream(bytes);QVERIFY(r.error.isEmpty());QCOMPARE(r.rows[0].mmol,6.0);QCOMPARE(r.rows[0].original,108.0);}
     void truncation(){auto b=fixture("stream.tsv");b.chop(1);QVERIFY(!parseStream(b).error.isEmpty());b=fixture("amounts.tsv");b.append("0\t4\t1760000000\n");QVERIFY(!parseAmounts(b).error.isEmpty());}

@@ -2,6 +2,7 @@
 #pragma once
 #include "store.h"
 #include <QObject>
+#include <QFutureWatcher>
 #include <functional>
 namespace Studio {
 class Importer : public QObject {
@@ -9,6 +10,8 @@ class Importer : public QObject {
   public:
     using Fetch = std::function<void(const QString&, std::function<void(QByteArray, QString)>)>;
     Importer(Store& store, Fetch fetch, QObject* parent = nullptr) : QObject(parent), db(store), fetch(std::move(fetch)) {}
+    ~Importer() override { writeWatcher.waitForFinished(); }
+    void setBackgroundWrites(bool enabled) { backgroundWrites = enabled; }
     void start(qint64 from, qint64 to, const QString& transport);
   signals:
     void progress(const QString& text);
@@ -20,6 +23,10 @@ class Importer : public QObject {
         qint64 from, to;
         int attempt = 0;
     };
+    bool backgroundWrites = false;
+    QFutureWatcher<QPair<bool, QString>> writeWatcher;
+    void storePage(const Task& task, const QByteArray& bytes);
+    void pageStored(const Task& task, bool success, const QString& error);
     Store& db;
     Fetch fetch;
     QList<Task> tasks;

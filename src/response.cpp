@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "response.h"
 #include <QDateTime>
 #include <QTimeZone>
@@ -24,7 +25,7 @@ static QJsonObject blocked(const QStringList& reasons) {
 }
 QJsonObject defaultResponsePolicy() {
     QJsonArray groups;
-    for (auto name : {"Aamu", "Päivä", "Iltapäivä", "Ilta/yö"})
+    for (auto name : {QCoreApplication::translate("Studio", "Aamu"), QCoreApplication::translate("Studio", "Päivä"), QCoreApplication::translate("Studio", "Iltapäivä"), QCoreApplication::translate("Studio", "Ilta/yö")})
         groups << QJsonObject{{"name", name}, {"startMinute", QJsonValue()}, {"externalIsf", QJsonValue()}};
     QJsonObject p{{"version", 2}, {"approved", false}, {"groups", groups}, {"bootstrapSamples", 2000}, {"blockDays", 1}, {"endpointMinutes", 15}};
     for (auto key : {"minimumEpisodes", "minimumDays", "minCoverage", "maxRelativeWidth", "maxDayInfluencePercent", "maxInvalidFraction", "doseStepPercent",
@@ -34,31 +35,31 @@ QJsonObject defaultResponsePolicy() {
 }
 QStringList validateResponsePolicy(const QJsonObject& policy) {
     QStringList errors;
-    if (policy["version"].toInt() != 2) errors << "Vastepolitiikan version pitää olla 2.";
+    if (policy["version"].toInt() != 2) errors << QCoreApplication::translate("Studio", "Vastepolitiikan version pitää olla 2.");
     for (auto key : {"minimumEpisodes", "minimumDays", "minCoverage", "maxRelativeWidth", "maxDayInfluencePercent", "maxInvalidFraction", "doseStepPercent",
                      "maximumChangePercent", "minimumDose", "minimumCarbs", "minimumBasalDays", "doseMatchToleranceUnits", "maxPeriodDriftPercent"})
-        if (!pos(number(policy, key))) errors << "Määritä vastepolitiikan raja: " + QString(key);
+        if (!pos(number(policy, key))) errors << QCoreApplication::translate("Studio", "Määritä vastepolitiikan raja: ") + QString(key);
     for (auto key : {"minimumEpisodes", "minimumDays", "minimumBasalDays", "bootstrapSamples", "blockDays", "endpointMinutes"})
         if (!pos(number(policy, key)) || std::floor(number(policy, key)) != number(policy, key))
-            errors << "Vaaditaan positiivinen kokonaisluku: " + QString(key);
+            errors << QCoreApplication::translate("Studio", "Vaaditaan positiivinen kokonaisluku: ") + QString(key);
     if (number(policy, "minimumDays") < 2 || number(policy, "minCoverage") > 1 || number(policy, "maxInvalidFraction") >= 1 ||
         number(policy, "doseStepPercent") > number(policy, "maximumChangePercent") || number(policy, "maximumChangePercent") >= 100 ||
         number(policy, "bootstrapSamples") < 200 || number(policy, "bootstrapSamples") > 10000 || number(policy, "blockDays") > 7 ||
         number(policy, "endpointMinutes") > 60)
-        errors << "Vastepolitiikan osuudet, askel tai tekniset rajat eivät kelpaa.";
+        errors << QCoreApplication::translate("Studio", "Vastepolitiikan osuudet, askel tai tekniset rajat eivät kelpaa.");
     const auto groups = policy["groups"].toArray();
-    if (groups.size() != 4) errors << "Määritä neljä vuorokaudenaikaa.";
+    if (groups.size() != 4) errors << QCoreApplication::translate("Studio", "Määritä neljä vuorokaudenaikaa.");
     double previous = -1;
     QSet<QString> names;
     for (auto v : groups) {
         auto g = v.toObject();
         double start = number(g, "startMinute");
-        if (names.contains(g["name"].toString().trimmed())) errors << "Vuorokaudenaikojen nimet eivät saa toistua.";
+        if (names.contains(g["name"].toString().trimmed())) errors << QCoreApplication::translate("Studio", "Vuorokaudenaikojen nimet eivät saa toistua.");
         names.insert(g["name"].toString().trimmed());
         if (!std::isfinite(start) || start < 0 || start >= 1440 || std::floor(start) != start || start <= previous || g["name"].toString().trimmed().isEmpty())
-            errors << "Vuorokaudenaikojen rajojen pitää olla kasvavassa järjestyksessä (minuuttia keskiyöstä).";
+            errors << QCoreApplication::translate("Studio", "Vuorokaudenaikojen rajojen pitää olla kasvavassa järjestyksessä (minuuttia keskiyöstä).");
         previous = start;
-        if (!g["externalIsf"].isNull() && !g["externalIsf"].isUndefined() && !pos(number(g, "externalIsf"))) errors << "Ulkoinen korjauskerroin ei kelpaa.";
+        if (!g["externalIsf"].isNull() && !g["externalIsf"].isUndefined() && !pos(number(g, "externalIsf"))) errors << QCoreApplication::translate("Studio", "Ulkoinen korjauskerroin ei kelpaa.");
     }
     return errors;
 }
@@ -134,8 +135,8 @@ QJsonObject responseEstimate(const QJsonObject& profile, const QJsonObject& poli
                              qint64 availableUntil) {
     auto errors = validateResponsePolicy(policy);
     errors << validateResponseProfile(profile);
-    if (!policy["approved"].toBool() || !responseProfileApproved(profile)) errors << "Hyväksy profiili vastearvioon ja vastepolitiikka.";
-    if (to <= from) errors << "Virheellinen vastejakso.";
+    if (!policy["approved"].toBool() || !responseProfileApproved(profile)) errors << QCoreApplication::translate("Studio", "Hyväksy profiili vastearvioon ja vastepolitiikka.");
+    if (to <= from) errors << QCoreApplication::translate("Studio", "Virheellinen vastejakso.");
     if (!errors.isEmpty()) return blocked(errors);
     const QString zone = profile["timezone"].toString();
     QList<Obs> obs;
@@ -150,40 +151,40 @@ QJsonObject responseEstimate(const QJsonObject& profile, const QJsonObject& poli
         if (cohortTime < from || cohortTime >= to || number(e, "end") > (availableUntil > 0 ? availableUntil : to)) continue;
         if (e["hypoObserved"].toBool()) anyHypo = true;
         QStringList why;
-        if (number(e, "start") < number(profile, "effectiveFrom")) why << "Jakso edeltää profiilin voimassaoloa.";
-        if (e["profileVersion"] != profile["version"]) why << "Eri hoitoprofiili.";
-        if (e["endpointMinutes"] != policy["endpointMinutes"]) why << "Alku-/loppuikkunan menetelmä on muuttunut.";
-        if (e["methodVersion"].toInt() != 2) why << "Jakso tarvitsee v2:n alku-/loppuikkunoiden tarkistuksen.";
+        if (number(e, "start") < number(profile, "effectiveFrom")) why << QCoreApplication::translate("Studio", "Jakso edeltää profiilin voimassaoloa.");
+        if (e["profileVersion"] != profile["version"]) why << QCoreApplication::translate("Studio", "Eri hoitoprofiili.");
+        if (e["endpointMinutes"] != policy["endpointMinutes"]) why << QCoreApplication::translate("Studio", "Alku-/loppuikkunan menetelmä on muuttunut.");
+        if (e["methodVersion"].toInt() != 2) why << QCoreApplication::translate("Studio", "Jakso tarvitsee v2:n alku-/loppuikkunoiden tarkistuksen.");
         for (auto key : {"reviewed", "complete", "contextClear", "endStable", "basalStable"})
-            if (!e[key].toBool()) why << "Tarkistus puuttuu: " + QString(key);
+            if (!e[key].toBool()) why << QCoreApplication::translate("Studio", "Tarkistus puuttuu: ") + QString(key);
         if (!pos(number(e, "coverage")) || !pos(number(e, "start")) || !std::isfinite(number(e, "end")) || number(e, "end") <= number(e, "start") ||
             number(e, "end") - number(e, "start") < number(profile["actionModel"].toObject(), "durationMinutes") * 60000)
-            why << "Jakson aika, kesto tai kattavuus on virheellinen.";
-        if (!QStringList{"icr", "isf", "basal"}.contains(e["kind"].toString())) why << "Tuntematon jaksotyyppi.";
-        if (e["stale"].toBool() || number(e, "coverage") < number(policy, "minCoverage")) why << "Lähde muuttunut tai kattavuus riittämätön.";
+            why << QCoreApplication::translate("Studio", "Jakson aika, kesto tai kattavuus on virheellinen.");
+        if (!QStringList{"icr", "isf", "basal"}.contains(e["kind"].toString())) why << QCoreApplication::translate("Studio", "Tuntematon jaksotyyppi.");
+        if (e["stale"].toBool() || number(e, "coverage") < number(policy, "minCoverage")) why << QCoreApplication::translate("Studio", "Lähde muuttunut tai kattavuus riittämätön.");
         const auto start = qint64(number(e, "start"));
         const qint64 anchor = qint64(e["kind"] == "icr" ? e["mealTime"].toDouble(start) : e["doseTime"].toDouble(start));
         const int group = responsePeriod(policy, anchor, zone);
         const auto day = QDateTime::fromMSecsSinceEpoch(anchor, QTimeZone(zone.toUtf8())).date().toString(Qt::ISODate);
         const QString kind = e["kind"].toString();
         double dose = number(e, "rapid"), carbs = number(e, "carbs"), delta = number(e, "lastGlucose") - number(e, "firstGlucose");
-        if (!std::isfinite(delta)) why << "Loppuvaste puuttuu.";
+        if (!std::isfinite(delta)) why << QCoreApplication::translate("Studio", "Loppuvaste puuttuu.");
         if (kind == "basal") {
             if (why.isEmpty() && std::abs(delta) <= number(profile["rules"].toObject(), "basalDeviation"))
                 basalDays.insert(day);
             else if (why.isEmpty())
-                why << "Perusvaikutuksen trendi ei ole vakaa.";
+                why << QCoreApplication::translate("Studio", "Perusvaikutuksen trendi ei ole vakaa.");
         } else {
-            if (!e["basalHistoryComplete"].toBool()) why << "Perusannosten toteutuminen tarkistamatta.";
-            if (!pos(dose) || dose < number(policy, "minimumDose")) why << "Annos liian pieni tai puuttuu.";
+            if (!e["basalHistoryComplete"].toBool()) why << QCoreApplication::translate("Studio", "Perusannosten toteutuminen tarkistamatta.");
+            if (!pos(dose) || dose < number(policy, "minimumDose")) why << QCoreApplication::translate("Studio", "Annos liian pieni tai puuttuu.");
             if (kind == "icr" && (number(e, "firstGlucose") < number(profile, "targetLow") || number(e, "firstGlucose") > number(profile, "targetHigh")))
-                why << "Aterian lähtöarvo ei ole hyväksytyllä alueella.";
-            if (kind == "icr" && (!pos(carbs) || carbs < number(policy, "minimumCarbs"))) why << "HH-tieto puuttuu tai on liian pieni.";
+                why << QCoreApplication::translate("Studio", "Aterian lähtöarvo ei ole hyväksytyllä alueella.");
+            if (kind == "icr" && (!pos(carbs) || carbs < number(policy, "minimumCarbs"))) why << QCoreApplication::translate("Studio", "HH-tieto puuttuu tai on liian pieni.");
             if (kind == "isf" && !(delta < 0)) {
                 if (why.isEmpty()) inconsistentS[group] = true;
-                why << "Korjauksen laskuvaste ei ole positiivinen: ryhmän mallioletus tarkistettava.";
+                why << QCoreApplication::translate("Studio", "Korjauksen laskuvaste ei ole positiivinen: ryhmän mallioletus tarkistettava.");
             }
-            if (e["hypoObserved"].toBool()) why << "Hypo: mukana turvallisuusarviossa, ei parametrin sovituksessa.";
+            if (e["hypoObserved"].toBool()) why << QCoreApplication::translate("Studio", "Hypo: mukana turvallisuusarviossa, ei parametrin sovituksessa.");
             if (why.isEmpty()) {
                 const auto doseTime = qint64(e["doseTime"].toDouble(start));
                 obs << Obs{e["id"].toString(), day, kind, group, responsePeriod(policy, doseTime, zone), delta, carbs, dose, e["hypoObserved"].toBool()};
@@ -298,38 +299,38 @@ QJsonObject responseEstimate(const QJsonObject& profile, const QJsonObject& poli
         }
         row["isfStatus"] = isfSupported[g] ? "estimated" : "insufficient";
         QStringList isfWhy;
-        if (!sEnough) isfWhy << "Korjauksia tai erillisiä korjauspäiviä liian vähän.";
-        if (driftingS[g]) isfWhy << "Korjausvaste puuttuu toiselta osajaksolta tai muuttuu liikaa.";
-        if (inconsistentS[g]) isfWhy << "Korjauksen laskuvasteoletus ei toteudu.";
-        if (unstableS[g] || sInfluence[g] > number(policy, "maxDayInfluencePercent")) isfWhy << "Korjausvaste riippuu liikaa yhdestä päivästä.";
+        if (!sEnough) isfWhy << QCoreApplication::translate("Studio", "Korjauksia tai erillisiä korjauspäiviä liian vähän.");
+        if (driftingS[g]) isfWhy << QCoreApplication::translate("Studio", "Korjausvaste puuttuu toiselta osajaksolta tai muuttuu liikaa.");
+        if (inconsistentS[g]) isfWhy << QCoreApplication::translate("Studio", "Korjauksen laskuvasteoletus ei toteudu.");
+        if (unstableS[g] || sInfluence[g] > number(policy, "maxDayInfluencePercent")) isfWhy << QCoreApplication::translate("Studio", "Korjausvaste riippuu liikaa yhdestä päivästä.");
         if (sBoot[g].size() < samples * (1 - number(policy, "maxInvalidFraction")) || !pos(quantile(sBoot[g], .025)) ||
             (quantile(sBoot[g], .975) - quantile(sBoot[g], .025)) / point.s[g] > number(policy, "maxRelativeWidth"))
-            isfWhy << "Korjausvasteen epävarmuus on liian suuri.";
-        if (basalDays.size() < number(policy, "minimumBasalDays")) isfWhy << "Vakaa perusvaikutus ei ole riittävästi varmennettu.";
+            isfWhy << QCoreApplication::translate("Studio", "Korjausvasteen epävarmuus on liian suuri.");
+        if (basalDays.size() < number(policy, "minimumBasalDays")) isfWhy << QCoreApplication::translate("Studio", "Vakaa perusvaikutus ei ole riittävästi varmennettu.");
         row["isfReasons"] = QJsonArray::fromStringList(isfWhy);
         row["isfDayInfluencePercent"] = sInfluence[g];
         row["currentRatio"] = currentRatio(profile, policy, g);
         row["startMinute"] = policy["groups"].toArray()[g].toObject()["startMinute"];
         row["endMinute"] = policy["groups"].toArray()[(g + 1) % 4].toObject()["startMinute"];
-        if (!pos(early.q[g]) || !pos(late.q[g])) why << "Ateria-arvio puuttuu arviojakson toiselta puoliskolta.";
+        if (!pos(early.q[g]) || !pos(late.q[g])) why << QCoreApplication::translate("Studio", "Ateria-arvio puuttuu arviojakson toiselta puoliskolta.");
         row["isfPeriodDriftPercent"] = pos(early.s[g]) && pos(late.s[g]) ? QJsonValue(100 * (late.s[g] / early.s[g] - 1)) : QJsonValue();
         if (pos(early.q[g]) && pos(late.q[g]) && std::abs(late.q[g] / early.q[g] - 1) * 100 > number(policy, "maxPeriodDriftPercent"))
-            why << "HH-vaste muuttuu jakson sisällä; ei yhtä vakaata kerrointa.";
-        if (invalidQ[g]) why << "Ateriahavainto tuottaa epäpositiivisen q:n; mallioletukset eivät riitä.";
-        if (inconsistentS[g]) why << "Korjaushavainnot eivät noudata mallin laskuvasteoletusta.";
-        if (!rEnough) why << "Liian vähän kelpuutettuja aterioita tai erillisiä päiviä.";
-        if (!correctionSupport && !point.conditional[g]) why << "Annosajankohdan korjausvasteen aineisto ei riitä.";
-        if (point.conditional[g]) why << "Ehdollinen ulkoinen korjauskerroin: koko epävarmuutta ei tunneta.";
-        if (basalDays.size() < number(policy, "minimumBasalDays")) why << "Perusvaikutuksen vakaita tarkistettuja päiviä puuttuu.";
+            why << QCoreApplication::translate("Studio", "HH-vaste muuttuu jakson sisällä; ei yhtä vakaata kerrointa.");
+        if (invalidQ[g]) why << QCoreApplication::translate("Studio", "Ateriahavainto tuottaa epäpositiivisen q:n; mallioletukset eivät riitä.");
+        if (inconsistentS[g]) why << QCoreApplication::translate("Studio", "Korjaushavainnot eivät noudata mallin laskuvasteoletusta.");
+        if (!rEnough) why << QCoreApplication::translate("Studio", "Liian vähän kelpuutettuja aterioita tai erillisiä päiviä.");
+        if (!correctionSupport && !point.conditional[g]) why << QCoreApplication::translate("Studio", "Annosajankohdan korjausvasteen aineisto ei riitä.");
+        if (point.conditional[g]) why << QCoreApplication::translate("Studio", "Ehdollinen ulkoinen korjauskerroin: koko epävarmuutta ei tunneta.");
+        if (basalDays.size() < number(policy, "minimumBasalDays")) why << QCoreApplication::translate("Studio", "Perusvaikutuksen vakaita tarkistettuja päiviä puuttuu.");
         if (qBoot[g].size() < samples * (1 - number(policy, "maxInvalidFraction")))
-            why << "Liikaa puuttuvia bootstrap-estimaatteja.";
+            why << QCoreApplication::translate("Studio", "Liikaa puuttuvia bootstrap-estimaatteja.");
         else if (pos(point.q[g])) {
             double qlo = quantile(qBoot[g], .025), qhi = quantile(qBoot[g], .975);
             row["qLow"] = qlo;
             row["qHigh"] = qhi;
             row["ratioLow"] = 1 / qhi;
             row["ratioHigh"] = 1 / qlo;
-            if ((qhi - qlo) / point.q[g] > number(policy, "maxRelativeWidth")) why << "Arvioalue on liian leveä.";
+            if ((qhi - qlo) / point.q[g] > number(policy, "maxRelativeWidth")) why << QCoreApplication::translate("Studio", "Arvioalue on liian leveä.");
         }
         QJsonArray leftOutQ;
         double influence = 0;
@@ -345,7 +346,7 @@ QJsonObject responseEstimate(const QJsonObject& profile, const QJsonObject& poli
             }
             if (pos(point.q[g])) influence = std::max(influence, std::abs(f.q[g] / point.q[g] - 1) * 100);
         }
-        if (influence > number(policy, "maxDayInfluencePercent") || unstable) why << "Yksi päivä vaikuttaa ratkaisevasti arvioon.";
+        if (influence > number(policy, "maxDayInfluencePercent") || unstable) why << QCoreApplication::translate("Studio", "Yksi päivä vaikuttaa ratkaisevasti arvioon.");
         row["dayInfluencePercent"] = influence;
         row["leftOutQ"] = leftOutQ;
         // Independently compare weeks: opposite endpoint direction blocks adjustment.
@@ -361,7 +362,7 @@ QJsonObject responseEstimate(const QJsonObject& profile, const QJsonObject& poli
         const double deltaLimit = number(profile["rules"].toObject(), "mealDeviation");
         if (!first.isEmpty() && !last.isEmpty() &&
             ((quantile(first) > deltaLimit && quantile(last) < -deltaLimit) || (quantile(first) < -deltaLimit && quantile(last) > deltaLimit)))
-            why << "Jakson osien loppuvasteet ovat ristiriitaisia.";
+            why << QCoreApplication::translate("Studio", "Jakson osien loppuvasteet ovat ristiriitaisia.");
         row["status"] = why.isEmpty() ? "estimated" : (point.conditional[g] && rEnough ? "conditional" : "insufficient");
         row["reasons"] = QJsonArray::fromStringList(why);
         QJsonArray observations;
@@ -419,7 +420,7 @@ QJsonObject responseComparison(const QJsonObject& recent, const QJsonObject& ref
         }
         groups << row;
     }
-    return {{"groups", groups}, {"note", "Muutosväli sisältää aineistovaihtelun, ei kaikkia mallivirheitä."}};
+    return {{"groups", groups}, {"note", QCoreApplication::translate("Studio", "Muutosväli sisältää aineistovaihtelun, ei kaikkia mallivirheitä.")}};
 }
 static double currentRatio(const QJsonObject& p, const QJsonObject& policy, int group) {
     QList<double> values;
@@ -448,43 +449,43 @@ QJsonObject responseProposal(const QJsonObject& profile, const QJsonObject& poli
     errors << validateHistoricalProfile(profile);
     if (now > 0 && QDateTime::fromMSecsSinceEpoch(qint64(number(estimate, "to")), QTimeZone(profile["timezone"].toString().toUtf8())).date() !=
                        QDateTime::fromMSecsSinceEpoch(now, QTimeZone(profile["timezone"].toString().toUtf8())).date())
-        errors << "Hoitomuutosta varten valitse viimeisimmät kokonaiset päivät; historiallinen arvio ei ole nykyhoidon muutosperuste.";
-    if (!policy["approved"].toBool() || !profile["approved"].toBool()) errors << "Hyväksyntä puuttuu.";
+        errors << QCoreApplication::translate("Studio", "Hoitomuutosta varten valitse viimeisimmät kokonaiset päivät; historiallinen arvio ei ole nykyhoidon muutosperuste.");
+    if (!policy["approved"].toBool() || !profile["approved"].toBool()) errors << QCoreApplication::translate("Studio", "Hyväksyntä puuttuu.");
     const auto hash = QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(policy).toJson(QJsonDocument::Compact), QCryptographicHash::Sha256).toHex());
-    if (hash != estimate["policyHash"].toString()) errors << "Vastepolitiikka on muuttunut.";
+    if (hash != estimate["policyHash"].toString()) errors << QCoreApplication::translate("Studio", "Vastepolitiikka on muuttunut.");
     if (!errors.isEmpty()) return blocked(errors);
-    if (group < 0 || group >= 4 || estimate["groups"].toArray().size() != 4) return blocked({"Valitse vuorokaudenaika."});
+    if (group < 0 || group >= 4 || estimate["groups"].toArray().size() != 4) return blocked({QCoreApplication::translate("Studio", "Valitse vuorokaudenaika.")});
     auto row = estimate["groups"].toArray()[group].toObject();
     QStringList why;
     if (number(estimate, "to") - number(profile, "effectiveFrom") < number(profile["rules"].toObject(), "minReviewDays") * 86400000)
-        why << "Edellisestä profiilimuutoksesta on liian vähän seuranta-aikaa.";
-    if (row["status"] != "estimated") why << "R-arvion kelpoisuus tai epävarmuus ei riitä.";
-    if (estimate["profileVersion"] != profile["version"]) why << "Hoitoprofiili on vaihtunut.";
+        why << QCoreApplication::translate("Studio", "Edellisestä profiilimuutoksesta on liian vähän seuranta-aikaa.");
+    if (row["status"] != "estimated") why << QCoreApplication::translate("Studio", "R-arvion kelpoisuus tai epävarmuus ei riitä.");
+    if (estimate["profileVersion"] != profile["version"]) why << QCoreApplication::translate("Studio", "Hoitoprofiili on vaihtunut.");
     double current = currentRatio(profile, policy, group), qlo = number(row, "qLow"), qhi = number(row, "qHigh"), step = number(policy, "doseStepPercent");
-    if (!pos(current) || !pos(qlo) || !pos(qhi)) why << "Ryhmän nykyinen suhde puuttuu tai vaihtelee.";
+    if (!pos(current) || !pos(qlo) || !pos(qhi)) why << QCoreApplication::translate("Studio", "Ryhmän nykyinen suhde puuttuu tai vaihtelee.");
     if (!why.isEmpty()) return blocked(why);
     double q0 = 1 / current, edge = q0 < qlo ? qlo : q0 > qhi ? qhi : q0;
-    if (edge == q0) return blocked({"Nykyinen suhde on arvioalueella: ei muutostarvetta estimaatin perusteella."});
+    if (edge == q0) return blocked({QCoreApplication::translate("Studio", "Nykyinen suhde on arvioalueella: ei muutostarvetta estimaatin perusteella.")});
     for (auto v : row["leftOutQ"].toArray())
-        if (!v.isDouble() || (v.toDouble() - q0) * (number(row, "q") - q0) <= 0) return blocked({"Ehdotuksen suunta riippuu yhdestä päivästä."});
-    if (edge > q0 && estimate["unsafe"].toBool()) return blocked({"Ratkaisematon matala havainto estää insuliinin lisäämisen."});
+        if (!v.isDouble() || (v.toDouble() - q0) * (number(row, "q") - q0) <= 0) return blocked({QCoreApplication::translate("Studio", "Ehdotuksen suunta riippuu yhdestä päivästä.")});
+    if (edge > q0 && estimate["unsafe"].toBool()) return blocked({QCoreApplication::translate("Studio", "Ratkaisematon matala havainto estää insuliinin lisäämisen.")});
     // Require a repeated out-of-target endpoint, not just a difference from baseline.
     int outside = 0, meals = 0;
     for (auto v : estimate["mealOutcomes"].toArray()) {
         auto e = v.toObject();
         if (e["group"].toInt() != group) continue;
         if (std::abs(number(e, "dose") - number(e, "carbs") / current) > number(policy, "doseMatchToleranceUnits"))
-            return blocked({"Toteutunut ateria-annos poikkeaa nykyisestä hoitoprofiilista; selvitä toteutuminen ensin."});
+            return blocked({QCoreApplication::translate("Studio", "Toteutunut ateria-annos poikkeaa nykyisestä hoitoprofiilista; selvitä toteutuminen ensin.")});
         ++meals;
         if (edge > q0 ? number(e, "endGlucose") > number(profile, "targetHigh") : number(e, "endGlucose") < number(profile, "targetLow")) ++outside;
     }
     if (!meals || double(outside) / meals < number(profile["rules"].toObject(), "consensus"))
-        return blocked({"Ei toistuvaa tavoitealueen ulkopuolista loppuvastetta."});
+        return blocked({QCoreApplication::translate("Studio", "Ei toistuvaa tavoitealueen ulkopuolista loppuvastetta.")});
     const double qc = q0 + std::copysign(std::min(q0 * step / 100, std::abs(edge - q0)), edge - q0), candidate = 1 / qc;
     const auto rules = profile["rules"].toObject();
     if (std::abs(candidate / current - 1) * 100 > number(rules, "maxChangePercent") || candidate < number(rules, "minimumIcr") ||
         candidate > number(rules, "maximumIcr"))
-        return blocked({"Ehdotus ylittää hyväksytyt HH-suhderajat."});
+        return blocked({QCoreApplication::translate("Studio", "Ehdotus ylittää hyväksytyt HH-suhderajat.")});
     return {{"status", "proposal"},
             {"modelVersion", "response-v2"},
             {"group", group},

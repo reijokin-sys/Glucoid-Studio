@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "observation.h"
 #include <QDateTime>
 #include <QMap>
@@ -12,33 +13,33 @@ static bool positive(double value) {
 
 QStringList validateObservationProfile(const QJsonObject& profile, qint64 now) {
     QStringList errors;
-    if (profile["schema"].toInt() != 1 || !profile["researchOnly"].toBool()) errors << "Seurantaprofiilin rakenne ei kelpaa.";
-    if (!profile["historicalConfirmed"].toBool()) errors << "Vahvista hoitoasetusten voimassaolo.";
-    if (!QTimeZone(profile["timezone"].toString().toUtf8()).isValid()) errors << "Tarkista aikavyöhyke.";
+    if (profile["schema"].toInt() != 1 || !profile["researchOnly"].toBool()) errors << QCoreApplication::translate("Studio", "Seurantaprofiilin rakenne ei kelpaa.");
+    if (!profile["historicalConfirmed"].toBool()) errors << QCoreApplication::translate("Studio", "Vahvista hoitoasetusten voimassaolo.");
+    if (!QTimeZone(profile["timezone"].toString().toUtf8()).isValid()) errors << QCoreApplication::translate("Studio", "Tarkista aikavyöhyke.");
     if (!positive(number(profile, "effectiveFrom")) || number(profile, "effectiveFrom") > (now > 0 ? now : QDateTime::currentMSecsSinceEpoch()))
-        errors << "Tarkista hoitoasetusten alkuaika.";
+        errors << QCoreApplication::translate("Studio", "Tarkista hoitoasetusten alkuaika.");
     for (auto key : {"rapidMedicine", "basalMedicine"})
-        if (profile[key].toString().trimmed().isEmpty()) errors << "Määritä insuliinivalmiste: " + QString(key);
+        if (profile[key].toString().trimmed().isEmpty()) errors << QCoreApplication::translate("Studio", "Määritä insuliinivalmiste: ") + QString(key);
     if (!positive(number(profile, "basalDose")) || !QTime::fromString(profile["basalTime"].toString(), "HH:mm").isValid())
-        errors << "Tarkista ilmoitettu perusannos ja pistosaika.";
+        errors << QCoreApplication::translate("Studio", "Tarkista ilmoitettu perusannos ja pistosaika.");
     if (!positive(number(profile, "targetLow")) || !positive(number(profile, "targetHigh")) || number(profile, "targetLow") >= number(profile, "targetHigh"))
-        errors << "Tarkista glukoosin tavoitealue.";
+        errors << QCoreApplication::translate("Studio", "Tarkista glukoosin tavoitealue.");
     const auto target = profile["correctionTargetRange"].toObject();
     if (!target.isEmpty() && (!positive(number(target, "low")) || !positive(number(target, "high")) || number(target, "low") > number(target, "high")))
-        errors << "Tarkista korjausten ilmoitettu tavoitealue.";
+        errors << QCoreApplication::translate("Studio", "Tarkista korjausten ilmoitettu tavoitealue.");
     int previous = -1;
     QSet<QString> names;
     const auto periods = profile["slots"].toArray();
-    if (periods.isEmpty()) errors << "Ilmoitetut HH-suhdejaksot puuttuvat.";
+    if (periods.isEmpty()) errors << QCoreApplication::translate("Studio", "Ilmoitetut HH-suhdejaksot puuttuvat.");
     for (auto value : periods) {
         auto slot = value.toObject();
         double start = number(slot, "startMinute");
         const auto name = slot["name"].toString().trimmed();
         if (!std::isfinite(start) || std::floor(start) != start || start <= previous || start >= 1440 || (previous == -1 && start != 0) || name.isEmpty() ||
             names.contains(name) || !positive(number(slot, "icr")))
-            errors << "Tarkista ilmoitetut HH-suhdejaksot.";
+            errors << QCoreApplication::translate("Studio", "Tarkista ilmoitetut HH-suhdejaksot.");
         if (!slot["isf"].isNull() && !slot["isf"].isUndefined() && !positive(number(slot, "isf")))
-            errors << "Korjauskerroin on joko positiivinen tai tuntematon (tyhjä).";
+            errors << QCoreApplication::translate("Studio", "Korjauskerroin on joko positiivinen tai tuntematon (tyhjä).");
         if (std::isfinite(start)) previous = int(start);
         names.insert(name);
     }
@@ -132,7 +133,7 @@ QJsonObject observeProfile(const QJsonObject& profile, const QList<Interval>& da
     result["daily"] = daily;
     result["basalComparedDays"] = compared;
     result["basalMatchingDays"] = matching;
-    result["note"] = "Kirjattujen annosten vertailu ja glukoosiseuranta; ei arvio lääkkeen syyvaikutuksesta tai annosmuutosehdotus.";
+    result["note"] = QCoreApplication::translate("Studio", "Kirjattujen annosten vertailu ja glukoosiseuranta; ei arvio lääkkeen syyvaikutuksesta tai annosmuutosehdotus.");
     return result;
 }
 } // namespace Studio

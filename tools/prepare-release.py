@@ -19,7 +19,7 @@ source.mkdir(parents=True)
 selected = {name: root/name for name in ('CMakeLists.txt', 'LICENSE', '.clineignore', '.clang-format')}
 selected.update({'README.md':root/'github/README.md', '.gitignore':root/'github/.gitignore',
                  'THIRD_PARTY_NOTICES.md':root/'packaging/THIRD_PARTY_NOTICES.md'})
-for directory, suffixes in [('src',{'.cpp','.h'}),('qml',{'.qml','.js'}),('tests',{'.cpp','.h','.py','.tsv'}),('packaging',{'.desktop','.md'})]:
+for directory, suffixes in [('i18n',{'.ts'}),('src',{'.cpp','.h'}),('qml',{'.qml','.js'}),('tests',{'.cpp','.h','.py','.tsv'}),('packaging',{'.desktop','.md'})]:
     for p in sorted((root/directory).rglob('*')):
         if p.is_file() and p.suffix in suffixes and '__pycache__' not in p.parts:
             selected[str(p.relative_to(root))] = p

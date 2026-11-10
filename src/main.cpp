@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "backend.h"
+#include "language.h"
 #include <QApplication>
 #include <QIcon>
 #include <QCommandLineParser>
@@ -94,31 +96,34 @@ int main(int argc, char** argv) {
     QCommandLineParser parser;
     parser.addHelpOption();
     parser.addVersionOption();
-    parser.addOption({"data-dir", "Paikallisen yksityisen tietohakemiston polku.", "path"});
-    parser.addOption({"collect", "Kerää taustalla 60 sekunnin välein."});
-    parser.addOption({"collect-once", "Tee yksi tietohaku ja lopeta."});
-    parser.addOption({"import-glucoid", "Tuo yhteys Glucoidista ja tallenna tunnus avainrenkaaseen."});
-    parser.addOption({"demo", "Avaa erillinen keinotekoinen esimerkkiaineisto."});
-    parser.addOption({"smoke-test", "Tarkista käyttöliittymän latautuminen ja lopeta."});
-    parser.addOption({"verify-existing-ui", "Tarkista olemassa olevan historian näkymät lisäämättä esimerkkiaineistoa."});
-    parser.addOption({"activate-observation-profile", "Ota viimeisin hoitoprofiili seurantaan ilman lääkityslaskennan hyväksyntää."});
-    parser.addOption({"automatic-report", "Laske ateria- ja yöraportti tietohakemistoon ilman puhelinhakua."});
-    parser.addOption({"backup-only", "Varmuuskopioi tietokanta ja alkuperäisviennit ja lopeta."});
-    parser.addOption({"research", "Avaa aiemmat manuaaliset tutkimustyökalut."});
-    parser.addOption({"legacy", "Avaa dokumentoidut aiemmat päiväkirja-/reaaliaikatoiminnot."});
-    parser.addOption({"import-folder", "Tuo alkuperäiset TSV-viennit paikallisesta kansiosta ja lopeta.", "path"});
-    parser.addOption({"chart-stress-test", "Testaa kuvaajan toistuvat päivitykset ja aikavälien vaihdot keinotekoisella aineistolla."});
+    parser.addOption({"data-dir", QCoreApplication::translate("Studio", "Paikallisen yksityisen tietohakemiston polku."), "path"});
+    parser.addOption({"collect", QCoreApplication::translate("Studio", "Kerää taustalla 60 sekunnin välein.")});
+    parser.addOption({"collect-once", QCoreApplication::translate("Studio", "Tee yksi tietohaku ja lopeta.")});
+    parser.addOption({"import-glucoid", QCoreApplication::translate("Studio", "Tuo yhteys Glucoidista ja tallenna tunnus avainrenkaaseen.")});
+    parser.addOption({"demo", QCoreApplication::translate("Studio", "Avaa erillinen keinotekoinen esimerkkiaineisto.")});
+    parser.addOption({"smoke-test", QCoreApplication::translate("Studio", "Tarkista käyttöliittymän latautuminen ja lopeta.")});
+    parser.addOption(
+        {"verify-existing-ui", QCoreApplication::translate("Studio", "Tarkista olemassa olevan historian näkymät lisäämättä esimerkkiaineistoa.")});
+    parser.addOption(
+        {"activate-observation-profile", QCoreApplication::translate("Studio", "Ota viimeisin hoitoprofiili seurantaan ilman lääkityslaskennan hyväksyntää.")});
+    parser.addOption({"automatic-report", QCoreApplication::translate("Studio", "Laske ateria- ja yöraportti tietohakemistoon ilman puhelinhakua.")});
+    parser.addOption({"backup-only", QCoreApplication::translate("Studio", "Varmuuskopioi tietokanta ja alkuperäisviennit ja lopeta.")});
+    parser.addOption({"research", QCoreApplication::translate("Studio", "Avaa aiemmat manuaaliset tutkimustyökalut.")});
+    parser.addOption({"legacy", QCoreApplication::translate("Studio", "Avaa dokumentoidut aiemmat päiväkirja-/reaaliaikatoiminnot.")});
+    parser.addOption({"import-folder", QCoreApplication::translate("Studio", "Tuo alkuperäiset TSV-viennit paikallisesta kansiosta ja lopeta."), "path"});
+    parser.addOption({"chart-stress-test",
+                      QCoreApplication::translate("Studio", "Testaa kuvaajan toistuvat päivitykset ja aikavälien vaihdot keinotekoisella aineistolla.")});
     parser.addPositionalArgument("url", "glucoid-studio://today", "[url]");
     parser.process(*app);
     if (parser.positionalArguments().size() > 1) {
-        QTextStream(stderr) << "Virheellinen avauspyyntö.\n";
+        QTextStream(stderr) << QCoreApplication::translate("Studio", "Virheellinen avauspyyntö.\n");
         return 2;
     }
     if (!parser.positionalArguments().isEmpty()) {
         const QUrl url(parser.positionalArguments()[0]);
         if (url.scheme() != "glucoid-studio" || url.host() != "today" || !url.path().isEmpty() || url.hasQuery() || url.hasFragment() ||
             !url.userInfo().isEmpty()) {
-            QTextStream(stderr) << "Tuntematon avauspyyntö.\n";
+            QTextStream(stderr) << QCoreApplication::translate("Studio", "Tuntematon avauspyyntö.\n");
             return 2;
         }
     }
@@ -134,9 +139,15 @@ int main(int argc, char** argv) {
         root = base + (synthetic ? "/demo" : "/live");
     }
     root = QDir::cleanPath(QFileInfo(root).absoluteFilePath());
+    LanguageManager language(root);
+    if (!language.ready()) {
+        QTextStream(stderr) << "The English translation catalog could not be loaded.\n";
+        return 1;
+    }
+    app->setProperty("studioLanguageController", QVariant::fromValue<QObject*>(&language));
     Backend backend(root);
     if (!backend.healthy()) {
-        QTextStream(stderr) << "Tietokannan avaaminen epäonnistui.\n";
+        QTextStream(stderr) << QCoreApplication::translate("Studio", "Tietokannan avaaminen epäonnistui.\n");
         return 1;
     }
     if (parser.isSet("automatic-report")) {
@@ -146,7 +157,7 @@ int main(int argc, char** argv) {
             auto result = QJsonObject::fromVariantMap(backend.automaticMeals());
             if (result["status"] == "computing" || result.isEmpty()) return;
             if (result["status"] != "ready") {
-                QTextStream(stderr) << "Raportin laskenta ei onnistunut.\n";
+                QTextStream(stderr) << QCoreApplication::translate("Studio", "Raportin laskenta ei onnistunut.\n");
                 app->exit(1);
                 return;
             }
@@ -158,7 +169,8 @@ int main(int argc, char** argv) {
             out.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
             const auto bytes = QJsonDocument(result).toJson(QJsonDocument::Indented);
             written = out.write(bytes) == bytes.size() && out.commit();
-            QTextStream(stdout) << (written ? "Automaattinen raportti tallennettu tietohakemistoon.\n" : "Raportin tallennus epäonnistui.\n");
+            QTextStream(stdout) << (written ? QCoreApplication::translate("Studio", "Automaattinen raportti tallennettu tietohakemistoon.\n")
+                                            : QCoreApplication::translate("Studio", "Raportin tallennus epäonnistui.\n"));
             app->exit(written ? 0 : 1);
         });
         QTimer::singleShot(0, &backend, [&] { backend.startAutomaticAnalysis(false); });
@@ -197,12 +209,14 @@ int main(int argc, char** argv) {
         return other.isValid() ? 0 : 1;
     }
     QQmlApplicationEngine engine;
+    QObject::connect(&language, &LanguageManager::languageChanged, &engine, &QQmlEngine::retranslate);
     engine.setInitialProperties({{"studio", QVariant::fromValue(&backend)},
                                  {"appVersion", QCoreApplication::applicationVersion()},
                                  {"demoMode", synthetic},
                                  {"uiTestMode", testing},
                                  {"uiTestWidth", testing ? qEnvironmentVariableIntValue("STUDIO_UI_TEST_WIDTH") : 0}});
     if (synthetic) backend.seedDemo();
+    if (simple) backend.enableBackgroundWork();
     engine.loadFromModule("GlucoidStudio", parser.isSet("legacy") ? "LegacyMain" : parser.isSet("research") ? "ResearchMain" : "Main");
     if (engine.rootObjects().isEmpty()) return 1;
     Activator activation;
@@ -213,9 +227,11 @@ int main(int argc, char** argv) {
     QObject::connect(&refresh, &QTimer::timeout, &backend, &Backend::refresh);
     if (parser.isSet("legacy")) refresh.start();
     QString seenRevision = backend.dataRevision();
+    QObject::connect(&backend, &Backend::syncFinished, &backend, [&](bool) { seenRevision = backend.dataRevision(); });
     QTimer changes;
     changes.setInterval(2000);
     QObject::connect(&changes, &QTimer::timeout, &backend, [&] {
+        if (backend.busy()) return;
         backend.refreshSourceChoice();
         auto revision = backend.dataRevision();
         if (revision != seenRevision) {
@@ -330,6 +346,13 @@ int main(int argc, char** argv) {
         auto renderWaits = std::make_shared<int>(0);
         QObject::connect(activation.window, &QQuickWindow::frameSwapped, app.get(), [renderedFrames] { ++*renderedFrames; });
         QObject::connect(cycle, &QTimer::timeout, app.get(), [&, cycle, index, renderedFrames, renderWaits] {
+            if (simple && backend.summaryBusy()) {
+                if (++*renderWaits > 85) {
+                    QTextStream(stderr) << "Background summary timed out\n";
+                    app->exit(1);
+                }
+                return;
+            }
             if (simple && *index <= 8) {
                 auto* root = engine.rootObjects().first();
                 if (*index == 0) {
@@ -356,8 +379,9 @@ int main(int argc, char** argv) {
                     auto* week1 = findItem(activation.window->contentItem(), "analysisPeriod7");
                     auto* week4 = findItem(activation.window->contentItem(), "analysisPeriod28");
                     auto* months3 = findItem(activation.window->contentItem(), "analysisPeriod90");
-                    const bool periods = week1 && week4 && months3 && week1->property("text").toString() == "1 vk" &&
-                                         week4->property("text").toString() == "4 vk" && months3->property("text").toString() == "3 kk" &&
+                    const bool periods = week1 && week4 && months3 && week1->property("text").toString() == QCoreApplication::translate("Studio", "1 vk") &&
+                                         week4->property("text").toString() == QCoreApplication::translate("Studio", "4 vk") &&
+                                         months3->property("text").toString() == QCoreApplication::translate("Studio", "3 kk") &&
                                          week1->property("active").toBool();
                     auto* dayChart = findItem(activation.window->contentItem(), "summaryCurrentDayChart");
                     auto* profileLegend = findItem(activation.window->contentItem(), "profileLegendSummary");

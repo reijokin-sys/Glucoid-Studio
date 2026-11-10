@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "store.h"
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -101,14 +102,14 @@ bool parseRecord(const QJsonObject& object, const QString& collection, Record& r
 
 bool Store::importNightscoutPage(const QString& runId, const QString& collection, const QByteArray& bytes, qint64 cursor) {
     if ((collection != "entries" && collection != "treatments") || cursor < 0) {
-        m_error = "Tuntematon Nightscout-aineisto tai hakuraja.";
+        m_error = QCoreApplication::translate("Studio", "Tuntematon Nightscout-aineisto tai hakuraja.");
         return false;
     }
     QJsonParseError parseError;
     const auto document = QJsonDocument::fromJson(bytes, &parseError);
     const auto object = document.object();
     if (parseError.error != QJsonParseError::NoError || object["status"].toInt() != 200 || !object["result"].isArray()) {
-        m_error = "Virheellinen Nightscout-vastaus.";
+        m_error = QCoreApplication::translate("Studio", "Virheellinen Nightscout-vastaus.");
         return false;
     }
     QList<Record> records;
@@ -116,7 +117,7 @@ bool Store::importNightscoutPage(const QString& runId, const QString& collection
     for (const auto& value : object["result"].toArray()) {
         Record record;
         if (!value.isObject() || !parseRecord(value.toObject(), collection, record) || identifiers.contains(record.id)) {
-            m_error = "Nightscout-tapahtuman tunniste, aika, arvo tai yksikkö ei kelpaa. Sivua ei tallennettu.";
+            m_error = QCoreApplication::translate("Studio", "Nightscout-tapahtuman tunniste, aika, arvo tai yksikkö ei kelpaa. Sivua ei tallennettu.");
             return false;
         }
         identifiers.insert(record.id);
@@ -125,13 +126,13 @@ bool Store::importNightscoutPage(const QString& runId, const QString& collection
     const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     const QString folder = QFileInfo(filename).absolutePath() + "/imports/" + runId;
     if (!QDir().mkpath(folder)) {
-        m_error = "Nightscout-tuontiarkiston luominen epäonnistui.";
+        m_error = QCoreApplication::translate("Studio", "Nightscout-tuontiarkiston luominen epäonnistui.");
         return false;
     }
     const QString responsePath = folder + "/" + id + ".json";
     QSaveFile file(responsePath);
     if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
-        m_error = "Nightscoutin alkuperäisvastauksen tallennus epäonnistui.";
+        m_error = QCoreApplication::translate("Studio", "Nightscoutin alkuperäisvastauksen tallennus epäonnistui.");
         return false;
     }
     if (!run("BEGIN IMMEDIATE")) return false;

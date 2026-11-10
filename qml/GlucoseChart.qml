@@ -8,9 +8,10 @@ import QtGraphs
 
 Item {
     id: root
+    property string language: "en"
     // QQuickItem.data is the default visual-child list. Never shadow it.
     required property var chartData
-    property string sourceName: "tietolähde"
+    property string sourceName: qsTranslate("Studio", "tietolähde")
     property bool highlightOutsideTarget: false
     readonly property var renderedSegments: {
         const data = chartData || {};
@@ -180,12 +181,12 @@ Item {
                 id: hover
             }
             ToolTip.visible: hover.hovered
-            ToolTip.text: (modelData.timeText || new Date(modelData.time).toLocaleString(Qt.locale("fi_FI"), "dd.MM HH:mm")) + " · " + modelData.label + " " + modelData.value + " · " + (modelData.local ? "paikallinen" : root.sourceName)
+            ToolTip.text: (modelData.timeText || new Date(modelData.time).toLocaleString(Qt.locale(root.language === "fi" ? "fi_FI" : "en_GB"), "dd.MM HH:mm")) + " · " + modelData.label + " " + modelData.value + " · " + (modelData.local ? "paikallinen" : root.sourceName)
         }
     }
     Label {
         anchors.centerIn: parent
         visible: !(root.chartData.segments || []).length
-        text: "Tällä aikavälillä ei ole mittauksia"
+        text: qsTranslate("Studio", "Tällä aikavälillä ei ole mittauksia")
     }
 }

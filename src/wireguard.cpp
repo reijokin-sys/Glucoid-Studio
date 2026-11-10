@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QCoreApplication>
 #include "wireguard.h"
 #include <QAbstractSocket>
 #include <QHostAddress>
@@ -16,7 +17,7 @@
 namespace Studio {
 QString wireguardNameError(const QString& name) {
     static const QRegularExpression valid(QStringLiteral("^[A-Za-z0-9_.-]{1,15}$"));
-    return valid.match(name).hasMatch() ? QString() : QStringLiteral("Anna WireGuard-liittymän nimi (esimerkiksi wg0).");
+    return valid.match(name).hasMatch() ? QString() : QCoreApplication::translate("Studio", "Anna WireGuard-liittymän nimi (esimerkiksi wg0).");
 }
 namespace {
 #ifdef Q_OS_LINUX
@@ -66,7 +67,7 @@ bool isActiveWireguard(const QString& name) {
     return false;
 }
 #endif
-const QString unavailable = QStringLiteral("Vaadittu WireGuard-yhteys ei ole käytettävissä. Tarkista tunneli ja liittymän nimi.");
+const QString unavailable = QCoreApplication::translate("Studio", "Vaadittu WireGuard-yhteys ei ole käytettävissä. Tarkista tunneli ja liittymän nimi.");
 } // namespace
 QString bindWireguardSocket(QAbstractSocket& socket, const QString& name, bool ipv6) {
 #ifdef Q_OS_LINUX
@@ -78,14 +79,14 @@ QString bindWireguardSocket(QAbstractSocket& socket, const QString& name, bool i
     const auto encoded = name.toLatin1();
     if (::setsockopt(int(socket.socketDescriptor()), SOL_SOCKET, SO_BINDTODEVICE, encoded.constData(), socklen_t(encoded.size() + 1)) != 0) {
         socket.abort();
-        return QStringLiteral("WireGuard-sidonta ei onnistunut. Hakua ei lähetetty.");
+        return QCoreApplication::translate("Studio", "WireGuard-sidonta ei onnistunut. Hakua ei lähetetty.");
     }
     return verifyWireguardSocket(socket, name);
 #else
     Q_UNUSED(socket);
     Q_UNUSED(name);
     Q_UNUSED(ipv6);
-    return QStringLiteral("WireGuard-verkkohaku vaatii Linuxin liittymäsidonnan.");
+    return QCoreApplication::translate("Studio", "WireGuard-verkkohaku vaatii Linuxin liittymäsidonnan.");
 #endif
 }
 QString verifyWireguardSocket(const QAbstractSocket& socket, const QString& name) {

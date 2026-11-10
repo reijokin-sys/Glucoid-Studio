@@ -116,12 +116,12 @@ Item {
             if (!p)
                 return "";
             let hour = Math.floor(root.hovered / 4), minute = (root.hovered % 4) * 15;
-            return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0") + " · " + p.days + " päivää · kattavuus " + (100 * p.coverage).toFixed(1) + " %" + (p.days ? "\nKeskiarvo " + p.mean.toFixed(2) + " · mediaani " + p.median.toFixed(2) + " mmol/l" : "\nEi mittauksia");
+            return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0") + " · " + p.days + qsTranslate("Studio", " päivää · kattavuus ") + (100 * p.coverage).toFixed(1) + " %" + (p.days ? "\nKeskiarvo " + p.mean.toFixed(2) + " · mediaani " + p.median.toFixed(2) + " mmol/l" : "\nEi mittauksia");
         }
     }
     Label {
         anchors.centerIn: parent
         visible: !(root.profileData.coveredSeconds > 0)
-        text: "Valitulta jaksolta ei ole mittauksia"
+        text: qsTranslate("Studio", "Valitulta jaksolta ei ole mittauksia")
     }
 }

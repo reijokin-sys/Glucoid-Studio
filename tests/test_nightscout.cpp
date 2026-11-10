@@ -17,10 +17,12 @@
 #include <QTemporaryDir>
 #include <QUrlQuery>
 #include <QtTest>
+#include <limits>
 
 using namespace Studio;
 namespace {
 constexpr qint64 instant = 1760000000000LL;
+constexpr qint64 allHistory = std::numeric_limits<qint64>::max();
 QJsonObject glucose(QString id = "g1", qint64 modified = instant, double value = 108) {
     return {{"identifier", id},     {"srvModified", double(modified)}, {"date", double(instant)}, {"type", "sgv"}, {"sgv", value}, {"units", "mg/dl"},
             {"device", "synthetic"}};
@@ -189,7 +191,7 @@ class NightscoutTest : public QObject {
         for (int i = 0; i < 1005; ++i) entries.append(glucose(QString::number(i), instant));
         entries.append(glucose("last", instant + 1));
         server.respond = [&](QByteArray request) { return normalResponse(request, entries, {treatment()}); };
-        NightscoutImporter importer(store, server.address(), "synthetic-access");
+        NightscoutImporter importer(store, server.address(), "synthetic-access", nullptr, allHistory);
         QSignalSpy done(&importer, &NightscoutImporter::finished);
         importer.start();
         QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
@@ -214,12 +216,137 @@ class NightscoutTest : public QObject {
         QVERIFY(firstHistory);
         QVERIFY(widened);
         const auto revision = store.revision();
-        NightscoutImporter again(store, server.address(), "synthetic-access");
+        NightscoutImporter again(store, server.address(), "synthetic-access", nullptr, allHistory);
         QSignalSpy repeated(&again, &NightscoutImporter::finished);
         again.start();
         QTRY_COMPARE_WITH_TIMEOUT(repeated.size(), 1, 10000);
         QVERIFY(repeated[0][0].toBool());
         QCOMPARE(store.revision(), revision);
+    }
+    void firstImportCoversAboutSixMonths() {
+        QTemporaryDir dir;
+        Store store(dir.path() + "/studio.sqlite3");
+        Server server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        auto recent = glucose("recent", now - 86400000LL);
+        recent["date"] = double(now - 86400000LL);
+        auto old = glucose("old", now - 200LL * 86400000);
+        old["date"] = double(now - 200LL * 86400000);
+        server.respond = [&](QByteArray request) { return normalResponse(request, {old, recent}, {treatment("old", now - 200LL * 86400000), treatment("recent", now - 86400000LL)}); };
+        NightscoutImporter importer(store, server.address(), "synthetic-access");
+        QSignalSpy done(&importer, &NightscoutImporter::finished);
+        importer.start();
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+        QVERIFY2(done[0][0].toBool(), qPrintable(done[0][1].toString()));
+        QCOMPARE(store.readings(0, now + 1).size(), 1);
+        QCOMPARE(store.amounts(0, now + 1).size(), 2);
+        bool checked = false;
+        for (const auto& request : server.requests) {
+            if (!request.contains("/api/v3/entries/history/")) continue;
+            const auto target = QString::fromUtf8(request.split(' ').value(1));
+            const qint64 start = QUrl(target).path().section('/', -1).toLongLong();
+            QVERIFY(start > now - 190LL * 86400000);
+            QVERIFY(start < now - 176LL * 86400000);
+            checked = true;
+            break;
+        }
+        QVERIFY(checked);
+    }
+    void incrementalSyncPreservesHistoryAndImportsOldEditsAndTombstones() {
+        QTemporaryDir dir;
+        Store store(dir.path() + "/studio.sqlite3");
+        Server server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        QJsonArray entries{glucose("old", instant - 1000), glucose("boundary", instant)};
+        QJsonArray events{treatment("keep", instant - 1000), treatment("edit", instant), treatment("delete", instant)};
+        server.respond = [&](QByteArray request) { return normalResponse(request, entries, events); };
+        auto sync = [&] {
+            NightscoutImporter importer(store, server.address(), "synthetic-access", nullptr, allHistory);
+            QSignalSpy done(&importer, &NightscoutImporter::finished);
+            importer.start();
+            QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+            QVERIFY2(done[0][0].toBool(), qPrintable(done[0][1].toString()));
+        };
+        sync();
+        QCOMPARE(store.amounts(0, instant + 1).size(), 6);
+        server.requests.clear();
+        auto edited = treatment("edit", instant + 10);
+        edited["insulin"] = 4;
+        entries.append(glucose("new", instant + 10));
+        events = {treatment("keep", instant - 1000), edited,
+                  QJsonObject{{"identifier", "delete"}, {"srvModified", double(instant + 11)}, {"isValid", false}}};
+        sync();
+        QCOMPARE(store.readings(0, instant + 1).size(), 3);
+        QCOMPARE(store.amounts(0, instant + 1).size(), 4);
+        QCOMPARE(store.query("SELECT value FROM amounts WHERE id='nightscout:edit:insulin'")[0].toObject()["value"].toDouble(), 4.0);
+        int historyRequests = 0;
+        for (const auto& request : server.requests) {
+            if (!request.contains("/history/")) continue;
+            QVERIFY(request.contains("/history/" + QByteArray::number(instant - 1) + "?"));
+            ++historyRequests;
+        }
+        QCOMPARE(historyRequests, 2);
+        const auto revision = store.revision();
+        sync();
+        QCOMPARE(store.revision(), revision);
+        QCOMPARE(store.amounts(0, instant + 1).size(), 4);
+    }
+    void recentWindowFindsBackdatedRecordsAndKeepsOlderHistory() {
+        QTemporaryDir dir;
+        Store store(dir.path()+"/studio.sqlite3");
+        Server server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        const qint64 now=QDateTime::currentMSecsSinceEpoch();
+        const qint64 recent=now-correctionHistoryMs+60000;
+        auto original=treatment("recent",recent);
+        original["date"]=double(recent);
+        const auto run=store.beginImport(0,now,"fixture");
+        QVERIFY(store.importNightscoutPage(run,"treatments",page({treatment("older"),original}),now-1000));
+        QVERIFY(store.setMeta("nightscoutCursor:entries",QString::number(now-1000)));
+        auto edited=original; edited["insulin"]=4; // legacy uploader leaves the recent stamp unchanged
+        auto backdated=treatment("backdated",recent+1); backdated["date"]=double(recent);
+        auto oldEdit=treatment("older",now-10); oldEdit["insulin"]=3;
+        server.respond=[&](QByteArray request){return normalResponse(request,{}, {edited,backdated,oldEdit});};
+        NightscoutImporter importer(store,server.address(),"synthetic-access");
+        importer.setBackgroundWrites(true);
+        QSignalSpy done(&importer,&NightscoutImporter::finished);
+        importer.start();
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(),1,10000);
+        QVERIFY2(done[0][0].toBool(),qPrintable(done[0][1].toString()));
+        QCOMPARE(store.amounts(0,now+1).size(),6);
+        QCOMPARE(store.query("SELECT value FROM amounts WHERE id='nightscout:recent:insulin'")[0].toObject()["value"].toDouble(),4.0);
+        QCOMPARE(store.query("SELECT value FROM amounts WHERE id='nightscout:older:insulin'")[0].toObject()["value"].toDouble(),3.0);
+        int checked=0;
+        for(const auto& request:server.requests){
+            if(!request.contains("/history/"))continue;
+            const auto start=QUrl(QString::fromUtf8(request.split(' ').value(1))).path().section('/',-1).toLongLong();
+            QVERIFY(start>=now-correctionHistoryMs-1);
+            QVERIFY(start<now-correctionHistoryMs+10000);
+            ++checked;
+        }
+        QCOMPARE(checked,2);
+    }
+    void fullHistoryCheckUsesMinimumTimestamp() {
+        QTemporaryDir dir;
+        Store store(dir.path() + "/studio.sqlite3");
+        Server server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        QVERIFY(store.setMeta("nightscoutCursor:entries", "full"));
+        QVERIFY(store.setMeta("nightscoutCursor:treatments", "full"));
+        server.respond = [&](QByteArray request) { return normalResponse(request, {glucose()}, {treatment()}); };
+        NightscoutImporter importer(store, server.address(), "synthetic-access");
+        importer.setBackgroundWrites(true);
+        QSignalSpy done(&importer, &NightscoutImporter::finished);
+        importer.start();
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+        QVERIFY2(done[0][0].toBool(), qPrintable(done[0][1].toString()));
+        QCOMPARE(store.readings(0, instant + 1).size(), 1);
+        QCOMPARE(store.amounts(0, instant + 1).size(), 2);
+        int minimumRequests = 0;
+        for (const auto& request : server.requests)
+            if (request.contains("/history/946684800000?")) ++minimumRequests;
+        QCOMPARE(minimumRequests, 2);
     }
     void failureDoesNotAdvanceCursorAndNextImportRecovers() {
         QTemporaryDir dir;
@@ -231,7 +358,8 @@ class NightscoutTest : public QObject {
             if (request.contains("/treatments/") && broken) return Server::response("not JSON");
             return normalResponse(request, {glucose()}, {treatment()});
         };
-        NightscoutImporter first(store, server.address(), "synthetic-access");
+        NightscoutImporter first(store, server.address(), "synthetic-access", nullptr, allHistory);
+        first.setBackgroundWrites(true);
         QSignalSpy failed(&first, &NightscoutImporter::finished);
         first.start();
         QTRY_COMPARE_WITH_TIMEOUT(failed.size(), 1, 10000);
@@ -239,7 +367,8 @@ class NightscoutTest : public QObject {
         QVERIFY(store.meta("nightscoutCursor:treatments").isEmpty());
         QCOMPARE(store.readings(0, instant + 1).size(), 1);
         broken = false;
-        NightscoutImporter second(store, server.address(), "synthetic-access");
+        NightscoutImporter second(store, server.address(), "synthetic-access", nullptr, allHistory);
+        second.setBackgroundWrites(true);
         QSignalSpy done(&second, &NightscoutImporter::finished);
         second.start();
         QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
@@ -263,7 +392,7 @@ class NightscoutTest : public QObject {
                 return QByteArray("HTTP/1.1 302 Found\r\nLocation: ") + other.address().toUtf8() + "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
             return Server::response("sensitive-server-error-body", status);
         };
-        NightscoutImporter importer(store, server.address(), "synthetic-access");
+        NightscoutImporter importer(store, server.address(), "synthetic-access", nullptr, allHistory);
         QSignalSpy done(&importer, &NightscoutImporter::finished);
         importer.start();
         QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
@@ -291,7 +420,7 @@ class NightscoutTest : public QObject {
         QVERIFY(server.listen(QHostAddress::LocalHost));
         server.respond = [](QByteArray request) { return normalResponse(request, {glucose()}, {treatment()}); };
         Store untrusted(dir.path() + "/untrusted.sqlite3");
-        NightscoutImporter denied(untrusted, server.address(), "synthetic-access");
+        NightscoutImporter denied(untrusted, server.address(), "synthetic-access", nullptr, allHistory);
         QSignalSpy rejected(&denied, &NightscoutImporter::finished);
         denied.start();
         QTRY_COMPARE_WITH_TIMEOUT(rejected.size(), 1, 12000);
@@ -303,7 +432,7 @@ class NightscoutTest : public QObject {
         trusted.setCaCertificates(previous.caCertificates() + QList<QSslCertificate>{server.certificate});
         QSslConfiguration::setDefaultConfiguration(trusted);
         Store accepted(dir.path() + "/accepted.sqlite3");
-        NightscoutImporter importer(accepted, server.address(), "synthetic-access");
+        NightscoutImporter importer(accepted, server.address(), "synthetic-access", nullptr, allHistory);
         QSignalSpy done(&importer, &NightscoutImporter::finished);
         importer.start();
         QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
