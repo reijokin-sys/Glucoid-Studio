@@ -22,6 +22,7 @@ void Importer::enqueueGlucose(const QStringList& kinds, qint64 from, qint64 unti
     }
 }
 void Importer::start(qint64 from, qint64 to, const QString& transport) {
+    from = (from / 1000) * 1000; // Reconcile precisely the lower boundary requested from the seconds API.
     this->to = to;
     discovery = from == 0;
     expanded = false;
@@ -45,19 +46,22 @@ void Importer::next() {
     if (tasks.isEmpty() && discovery && !expanded) {
         auto oldest = db.query("SELECT min(time) AS t FROM (SELECT time FROM glucose UNION ALL SELECT time FROM amounts WHERE local=0)");
         qint64 from = oldest.isEmpty() ? to - 90LL * 86400000 : qint64(oldest[0].toObject()["t"].toDouble(to - 90LL * 86400000)) - 7LL * 86400000;
-        from = std::max(1000LL, from);
+        from = (std::max(1000LL, from) / 1000) * 1000;
         enqueueGlucose({"stream", "scans"}, from, to);
         db.run("UPDATE import_runs SET from_time=? WHERE id=?", {from, run});
         expanded = true;
     }
     if (tasks.isEmpty()) {
-        finish(true, QString(QCoreApplication::translate("Studio", "Tuonti valmis: %1 varmennettua osaa. Historia on käytettävissä ilman puhelinta.")).arg(completed));
+        finish(
+            true,
+            QString(QCoreApplication::translate("Studio", "Tuonti valmis: %1 varmennettua osaa. Historia on käytettävissä ilman puhelinta.")).arg(completed));
         return;
     }
     const Task task = tasks.takeFirst();
-    emit progress(QString(QCoreApplication::translate("Studio", "Tuodaan %1 · valmis %2 osaa · jonossa %3")).arg(task.kind).arg(completed).arg(tasks.size() + 1));
+    emit progress(
+        QString(QCoreApplication::translate("Studio", "Tuodaan %1 · valmis %2 osaa · jonossa %3")).arg(task.kind).arg(completed).arg(tasks.size() + 1));
     // API endtime is inclusive seconds; the store uses a half-open interval.
-    const QString path = QString("/x/%1?header&starttime=%2&endtime=%3&mmol/L").arg(task.kind).arg(task.from / 1000).arg(task.to / 1000 - 1);
+    const QString path = QString("/x/%1?header&starttime=%2&endtime=%3&mmol/L").arg(task.kind).arg(task.from / 1000).arg((task.to - 1) / 1000);
     fetch(path, [this, task](const QByteArray& bytes, const QString& error) {
         if (error == "HTTP 413" && task.to - task.from > 3600000) {
             const qint64 mid = ((task.from + task.to) / 2000) * 1000;
@@ -69,12 +73,17 @@ void Importer::next() {
         if (!error.isEmpty()) {
             if (task.attempt < retries) {
                 tasks.prepend(Task{task.kind, task.from, task.to, task.attempt + 1});
-                emit progress(
-                    QString(QCoreApplication::translate("Studio", "Tuodaan %1 · uudelleenyritys %2/%3 · jonossa %4")).arg(task.kind).arg(task.attempt + 1).arg(retries + 1).arg(tasks.size()));
+                emit progress(QString(QCoreApplication::translate("Studio", "Tuodaan %1 · uudelleenyritys %2/%3 · jonossa %4"))
+                                  .arg(task.kind)
+                                  .arg(task.attempt + 1)
+                                  .arg(retries + 1)
+                                  .arg(tasks.size()));
                 QTimer::singleShot(1000 * (1 << task.attempt), this, &Importer::next);
                 return;
             }
-            finish(false, QCoreApplication::translate("Studio", "Tuonti jäi osittaiseksi uudelleenyritysten jälkeen. Valmiit osat ja aiempi historia säilyivät. ") + task.kind + ": " + error);
+            finish(false,
+                   QCoreApplication::translate("Studio", "Tuonti jäi osittaiseksi uudelleenyritysten jälkeen. Valmiit osat ja aiempi historia säilyivät. ") +
+                       task.kind + ": " + error);
             return;
         }
         storePage(task, bytes);
@@ -108,8 +117,15 @@ void Importer::pageStored(const Task& task, bool ok, const QString& error) {
     QTimer::singleShot(0, this, &Importer::next);
 }
 void Importer::finish(bool ok, const QString& why) {
-    db.endImport(run, ok, why);
-    if (ok) db.setMeta("lastSourceUntil", QString::number(to));
-    emit finished(ok, why);
+    QString message = why;
+    if (!db.endImport(run, ok, why)) {
+        ok = false;
+        message = db.error();
+    }
+    if (ok && !db.setMeta("lastSourceUntil", QString::number(to))) {
+        ok = false;
+        message = db.error();
+    }
+    emit finished(ok, message);
 }
 } // namespace Studio

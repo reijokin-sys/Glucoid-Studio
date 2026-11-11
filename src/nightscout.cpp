@@ -31,7 +31,8 @@ QString nightscoutAddressError(const QString& address) {
     const bool loopback = url.host() == "127.0.0.1" || url.host() == "localhost" || url.host() == "::1";
     if (!url.isValid() || url.host().isEmpty() || !url.userInfo().isEmpty() || url.hasQuery() || url.hasFragment() ||
         (url.scheme() != "https" && !(url.scheme() == "http" && loopback)))
-        return QCoreApplication::translate("Studio", "Anna Nightscoutin HTTPS-osoite ilman tunnuksia, kyselyä tai fragmenttia. HTTP sallitaan vain localhost-kokeessa.");
+        return QCoreApplication::translate("Studio",
+                                           "Anna Nightscoutin HTTPS-osoite ilman tunnuksia, kyselyä tai fragmenttia. HTTP sallitaan vain localhost-kokeessa.");
     return {};
 }
 
@@ -257,7 +258,9 @@ void NightscoutImporter::pageStored(const QJsonArray& rows, qint64 next, bool ok
     }
     const auto warnings = db.query("SELECT count(*) AS n FROM meta WHERE key GLOB 'nightscoutUnsupported:*'");
     const int count = warnings.isEmpty() ? 0 : warnings[0].toObject()["n"].toInt();
-    finish(true, count ? QString(QCoreApplication::translate("Studio", "Nightscout-tuonti valmis. %1 tapahtuman annostyyppiä ei tulkittu; alkuperäiset tiedot säilyivät.")).arg(count)
+    finish(true, count ? QString(QCoreApplication::translate(
+                                     "Studio", "Nightscout-tuonti valmis. %1 tapahtuman annostyyppiä ei tulkittu; alkuperäiset tiedot säilyivät."))
+                             .arg(count)
                        : QCoreApplication::translate("Studio", "Nightscout-tuonti valmis. Historia on käytettävissä paikallisesti."));
 }
 void NightscoutImporter::finish(bool success, const QString& message) {
@@ -265,7 +268,7 @@ void NightscoutImporter::finish(bool success, const QString& message) {
     complete = true;
     jwt.clear();
     accessToken.clear();
-    if (!run.isEmpty()) db.endImport(run, success, message);
-    emit finished(success, message);
+    const bool recorded = run.isEmpty() || db.endImport(run, success, message);
+    emit finished(success && recorded, recorded ? message : db.error());
 }
 } // namespace Studio

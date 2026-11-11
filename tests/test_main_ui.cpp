@@ -1,8 +1,11 @@
+#include "storefixtures.h"
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "backend.h"
+#include <QFileDialog>
+#include <QApplication>
+#include <QTimer>
 #include "language.h"
-#include "automatic_fixture.h"
-#include "target_fixture.h"
+#include "mainfixture.h"
 #include "qmltestfixture.h"
 #include <QtTest>
 #include <QTemporaryDir>
@@ -17,24 +20,23 @@
 #include <QColor>
 #include <QLocale>
 #include <cmath>
-using namespace AutomaticFixture;
-class AutomaticUiTest:public QObject {
+using namespace UiFixture;
+class MainUiTest:public QObject {
  Q_OBJECT
  QTemporaryDir languageDir;LanguageManager *language=nullptr;
  struct Fixture {
-    QTemporaryDir dir;Store db{dir.path()+"/studio.sqlite3"};Data data;
+    QTemporaryDir dir;FixtureStore db{dir.path()+"/studio.sqlite3"};Data data;
     Fixture(){
         QList<Amount> amounts;for(auto v:data.amounts){auto e=v.toObject();Amount a;a.key=e["id"].toString();a.source="synthetic";a.time=qint64(e["time"].toDouble());a.value=e["value"].toDouble();a.label=e["kind"].toString();amounts<<a;}
         if(!db.ingest(data.readings,amounts,start()-8LL*86400000,start()+8LL*86400000,false))qFatal("Synthetic ingest failed");
         db.mapLabel("carbs","carbs","");db.mapLabel("rapid","rapid","Synthetic rapid");db.mapLabel("basal","basal","Synthetic basal");
-        db.setMeta("automaticMealSettings",QString::fromUtf8(QJsonDocument(settings()).toJson()));
     }
  };
  static QQuickItem *item(QQuickItem *root,const QString &name){if(root->objectName()==name)return root;for(auto *child:root->childItems())if(auto *found=item(child,name))return found;return nullptr;}
- static void load(QQmlApplicationEngine&engine,Backend&b,int width=1280,bool research=false){
+ static void load(QQmlApplicationEngine&engine,Backend&b,int width=1280,bool demoMode=true){
     b.setAnalysisWindow(7,"2026-10-06");registerStudioQmlTypes();
-    setStudioQmlProperties(engine,b,QStringLiteral(STUDIO_APP_VERSION),true,true,width);
-    engine.load(QUrl::fromLocalFile(QStringLiteral(STUDIO_SOURCE_DIR)+(research?"/qml/ResearchMain.qml":"/qml/Main.qml")));
+    setStudioQmlProperties(engine,b,QStringLiteral(STUDIO_APP_VERSION),demoMode,true,width);
+    engine.load(QUrl::fromLocalFile(QStringLiteral(STUDIO_SOURCE_DIR)+"/qml/Main.qml"));
  }
 private slots:
  void initTestCase(){
@@ -51,7 +53,6 @@ private slots:
     QCoreApplication::instance()->setProperty("studioLanguageController",QVariant());
     delete language;language=nullptr;
  }
-
 
  void dailyAnalysisRendersSevenPeriodsWithoutMealModels_data(){
     QTest::addColumn<int>("width");QTest::newRow("wide")<<1280;QTest::newRow("medium")<<900;QTest::newRow("narrow")<<640;
@@ -108,21 +109,8 @@ private slots:
     QVERIFY(!item(window->contentItem(),"dayComparisonView"));
  }
 
-
- void newerRequestsAndSourceCorrectionsReplaceOlderResults(){
-    Fixture f;Backend b(f.dir.path());b.setAnalysisWindow(7,"2026-10-06");b.startAutomaticAnalysis();b.setAutomaticPeriod(28);b.setAutomaticPeriod(84);
-    QTRY_COMPARE_WITH_TIMEOUT(b.automaticMeals().value("status").toString(),QString("ready"),15000);QCOMPARE(b.automaticMeals().value("settings").toMap().value("periodDays").toInt(),84);
-    const auto key=b.automaticMeals().value("requestKey");QVERIFY(f.db.setDeleted("u0-0",true));b.refresh();QTRY_VERIFY_WITH_TIMEOUT(b.automaticMeals().value("status")=="ready"&&b.automaticMeals().value("requestKey")!=key,15000);
-    QCOMPARE(b.automaticMeals().value("sourceRevision").toString(),f.db.revision());QCOMPARE(b.automaticMeals().value("groups").toList()[0].toMap().value("pairedMeals").toInt(),5);QVERIFY(f.db.episodes().isEmpty());
- }
- void targetEditsDoNotApproveOrChangeTreatment(){
-    Fixture f;auto p=profiles()[0].toObject();QVERIFY(f.db.saveProfile(p)>0);const auto before=f.db.profiles();Backend b(f.dir.path());b.setAnalysisWindow(7,"2026-10-06");b.startAutomaticAnalysis();
-    QVERIFY(!b.saveAutomaticTargets(9,8,4));QCOMPARE(b.automaticSettings().value("targetLow").toDouble(),6.0);
-    QVERIFY(b.saveAutomaticTargets(6,9,4));QTRY_COMPARE_WITH_TIMEOUT(b.automaticMeals().value("targetHigh").toDouble(),9.0,15000);QCOMPARE(f.db.profiles(),before);QVERIFY(f.db.episodes().isEmpty());
-    Backend reopened(f.dir.path());QCOMPARE(reopened.automaticSettings().value("targetHigh").toDouble(),9.0);
- }
  void mainSettingsOnlyShowCurrentFunctions(){
-    Fixture f;Backend b(f.dir.path());const auto settings=b.automaticSettings();const auto profiles=f.db.profiles();
+    Fixture f;Backend b(f.dir.path());const auto profiles=f.db.query("SELECT * FROM profiles");
     QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());
     auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
     QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,4));
@@ -132,66 +120,22 @@ private slots:
     QVERIFY(!connection->property("expanded").toBool());
     for(auto name:{"nightTargetSettings","legacyTargetSettings","automaticTargetLow","automaticHypo","saveAutomaticTargets","overnightSummary","observationSummary"})
         QVERIFY2(!item(window->contentItem(),name),name);
-    QVERIFY(!b.automaticBusy());QVERIFY(b.automaticMeals().isEmpty());
-    QCOMPARE(b.automaticSettings(),settings);QCOMPARE(f.db.profiles(),profiles);
+
+    QCOMPARE(f.db.query("SELECT * FROM profiles"),profiles);
     QTRY_COMPARE_WITH_TIMEOUT(b.dailyAnalysis().value("status").toString(),QString("ready"),15000);
     QVERIFY(b.saveSourceConnection("nightscout","network","https://nightscout.example","token","",""));
     QTRY_VERIFY(!mapping->isVisible());
  }
- void settingsButtonSavesThroughRealQml(){
-    Fixture f;Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b,1280,true);QVERIFY(!engine.rootObjects().isEmpty());
-    auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
-    QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,4));
-    auto *targets=item(window->contentItem(),"researchTargetSettings");QVERIFY(targets);
-    QVERIFY(!targets->property("expanded").toBool());QVERIFY(QMetaObject::invokeMethod(targets,"toggle"));
-    item(window->contentItem(),"automaticTargetLow")->setProperty("text","6,2");
-    item(window->contentItem(),"automaticTargetHigh")->setProperty("text","8,2");
-    item(window->contentItem(),"automaticHypo")->setProperty("text","4");
-    auto *button=item(window->contentItem(),"saveAutomaticTargets");QVERIFY(button);QTRY_VERIFY(button->isVisible());
-    QVERIFY(QMetaObject::invokeMethod(button,"clicked"));
-    QTRY_COMPARE(b.automaticSettings().value("targetLow").toDouble(),6.2);
-    QTRY_COMPARE(b.automaticMeals().value("targetHigh").toDouble(),8.2);
-    auto *card=item(window->contentItem(),"overnightSummary");QVERIFY(card);
-    Backend reopened(f.dir.path());QCOMPARE(reopened.automaticSettings().value("targetHigh").toDouble(),8.2);
- }
- void descriptiveNightSummaryPreservesReportedBasalContext_data(){
-    QTest::addColumn<int>("width");QTest::newRow("wide")<<1280;QTest::newRow("narrow")<<900;
- }
- void descriptiveNightSummaryPreservesReportedBasalContext(){
-    QFETCH(int,width);
-    Fixture f;f.db.setMeta("reportedBasalHistory",QString::fromUtf8(QJsonDocument(reportedSettings()["reportedBasalHistory"].toArray()).toJson()));
-    const auto before=f.db.query("SELECT * FROM amounts");const auto profiles=f.db.profiles();Backend b(f.dir.path());
-    const auto settings=b.automaticSettings();QQmlApplicationEngine engine;load(engine,b,width);QVERIFY(!engine.rootObjects().isEmpty());
-    auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
-    QVERIFY(!item(window->contentItem(),"overnightSummary"));QVERIFY(!item(window->contentItem(),"observationSummary"));
-    QVERIFY(!b.automaticBusy());QVERIFY(b.automaticMeals().isEmpty());
-    auto *nightMetric=item(window->contentItem(),"nightGlucoseMetric");QVERIFY(nightMetric&&nightMetric->isVisible());
-    QCOMPARE(nightMetric->property("value").toString(),QLocale("en_GB").toString(b.analysis().value("nightMean").toDouble(),'f',1));
-    QVERIFY(nightMetric->property("note").toString().contains("Time-weighted"));
-    QVERIFY(nightMetric->property("note").toString().contains("coverage"));
-    QTRY_VERIFY(nightMetric->width()>150);
-    const auto metricRect=nightMetric->mapRectToScene(nightMetric->boundingRect());
-    QVERIFY(metricRect.left()>=0&&metricRect.right()<=window->width());
-    auto *metrics=item(window->contentItem(),"summaryMetrics");QVERIFY(metrics);
-    QTRY_VERIFY(metricRect.top()>=metrics->mapToScene(QPointF(0,metrics->height())).y());
-    QVERIFY(qAbs(nightMetric->width()-metrics->width())<1);
-    QTRY_COMPARE_WITH_TIMEOUT(b.dailyAnalysis().value("status").toString(),QString("ready"),15000);
-    const auto groups=b.dailyAnalysis().value("groups").toList();QCOMPARE(groups.size(),7);
-    QVERIFY(groups[6].toMap().value("label").toString().contains("00:00"));
-    QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,3));
-    QTRY_VERIFY(item(window->contentItem(),"dailyGlucose6")->isVisible());
-    QCOMPARE(b.automaticSettings(),settings);QCOMPARE(f.db.query("SELECT * FROM amounts"),before);QCOMPARE(f.db.profiles(),profiles);
- }
- void closedDuringCalculationPreservesData(){Fixture f;const auto before=f.db.query("SELECT * FROM amounts");{Backend b(f.dir.path());b.startAutomaticAnalysis();}QCOMPARE(f.db.query("SELECT * FROM amounts"),before);QVERIFY(f.db.episodes().isEmpty());}
- void chartViewsExplainThemselves(){Fixture f;Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(b.automaticMeals().isEmpty());
+
+ void chartViewsExplainThemselves(){Fixture f;Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());
     QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,0));QTest::qWait(100);auto *summaryLegend=item(window->contentItem(),"profileLegendSummary");QVERIFY(summaryLegend&&summaryLegend->isVisible());
     auto *nightMetric=item(window->contentItem(),"nightGlucoseMetric");QVERIFY(nightMetric&&nightMetric->isVisible());
     QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,1));QTest::qWait(100);auto *profileLegend=item(window->contentItem(),"profileLegend");QVERIFY(profileLegend&&profileLegend->isVisible());
     QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,2));QTest::qWait(100);auto *dayLegend=item(window->contentItem(),"dayLegend");QVERIFY(dayLegend&&dayLegend->isVisible());
     auto *title=item(window->contentItem(),"selectedDayTitle"),*previousTitle=item(window->contentItem(),"previousDayTitle");QVERIFY(title&&title->property("text").toString().startsWith("Selected day · "));QVERIFY(previousTitle&&previousTitle->property("text").toString().startsWith("Previous day · "));
-    auto *field=item(window->contentItem(),"dayDate");QVERIFY(field);const QString shown=field->property("text").toString();QVERIFY(!shown.isEmpty());const qint64 before=qint64(b.chart().value("from").toDouble());
-    auto *next=item(window->contentItem(),"nextDay");QVERIFY(next&&next->property("enabled").toBool()&&QMetaObject::invokeMethod(next,"clicked"));QTRY_COMPARE(qint64(b.chart().value("from").toDouble()),before+86400000LL);QTRY_COMPARE(field->property("text").toString(),QDate::fromString(shown,Qt::ISODate).addDays(1).toString(Qt::ISODate));
-    auto *previousButton=item(window->contentItem(),"previousDay");QVERIFY(previousButton&&QMetaObject::invokeMethod(previousButton,"clicked"));QTRY_COMPARE(qint64(b.chart().value("from").toDouble()),before);
+    auto *field=item(window->contentItem(),"dayDate");QVERIFY(field);const QString shown=field->property("text").toString();QVERIFY(!shown.isEmpty());const qint64 before=qint64(b.dayComparisonCharts().first().toMap().value("from").toDouble());
+    auto *next=item(window->contentItem(),"nextDay");QVERIFY(next&&next->property("enabled").toBool()&&QMetaObject::invokeMethod(next,"clicked"));QTRY_COMPARE(qint64(b.dayComparisonCharts().first().toMap().value("from").toDouble()),before+86400000LL);QTRY_COMPARE(field->property("text").toString(),QDate::fromString(shown,Qt::ISODate).addDays(1).toString(Qt::ISODate));
+    auto *previousButton=item(window->contentItem(),"previousDay");QVERIFY(previousButton&&QMetaObject::invokeMethod(previousButton,"clicked"));QTRY_COMPARE(qint64(b.dayComparisonCharts().first().toMap().value("from").toDouble()),before);
  }
  void dayNavigationIgnoresUnsubmittedDateText(){
     Fixture f;Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());
@@ -205,7 +149,7 @@ private slots:
     QTest::addColumn<int>("width");QTest::newRow("wide")<<1280;QTest::newRow("narrow")<<900;
  }
  void dayComparisonShowsFourScrollableColoredCharts(){
-    QFETCH(int,width);QTemporaryDir dir;Store store(dir.path()+"/studio.sqlite3");const QDate anchor(2026,11,8);const QTimeZone zone("Europe/Helsinki");
+    QFETCH(int,width);QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");const QDate anchor(2026,11,8);const QTimeZone zone("Europe/Helsinki");
     QVERIFY(store.setMeta("analysisSettings",QString::fromUtf8(QJsonDocument(QJsonObject{{"timezone","Europe/Helsinki"},{"low",4},{"high",10}}).toJson())));
     QList<Reading> rows;
     for(int offset=0;offset<4;++offset)for(int i=0;i<4;++i){Reading r;r.key=QString("chart-%1-%2").arg(offset).arg(i);r.sensor="synthetic";r.time=anchor.addDays(-offset).startOfDay(zone).toMSecsSinceEpoch()+i*300000;r.mmol=i==0?2:i==2?12:6;rows<<r;}
@@ -265,7 +209,7 @@ private slots:
     QCOMPARE(qint64(b.currentDayChart().value("to").toDouble()),QDateTime(today.addDays(1),QTime(0,0),zone).toMSecsSinceEpoch());
  }
  void currentDayChartPaintsTodaysReadings(){
-    QTemporaryDir dir;Store db(dir.path()+"/studio.sqlite3");
+    QTemporaryDir dir;FixtureStore db(dir.path()+"/studio.sqlite3");
     const QTimeZone zone("Europe/Helsinki");const QDate today=QDateTime::currentDateTime(zone).date();
     const qint64 dayStart=QDateTime(today,QTime(0,0),zone).toMSecsSinceEpoch(),dayEnd=QDateTime(today.addDays(1),QTime(0,0),zone).toMSecsSinceEpoch();
     const qint64 now=QDateTime::currentMSecsSinceEpoch();
@@ -337,6 +281,23 @@ private slots:
     QQmlExpression neutral(qmlContext(window),window,"referenceColor(false,true)");
     QCOMPARE(neutral.evaluate().value<QColor>(),QColor("#eef2f5"));
  }
+ void timestampsRenderInAnalysisTimezone(){
+    Fixture f;Backend b(f.dir.path());
+    QVariantMap settings{{"timezone","UTC"},{"low",4},{"high",10},{"maxGapMinutes",20},{"fillHistory",false}};
+    QVERIFY(b.saveAnalysisSettings(settings));
+    QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());
+    auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
+    const auto at=QDateTime(QDate(2026,11,1),QTime(0,30),QTimeZone("Europe/Helsinki")).toMSecsSinceEpoch();
+    auto evaluate=[&](const QString &expression){
+        QQmlExpression e(qmlContext(window),window,expression);
+        return e.evaluate().toString();
+    };
+    // Helsinki 1.11.2026 00:30 is 31.10.2026 22:30 in the configured UTC zone.
+    QCOMPARE(evaluate(QString("stamp(%1)").arg(at)),QString("31.10.2026 22:30"));
+    QCOMPARE(evaluate(QString("isoDate(%1)").arg(at)),QString("2026-10-31"));
+    QCOMPARE(evaluate(QString("longDate(%1)").arg(at)),QString("Sat 31.10.2026"));
+    QCOMPARE(evaluate(QString("shiftDay(%1,1)").arg(at)),QString("2026-11-01"));
+ }
  void chartsDefaultToCurrentDay(){
     Fixture f;Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());
     auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
@@ -345,6 +306,88 @@ private slots:
     const auto expected=QLocale("en_GB").toString(QDate::currentDate(),QStringLiteral("ddd d.M.yyyy"));
     QCOMPARE(title->property("text").toString(),QStringLiteral("Selected day · ")+expected);
  }
+ void settingsReloadSavedConnectionOnEveryOpen(){
+    Fixture f;Backend b(f.dir.path());QQmlApplicationEngine engine;load(engine,b);
+    QVERIFY(!engine.rootObjects().isEmpty());auto *window=engine.rootObjects().first();
+    auto *settings=window->findChild<QObject*>("simpleSettings");QVERIFY(settings);
+    QVERIFY(QMetaObject::invokeMethod(settings,"open"));
+    QTRY_VERIFY(settings->property("opened").toBool());
+    auto *serial=window->findChild<QObject*>("sourceSerial");QVERIFY(serial);
+    serial->setProperty("text","unsaved synthetic edit");
+    QVERIFY(QMetaObject::invokeMethod(settings,"close"));QTRY_VERIFY(!settings->property("opened").toBool());
+    QVERIFY(QMetaObject::invokeMethod(settings,"open"));QTRY_VERIFY(settings->property("opened").toBool());
+    QTRY_COMPARE(serial->property("text").toString(),b.savedConnection("juggluco")["serial"].toString());
+ }
+ void singleGlucosePointHasVisibleMarker(){
+    QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");
+    const QDate day(2026,11,8);const QTimeZone zone("UTC");
+    const auto from=day.startOfDay(zone).toMSecsSinceEpoch();
+    Reading point;point.key="synthetic-single";point.sensor="synthetic";point.time=from+3600000;point.mmol=12;point.original=12;point.originalUnit="mmol/L";
+    QVERIFY(store.ingest({point},{},from,from+86400000,false));
+    QVERIFY(store.setMeta("analysisSettings",QString::fromUtf8(QJsonDocument(QJsonObject{{"timezone","UTC"},{"low",4},{"high",10}}).toJson())));
+    Backend b(dir.path());QQmlApplicationEngine engine;load(engine,b);
+    QVERIFY(!engine.rootObjects().isEmpty());auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
+    b.setWindow(day.toString(Qt::ISODate),1);
+    QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,2));
+    auto *chart=item(window->contentItem(),"glucoseChart");QVERIFY(chart);
+    const auto model=chart->property("chartData").toMap();
+    QCOMPARE(model["segments"].toList().size(),1);
+    auto marker=[&]{QQmlExpression query(qmlContext(chart),chart,"created.some(s => s.visible && s.count === 1 && s.pointDelegate !== null)");return query.evaluate().toBool();};
+    QTRY_VERIFY_WITH_TIMEOUT(marker(),5000);
+ }
+ void settingsExposeManualBackupAndFileRestore(){
+    Fixture f;Backend b(f.dir.path());
+    QQmlApplicationEngine engine;load(engine,b,1280,false);QVERIFY(!engine.rootObjects().isEmpty());
+    auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
+    auto *settings=window->findChild<QObject*>("simpleSettings");QVERIFY(settings);
+    QVERIFY(QMetaObject::invokeMethod(settings,"open"));
+    QTRY_VERIFY_WITH_TIMEOUT(settings->property("opened").toBool(),5000);
+    QVERIFY(!window->findChild<QObject*>("backupEnabledSwitch"));
+    QVERIFY(!window->findChild<QObject*>("backupChoice"));
+    QVERIFY(window->findChild<QObject*>("backupNowButton"));
+    auto *restore=window->findChild<QObject*>("restoreBackupButton");QVERIFY(restore);
+    QCOMPARE(restore->property("enabled").toBool(),true);
+    QVERIFY(QMetaObject::invokeMethod(settings,"close"));
+ }
+ void systemSaveDialogComesBeforeCopyAndCancellationCreatesNothing(){
+    Fixture f;Backend b(f.dir.path());
+    QApplication::setAttribute(Qt::AA_DontUseNativeDialogs,true); // offscreen automation only
+    const auto before=QDir(f.dir.path()).entryList(QDir::Files|QDir::Hidden);
+    bool sawDialog=false,untouched=false;
+    QTimer::singleShot(0,[&]{
+        for(auto *widget:QApplication::topLevelWidgets()){
+            if(auto *dialog=qobject_cast<QFileDialog*>(widget)){
+                sawDialog=true;
+                QCOMPARE(dialog->acceptMode(),QFileDialog::AcceptSave);
+                QVERIFY(!dialog->testOption(QFileDialog::DontConfirmOverwrite));
+                untouched=QDir(f.dir.path()).entryList(QDir::Files|QDir::Hidden)==before;
+                dialog->reject();
+            }
+        }
+    });
+    QVERIFY(b.backup().isEmpty());QVERIFY(sawDialog);QVERIFY(untouched);
+    QCOMPARE(QDir(f.dir.path()).entryList(QDir::Files|QDir::Hidden),before);
+    QVERIFY(b.backupStatus().isEmpty());
+ }
+ void systemSaveDialogAcceptedPathIsUsed(){
+    Fixture f;Backend b(f.dir.path());
+    QApplication::setAttribute(Qt::AA_DontUseNativeDialogs,true);
+    const auto selected=f.dir.path()+"/chosen-by-user.sqlite3";
+    bool sawDialog=false;
+    QTimer::singleShot(0,[&]{
+        for(auto *widget:QApplication::topLevelWidgets()){
+            if(auto *dialog=qobject_cast<QFileDialog*>(widget)){
+                sawDialog=true;
+                QVERIFY(!QFile::exists(selected));
+                dialog->selectFile(selected);
+                QMetaObject::invokeMethod(dialog,"accept");
+            }
+        }
+    });
+    QCOMPARE(b.backup(),selected);QVERIFY(sawDialog);QVERIFY(QFile::exists(selected));
+    QVERIFY(!QFile::exists(selected+".manifest.json"));
+ }
+
 };
-QTEST_MAIN(AutomaticUiTest)
-#include "test_automatic_ui.moc"
+QTEST_MAIN(MainUiTest)
+#include "test_main_ui.moc"

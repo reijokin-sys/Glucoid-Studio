@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QCoreApplication>
 #include "backend.h"
+#include "databasebackup.h"
 #include "syncpolicy.h"
 #include "daychart.h"
+#include "observation.h"
 #include "wireguard.h"
 #include <QHostAddress>
 #include <KWallet>
@@ -10,10 +12,13 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QLocale>
 #include <QSaveFile>
-#include <QFileDialog>
 #include <QApplication>
+#include <QFileDialog>
+#include <QStandardPaths>
 #include <QJsonDocument>
+#include <QProcess>
 #include <QTimeZone>
 #include <QCryptographicHash>
 #include <QUuid>
@@ -22,7 +27,6 @@
 #include <limits>
 #include <QScopeGuard>
 #include <QtConcurrent/QtConcurrentRun>
-#include <QProcess>
 
 using namespace Studio;
 // General CGM reference values, not personal treatment targets. The upper mean
@@ -35,10 +39,10 @@ static constexpr double referenceCvTarget = 36.0, referenceCoverageTarget = 0.70
 static QString encoded(const QJsonObject& o) {
     return QString::fromUtf8(QJsonDocument(o).toJson(QJsonDocument::Indented));
 }
-static QJsonObject failure(const QString& why) {
-    return {{"status", "blocked"}, {"reasons", QJsonArray{why}}, {"researchOnly", true}};
-}
 namespace {
+QLocale studioLocale(const QString& language) {
+    return QLocale(language == "fi" ? QStringLiteral("fi_FI") : QStringLiteral("en_GB"));
+}
 Connection readConnection(const QString& path) {
     QFile file(path);
     Connection result;
@@ -75,12 +79,15 @@ bool saveConnectionFile(const QString& path, const Connection& connection) {
     return file.write(bytes) == bytes.size() && file.commit();
 }
 } // namespace
+QString Backend::databasePath(const QString& root) {
+    return QDir::cleanPath(sourceDatabase(root, readConnection(root + "/connection.json")));
+}
 Backend::Backend(const QString& root, QObject* parent, Importer::Fetch jugglucoFetch)
     : QObject(parent), root(root), db(sourceDatabase(root, readConnection(root + "/connection.json"))), transport(this),
       jugglucoFetch(std::move(jugglucoFetch)), config(readConnection(root + "/connection.json")) {
     if (auto* controller = QCoreApplication::instance()->property("studioLanguageController").value<QObject*>())
         connect(controller, SIGNAL(languageChanged()), this, SLOT(retranslateUi()));
-    m_status = db.good() ? QCoreApplication::translate("Studio", "Valmis. Tutkimustila — laskentamalleja ei ole kliinisesti validoitu.") : db.error();
+    m_status = db.good() ? QString() : db.error();
     connect(&summaryWatcher, &QFutureWatcher<QVariantMap>::finished, this, [this] {
         const auto result = summaryWatcher.result();
         summaryRunning = false;
@@ -89,19 +96,12 @@ Backend::Backend(const QString& root, QObject* parent, Importer::Fetch jugglucoF
         if (current && result.value("ok").toBool()) {
             summarySucceeded = true;
             completedSummaryKey = runningSummaryKey;
-            m_chart = result.value("chart").toMap();
             m_analysis = result.value("analysis").toMap();
             m_currentDayChart = result.value("currentDay").toMap();
-            m_comparisonChart = result.value("comparison").toMap();
             m_dayComparisonCharts = result.value("days").toList();
-            m_diary = result.value("diary").toList();
-            m_deletedDiary = result.value("deletedDiary").toList();
-            m_summaries = result.value("summaries").toList();
-            m_latestText = result.value("latest").toString();
             m_currentReading = result.value("currentReading").toMap();
             emit currentReadingChanged();
             requestDailyAnalysis();
-            requestAutomaticAnalysis();
         } else if (current) {
             summarySucceeded = false;
             m_status = QCoreApplication::translate("Studio", "Näkymän laskenta epäonnistui. Aiempi näkymä säilyi.");
@@ -116,12 +116,9 @@ Backend::Backend(const QString& root, QObject* parent, Importer::Fetch jugglucoF
     connect(&backupWatcher, &QFutureWatcher<QVariantMap>::finished, this, [this] {
         const auto result = backupWatcher.result();
         backupRunning = false;
-        updateBackupSucceeded = !result.value("path").toString().isEmpty();
+        const auto path = result.value("path").toString();
+        backupSucceeded = !path.isEmpty();
         m_backupStatus = result.value("status").toString();
-        if (backupPending) {
-            backupPending = false;
-            launchBackup();
-        }
         emit changed();
     });
     refresh();
@@ -140,36 +137,64 @@ Backend::Backend(const QString& root, QObject* parent, Importer::Fetch jugglucoF
         } else
             emit changed();
     });
-    connect(&automaticWatcher, &QFutureWatcher<QJsonObject>::finished, this, [this] {
-        const auto result = automaticWatcher.result();
-        automaticRunning = false;
-        const bool current = runningAutomaticGeneration == automaticGeneration && runningAutomaticKey == automaticRequestedKey &&
-                             (result["status"] == "error" || result["sourceRevision"].toString() == db.revision());
-        if (current) {
-            automaticResult = result;
-            automaticResult["requestKey"] = runningAutomaticKey;
-            emit changed();
-        }
-        if (automaticPending || !current) {
-            automaticPending = false;
-            automaticRequestedKey.clear();
-            requestAutomaticAnalysis();
-        } else
-            emit changed();
-    });
 }
 Backend::~Backend() {
     // Workers own their SQLite connections and never capture this Backend.
     summaryWatcher.waitForFinished();
     backupWatcher.waitForFinished();
     dailyWatcher.waitForFinished();
-    automaticWatcher.waitForFinished();
 }
 Backend::Backend(const QString& root, const QString& databasePath, SnapshotReader) : QObject(nullptr), root(root), db(databasePath, true), transport(this) {}
 
 QString Backend::language() const {
     auto* controller = QCoreApplication::instance()->property("studioLanguageController").value<QObject*>();
     return controller ? controller->property("language").toString() : QStringLiteral("en");
+}
+QString Backend::chooseRestoreBackup() {
+    return QFileDialog::getOpenFileName(nullptr, QCoreApplication::translate("Studio", "Valitse palautettava tietokanta"), QString(),
+                                        QCoreApplication::translate("Studio", "SQLite-tietokanta (*.sqlite3 *.db);;Kaikki tiedostot (*)"));
+}
+bool Backend::scheduleRestore(const QString& backupPath) {
+    const auto backup = Studio::inspectBackup(backupPath);
+    if (!backup.complete) {
+        m_backupStatus = QCoreApplication::translate("Studio", "Varmuuskopion tarkistus epäonnistui: %1")
+                             .arg(backup.error.isEmpty() ? QCoreApplication::translate("Studio", "vajaa varmuuskopio") : backup.error);
+        emit changed();
+        return false;
+    }
+    QString error;
+    if (!Studio::writeRestoreRequest(root, backup.path, &error)) {
+        m_backupStatus = error;
+        emit changed();
+        return false;
+    }
+    m_backupStatus = QCoreApplication::translate("Studio", "Varmuuskopio tarkistettu. Sovellus käynnistyy uudelleen palautusta varten.");
+    emit changed();
+    return true;
+}
+void Backend::restartForRestore() {
+    if (Studio::readRestoreRequest(root).isEmpty()) {
+        m_backupStatus = QCoreApplication::translate("Studio", "Palautuspyyntöä ei löytynyt.");
+        emit changed();
+        return;
+    }
+    const auto executable = QCoreApplication::applicationFilePath();
+    if (!QProcess::startDetached(QStringLiteral("/bin/sh"),
+                                 {QStringLiteral("-c"), QStringLiteral("sleep 2; exec \"$0\" --data-dir \"$1\""), executable, root})) {
+        m_backupStatus = QCoreApplication::translate("Studio", "Sovelluksen käynnistäminen palautusta varten epäonnistui.");
+        emit changed();
+        return;
+    }
+    QCoreApplication::quit();
+}
+QString Backend::formatTimestamp(qint64 at, const QString& format) const {
+    const QTimeZone zone(analysisSettings().value("timezone").toString().toUtf8());
+    if (!zone.isValid()) return {};
+    return studioLocale(language()).toString(QDateTime::fromMSecsSinceEpoch(at, zone), format);
+}
+QString Backend::today() const {
+    const QTimeZone zone(analysisSettings().value("timezone").toString().toUtf8());
+    return zone.isValid() ? QDateTime::currentDateTime(zone).date().toString(Qt::ISODate) : QString();
 }
 bool Backend::setLanguage(const QString& language) {
     auto* controller = QCoreApplication::instance()->property("studioLanguageController").value<QObject*>();
@@ -186,26 +211,16 @@ void Backend::retranslateUi() {
     completedSummaryKey.clear();
     summaryRequestedKey.clear();
     dailyRequestedKey.clear();
-    automaticRequestedKey.clear();
     m_analysis.clear();
     m_currentReading.clear();
-    m_diary.clear();
-    m_deletedDiary.clear();
-    m_summaries.clear();
-    m_chart.clear();
     m_currentDayChart.clear();
-    m_comparisonChart.clear();
     m_dayComparisonCharts.clear();
     dailyResult = {};
-    automaticResult = {};
-    responseResult = {};
-    responseDraft = {};
-    lastRecommendation = {};
     m_status = QCoreApplication::translate("Studio", "Käyttöliittymän kieli vaihdettu.");
     if (!m_backupStatus.isEmpty())
-        m_backupStatus = backupRunning           ? QCoreApplication::translate("Studio", "Varmuuskopioidaan taustalla…")
-                         : updateBackupSucceeded ? QCoreApplication::translate("Studio", "Varmuuskopio valmis.")
-                                                 : QCoreApplication::translate("Studio", "Varmuuskopioinnissa havaittiin virhe.");
+        m_backupStatus = backupRunning     ? QCoreApplication::translate("Studio", "Varmuuskopioidaan taustalla…")
+                         : backupSucceeded ? QCoreApplication::translate("Studio", "Varmuuskopio valmis.")
+                                           : QCoreApplication::translate("Studio", "Varmuuskopioinnissa havaittiin virhe.");
     refresh();
     emit currentReadingChanged();
     emit changed();
@@ -214,9 +229,9 @@ void Backend::enableBackgroundWork() {
     backgroundWork = true;
 }
 QString Backend::summaryKey() const {
-    return language() + "|" + db.path() + "|" + db.revision() + "|" + QString::number(analysisDays) + "|" + analysisLastDate + "|" +
-           QString::number(dayWindow) + "|" + dateWindow + "|" + encoded(QJsonObject::fromVariantMap(analysisSettings())) + "|" + encoded(db.activeProfile()) +
-           "|" + encoded(db.observationProfile()) + "|" + QString::number(QDateTime::currentMSecsSinceEpoch() / 30000);
+    return language() + "|" + db.path() + "|" + db.revision() + "|" + QString::number(analysisDays) + "|" + analysisLastDate + "|" + dateWindow + "|" +
+           encoded(QJsonObject::fromVariantMap(analysisSettings())) + "|" + encoded(db.observationProfile()) + "|" +
+           QString::number(QDateTime::currentMSecsSinceEpoch() / 30000);
 }
 void Backend::requestSummary() {
     const auto key = summaryKey();
@@ -232,55 +247,32 @@ void Backend::launchSummary() {
     summaryRunning = true;
     runningSummaryKey = summaryRequestedKey;
     const auto path = db.path(), dataRoot = root, date = dateWindow, lastDate = analysisLastDate;
-    const int days = dayWindow, period = analysisDays;
-    summaryWatcher.setFuture(QtConcurrent::run([path, dataRoot, date, lastDate, days, period] {
+    const int period = analysisDays;
+    summaryWatcher.setFuture(QtConcurrent::run([path, dataRoot, date, lastDate, period] {
         Backend snapshot(dataRoot, path, SnapshotReader{});
         QVariantMap result{{"path", path}, {"ok", false}};
         if (!snapshot.db.good() || !snapshot.db.run("BEGIN")) return result;
         const auto revision = snapshot.db.revision(); // Pins one WAL read snapshot for every calculation.
         snapshot.dateWindow = date;
-        snapshot.dayWindow = days;
         snapshot.analysisDays = period;
         snapshot.analysisLastDate = lastDate;
         snapshot.refresh();
         result.insert("revision", revision);
         result.insert("ok", snapshot.db.good());
-        result.insert("chart", snapshot.m_chart);
         result.insert("analysis", snapshot.m_analysis);
         result.insert("currentDay", snapshot.m_currentDayChart);
-        result.insert("comparison", snapshot.m_comparisonChart);
         result.insert("days", snapshot.m_dayComparisonCharts);
-        result.insert("diary", snapshot.m_diary);
-        result.insert("deletedDiary", snapshot.m_deletedDiary);
-        result.insert("summaries", snapshot.m_summaries);
-        result.insert("latest", snapshot.m_latestText);
         result.insert("currentReading", snapshot.m_currentReading);
         snapshot.db.run("ROLLBACK");
         return result;
     }));
     emit changed();
 }
-QVariantMap Backend::backupSnapshot(const QString& path, const QString& root, const Connection& config) {
-    Backend snapshot(root, path, SnapshotReader{});
-    snapshot.config = config;
-    if (!snapshot.db.good() || !snapshot.db.run("BEGIN"))
-        return {{"path", ""}, {"status", QCoreApplication::translate("Studio", "Varmuuskopiointi epäonnistui.")}};
-    // The DB copy and its source manifest must refer to the same read snapshot.
-    snapshot.db.revision();
-    const auto dest = snapshot.backupNow();
-    snapshot.db.run("ROLLBACK");
-    return {{"path", dest}, {"status", snapshot.m_status}};
-}
-void Backend::launchBackup() {
-    updateBackupSucceeded = false;
-    backupRunning = true;
-    runningBackupPath = db.path();
-    m_backupStatus = QCoreApplication::translate("Studio", "Varmuuskopioidaan taustalla…");
-    const auto path = db.path(), dataRoot = root;
-    auto settings = config;
-    settings.secret.clear();
-    backupWatcher.setFuture(QtConcurrent::run([path, dataRoot, settings] { return backupSnapshot(path, dataRoot, settings); }));
-    emit changed();
+QVariantMap Backend::backupSnapshot(const QString& path, const QString& destination, const QString& source) {
+    QString error;
+    if (!Studio::exportDatabaseBackup(path, destination, source, &error))
+        return {{"path", ""}, {"status", QCoreApplication::translate("Studio", "Varmuuskopiointi epäonnistui: %1").arg(error)}};
+    return {{"path", destination}, {"status", QCoreApplication::translate("Studio", "Tietokannan varmuuskopio tallennettu: %1").arg(destination)}};
 }
 void Backend::refreshDailyAnalysis() {
     dailyEnabled = true;
@@ -310,109 +302,6 @@ void Backend::launchDailyAnalysis() {
     const auto zone = pendingDailyZone;
     const auto now = pendingDailyNow;
     dailyWatcher.setFuture(QtConcurrent::run([path, zone, now] { return dailyPeriodSnapshot(path, zone, now); }));
-}
-QVariantMap Backend::automaticSettings() const {
-    auto settings = QJsonDocument::fromJson(db.meta("automaticMealSettings").toUtf8()).object();
-    auto p = db.observationProfile();
-    if (p.isEmpty()) p = db.activeProfile();
-    if (!settings.contains("targetLow")) settings["targetLow"] = p["targetLow"];
-    if (!settings.contains("targetHigh")) settings["targetHigh"] = p["targetHigh"];
-    if (!settings.contains("hypo")) settings["hypo"] = p["hypo"];
-    settings["timezone"] = p.value("timezone").toString(analysisSettings().value("timezone").toString());
-    settings["reportedBasalHistory"] = QJsonDocument::fromJson(db.meta("reportedBasalHistory").toUtf8()).array();
-    if (!settings.contains("periodDays")) settings["periodDays"] = 56;
-    if (!settings.contains("groups") && p["slots"].toArray().size() == 4) {
-        QJsonArray groups;
-        for (auto v : p["slots"].toArray()) {
-            auto s = v.toObject();
-            groups << QJsonObject{{"name", s["name"]}, {"startMinute", s["startMinute"]}};
-        }
-        settings["groups"] = groups;
-    }
-    return settings.toVariantMap();
-}
-void Backend::startAutomaticAnalysis(bool refreshSource) {
-    automaticEnabled = true;
-    requestAutomaticAnalysis();
-    if (refreshSource && !automaticSourceStarted && !db.meta("connectionConfigured").isEmpty()) {
-        automaticSourceStarted = true;
-        QTimer::singleShot(1000, this, [this] {
-            if (!m_busy) sync();
-        });
-    }
-}
-void Backend::requestAutomaticAnalysis() {
-    if (!automaticEnabled) return;
-    auto settings = QJsonObject::fromVariantMap(automaticSettings());
-    const auto zone = QTimeZone(settings["timezone"].toString().toUtf8());
-    auto last = QDate::fromString(m_analysis.value("lastDate").toString(), Qt::ISODate);
-    if (!last.isValid()) last = QDateTime::currentDateTime(zone).date().addDays(-1);
-    const int days = settings["periodDays"].toInt(56);
-    const auto to = QDateTime(last.addDays(1), QTime(0, 0), zone), from = to.addDays(-days);
-    const QString key = QString::fromLatin1(
-        QCryptographicHash::hash(language().toUtf8() + db.revision().toUtf8() + QJsonDocument(db.profiles()).toJson(QJsonDocument::Compact) +
-                                     QJsonDocument(settings).toJson(QJsonDocument::Compact) + QByteArray::number(to.toMSecsSinceEpoch()),
-                                 QCryptographicHash::Sha256)
-            .toHex());
-    if (key == automaticRequestedKey) return;
-    automaticRequestedKey = key;
-    ++automaticGeneration;
-    pendingAutomaticSettings = settings;
-    pendingAutomaticFrom = from.toMSecsSinceEpoch();
-    pendingAutomaticTo = to.toMSecsSinceEpoch();
-    pendingAutomaticUntil = QDateTime::currentMSecsSinceEpoch();
-    automaticResult = {{"status", "computing"}};
-    if (automaticRunning)
-        automaticPending = true;
-    else
-        launchAutomaticAnalysis();
-    emit changed();
-}
-void Backend::launchAutomaticAnalysis() {
-    automaticRunning = true;
-    runningAutomaticGeneration = automaticGeneration;
-    runningAutomaticKey = automaticRequestedKey;
-    const auto path = db.path();
-    const auto settings = pendingAutomaticSettings;
-    const auto from = pendingAutomaticFrom, to = pendingAutomaticTo, until = pendingAutomaticUntil;
-    automaticWatcher.setFuture(QtConcurrent::run([path, settings, from, to, until] { return automaticMealSnapshot(path, settings, from, to, until); }));
-}
-void Backend::setAutomaticPeriod(int days) {
-    if (days != 28 && days != 56 && days != 84) return;
-    auto settings = QJsonDocument::fromJson(db.meta("automaticMealSettings").toUtf8()).object();
-    settings["periodDays"] = days;
-    if (!db.setMeta("automaticMealSettings", encoded(settings))) return;
-    requestAutomaticAnalysis();
-    emit changed();
-}
-bool Backend::saveAutomaticTargets(double low, double high, double hypo) {
-    if (!std::isfinite(low) || !std::isfinite(high) || !std::isfinite(hypo) || hypo <= 0 || low < hypo || high <= low) {
-        m_status = QCoreApplication::translate("Studio", "Tarkista tavoitealue ja matalan raja.");
-        emit changed();
-        return false;
-    }
-    auto settings = QJsonDocument::fromJson(db.meta("automaticMealSettings").toUtf8()).object();
-    settings["targetLow"] = low;
-    settings["targetHigh"] = high;
-    settings["hypo"] = hypo;
-    bool ok = db.setMeta("automaticMealSettings", encoded(settings));
-    if (ok) {
-        m_status = QCoreApplication::translate("Studio", "Yö- ja tutkimusanalyysin rajat tallennettu.");
-        requestAutomaticAnalysis();
-    }
-    emit changed();
-    return ok;
-}
-void Backend::openResearchView() {
-    QProcess::startDetached(QCoreApplication::applicationFilePath(), {"--research", "--data-dir", root});
-}
-QVariantMap Backend::profile() const {
-    auto p = evaluationProfile();
-    return (p.isEmpty() ? emptyProfile() : p).toVariantMap();
-}
-QVariantList Backend::treatmentSlots() const {
-    auto p = evaluationProfile();
-    return p["slots"].toArray().toVariantList();
 }
 QVariantMap Backend::connection() const {
     auto result = connectionObject(config).toVariantMap();
@@ -458,21 +347,10 @@ void Backend::saveConnection(const QString& mode, const QString& address, const 
 }
 void Backend::clearSourceResults() {
     updateSucceeded = false;
-    updateBackupSucceeded = false;
     dailyRequestedKey.clear();
     runningDailyKey.clear();
     dailyResult = {};
     dailyPending = false;
-    automaticRequestedKey.clear();
-    runningAutomaticKey.clear();
-    automaticResult = {};
-    automaticPending = false;
-    ++automaticGeneration;
-    responseRevision.clear();
-    responseResult = {};
-    responseDraft = {};
-    lastRecommendation = {};
-    selectedProfileVersion = 0;
     dateWindow.clear();
     analysisLastDate.clear();
 }
@@ -483,8 +361,7 @@ bool Backend::saveSourceConnection(const QString& source, const QString& mode, c
         emit changed();
         return false;
     };
-    if (m_busy || dailyRunning || automaticRunning)
-        return fail(QCoreApplication::translate("Studio", "Odota käynnissä olevan haun tai analyysin valmistumista."));
+    if (m_busy || dailyRunning) return fail(QCoreApplication::translate("Studio", "Odota käynnissä olevan haun tai analyysin valmistumista."));
     if (source != "juggluco" && source != "nightscout") return fail(QCoreApplication::translate("Studio", "Tuntematon tietolähde."));
     Connection next;
     next.source = source;
@@ -546,7 +423,7 @@ bool Backend::reloadSource() {
     if (!document.isObject() || (source != "juggluco" && source != "nightscout")) return false;
     const auto next = readConnection(root + "/connection.json");
     if (connectionObject(next) == connectionObject(config)) return true;
-    if (dailyRunning || automaticRunning) {
+    if (dailyRunning) {
         m_status = QCoreApplication::translate("Studio", "Lähdeasetus muuttui. Odota analyysin valmistumista ja päivitä uudelleen.");
         emit changed();
         return false;
@@ -562,7 +439,7 @@ bool Backend::reloadSource() {
     return true;
 }
 void Backend::refreshSourceChoice() {
-    if (m_busy || dailyRunning || automaticRunning || !QFile::exists(root + "/connection.json")) return;
+    if (m_busy || dailyRunning || !QFile::exists(root + "/connection.json")) return;
     QLockFile lock(root + "/sync.lock");
     if (lock.tryLock(0)) reloadSource();
 }
@@ -577,99 +454,18 @@ void Backend::importGlucoid() {
 }
 void Backend::setWindow(const QString& date, int days) {
     dateWindow = date;
-    dayWindow = std::clamp(days, 1, 30);
+    Q_UNUSED(days)
     refresh();
 }
 void Backend::refresh() {
-    if (!responseRevision.isEmpty() && (responseRevision != db.revision() || responseResult["profileVersion"] != evaluationProfile()["version"])) {
-        responseResult = {};
-        responseDraft = {};
-    }
     if (backgroundWork) {
         requestSummary();
         return;
     }
-    const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    auto p = db.activeProfile();
-    const auto settings = QJsonObject::fromVariantMap(analysisSettings());
-    const auto zone = QTimeZone(settings["timezone"].toString().toUtf8());
-    qint64 to = now, from = now - qint64(dayWindow) * 86400000;
-    const auto selected = QDate::fromString(dateWindow, Qt::ISODate);
-    if (selected.isValid()) {
-        auto start = QDateTime(selected, QTime(0, 0), zone);
-        from = start.toMSecsSinceEpoch();
-        to = start.addDays(dayWindow).toMSecsSinceEpoch();
-    }
-    auto data = db.readings(from, to);
-    if (settings["fillHistory"].toBool()) {
-        const auto filled = selectSeries(data, db.readings(from, to, "history"), from, to, true, qRound(number(settings, "maxGapMinutes") * 60));
-        data.clear();
-        for (const auto& v : filled) {
-            Reading r;
-            r.time = v.from;
-            r.mmol = v.value;
-            r.sensor = v.sensor;
-            r.key = QString::number(v.from);
-            data << r;
-        }
-    }
-    double max = 15;
-    QVariantList segments;
-    QVariantList segment;
-    const auto rules = p["rules"].toObject();
-    const int gap = qRound(number(settings, "maxGapMinutes") * 60000);
-    Q_UNUSED(rules)
-    qint64 prev = 0;
-    QString sensor;
-    for (const auto& r : data) {
-        if (!r.reliable) continue;
-        if (prev && (r.time - prev > gap || r.sensor != sensor)) {
-            if (!segment.isEmpty()) segments.append(QVariant(segment));
-            segment.clear();
-        }
-        segment.append(QVariantMap{{"x", double(r.time)}, {"y", r.mmol}});
-        max = std::max(max, r.mmol + 2);
-        prev = r.time;
-        sensor = r.sensor;
-    }
-    if (!segment.isEmpty()) segments.append(QVariant(segment));
-    m_chart = {{"from", double(from)},
-               {"to", double(to)},
-               {"segments", segments},
-               {"max", max},
-               {"low", settings["low"].toVariant()},
-               {"high", settings["high"].toVariant()}};
-    m_diary.clear();
-    m_deletedDiary.clear();
-    QVariantList markers;
-    for (const auto& v : db.amounts(from, to, true)) {
-        auto o = v.toObject().toVariantMap();
-        o["timeText"] = QDateTime::fromMSecsSinceEpoch(qint64(o["time"].toDouble()), zone).toString("dd.MM.yyyy HH:mm");
-        if (o["deleted"].toBool())
-            m_deletedDiary.prepend(o);
-        else {
-            m_diary.prepend(o);
-            markers.append(o);
-        }
-    }
-    m_chart["markers"] = markers;
-    m_summaries.clear();
-    for (int days : {7, 14, 30}) {
-        auto stats = metrics(db.readings(now - qint64(days) * 86400000, now), now - qint64(days) * 86400000, now, number(p, "targetLow"),
-                             number(p, "targetHigh"), gap / 1000);
-        stats["days"] = days;
-        m_summaries.append(stats.toVariantMap());
-    }
-    const auto latest = db.readings(now - 86400000, now + 1);
-    m_latestText = QCoreApplication::translate("Studio", "Ei tuoretta mittausta");
-    if (!latest.isEmpty()) {
-        const auto& r = latest.last();
-        const int age = int((now - r.time) / 60000);
-        m_latestText = QString(QCoreApplication::translate("Studio", "%1 mmol/l · %2 min sitten")).arg(r.mmol, 0, 'f', 1).arg(age);
-    }
     refreshAnalysis();
     emit changed();
 }
+
 void Backend::sync() {
     startSync(false);
 }
@@ -679,7 +475,6 @@ void Backend::syncAll() {
 void Backend::startSync(bool full) {
     if (m_busy) return;
     updateSucceeded = false;
-    updateBackupSucceeded = false;
     emit changed();
     syncLock = std::make_unique<QLockFile>(root + "/sync.lock");
     syncLock->setStaleLockTime(120000);
@@ -712,7 +507,6 @@ void Backend::startSync(bool full) {
         });
         connect(nightscoutImporter.get(), &NightscoutImporter::finished, this, [this](bool ok, const QString& text) {
             finishSync(ok ? QString() : text);
-            if (ok) backup();
             m_status = text;
             emit changed();
         });
@@ -736,7 +530,6 @@ void Backend::startSync(bool full) {
     connect(importer.get(), &Importer::finished, this, [this](bool ok, const QString& text) {
         finishSync(ok ? QString() : text);
         m_status = text;
-        if (ok) backup();
         emit changed();
     });
     const auto last = db.meta("lastSourceUntil").toLongLong(), to = QDateTime::currentSecsSinceEpoch() * 1000;
@@ -751,7 +544,7 @@ void Backend::finishSync(const QString& error) {
         syncLock->unlock();
         syncLock.reset();
     }
-    m_status = error.isEmpty() ? QCoreApplication::translate("Studio", "Historia päivitetty. Tutkimustila.") : error;
+    m_status = error.isEmpty() ? QCoreApplication::translate("Studio", "Historia päivitetty.") : error;
     if (!error.isEmpty()) db.setMeta("connectionError", error);
     refresh();
     emit syncFinished(error.isEmpty());
@@ -763,437 +556,35 @@ bool Backend::mapLabel(const QString& label, const QString& kind, const QString&
     refresh();
     return ok;
 }
-bool Backend::addLocal(const QString& date, double value, const QString& kind, const QString& medicine, const QString& purpose) {
-    auto p = db.activeProfile();
-    const auto zone = QTimeZone(p.value("timezone").toString("Europe/Helsinki").toUtf8());
-    auto dt = QDateTime::fromString(date, "yyyy-MM-dd HH:mm");
-    if (dt.isValid()) dt = QDateTime(dt.date(), dt.time(), zone);
-    if (!dt.isValid() || dt.toMSecsSinceEpoch() > QDateTime::currentMSecsSinceEpoch()) {
-        m_status = QCoreApplication::translate("Studio", "Anna toteutuneen merkinnän paikallinen aika muodossa vvvv-kk-pp tt:mm.");
-        emit changed();
-        return false;
-    }
-    const bool ok = !db.addLocal(dt.toMSecsSinceEpoch(), value, kind, medicine, purpose).isEmpty();
-    m_status = ok ? QCoreApplication::translate("Studio", "Toteutunut merkintä tallennettu paikallisesti.")
-                  : QCoreApplication::translate("Studio", "Merkintä ei kelpaa.");
-    refresh();
-    return ok;
-}
-bool Backend::annotate(const QString& id, const QString& purpose, const QString& note) {
-    bool ok = db.annotate(id, {{"purpose", purpose}, {"note", note}});
-    m_status = ok ? QCoreApplication::translate("Studio", "Täydennys tallennettu erikseen alkuperäisestä tiedosta.")
-                  : QCoreApplication::translate("Studio", "Täydennyksen tallennus epäonnistui.");
-    refresh();
-    return ok;
-}
-bool Backend::removeAmount(const QString& id) {
-    const bool ok = db.setDeleted(id, true);
-    lastRecommendation = {};
-    m_status = ok ? QCoreApplication::translate("Studio", "Merkintä poistettu paikallisesta päiväkirjasta. Sen voi palauttaa kohdasta Poistetut merkinnät.")
-                  : QCoreApplication::translate("Studio", "Merkinnän poistaminen epäonnistui.");
-    refresh();
-    return ok;
-}
-bool Backend::restoreAmount(const QString& id) {
-    const bool ok = db.setDeleted(id, false);
-    lastRecommendation = {};
-    m_status = ok ? QCoreApplication::translate("Studio", "Merkintä palautettu päiväkirjaan.")
-                  : QCoreApplication::translate("Studio", "Merkinnän palauttaminen epäonnistui.");
-    refresh();
-    return ok;
-}
-QVariantMap Backend::saveProfile(const QVariantMap& profile, bool approve) {
-    auto p = QJsonObject::fromVariantMap(profile);
-    p["researchOnly"] = true;
-    p["schema"] = 1;
-    p["approved"] = approve;
-    p.remove("responseApproved");
-    p.remove("responseApprovedAt");
-    if (approve) {
-        const auto errors = validateProfile(p);
-        if (!errors.isEmpty()) return QJsonObject{{"status", "blocked"}, {"reasons", QJsonArray::fromStringList(errors)}}.toVariantMap();
-    }
-    // Every saved profile starts a new observation period. No backdating.
-    p["effectiveFrom"] = double(QDateTime::currentMSecsSinceEpoch());
-    p["approvedAt"] = approve ? QDateTime::currentDateTimeUtc().toString(Qt::ISODate) : QString();
-    const int id = db.saveProfile(p);
-    if (!id) return failure(QCoreApplication::translate("Studio", "Profiilin tallennus epäonnistui.")).toVariantMap();
-    lastRecommendation = {};
-    m_status = approve ? QCoreApplication::translate("Studio", "Uusi tutkimusprofiili hyväksytty. Uusi seurantajakso alkaa nyt.")
-                       : QCoreApplication::translate("Studio", "Profiilin luonnos tallennettu. Annoslaskenta on estetty.");
-    refresh();
-    return QJsonObject{{"status", "saved"}, {"version", id}}.toVariantMap();
-}
-QVariantMap Backend::saveEpisode(const QVariantMap& episode) {
-    if (m_busy) return failure(QCoreApplication::translate("Studio", "Odota tietojen tuonnin valmistumista ennen jakson tallennusta.")).toVariantMap();
-    if (!db.run("BEGIN IMMEDIATE"))
-        return failure(QCoreApplication::translate("Studio", "Tietokanta on varattu. Yritä jakson tallennusta uudelleen.")).toVariantMap();
-    auto rollback = qScopeGuard([this] { db.run("ROLLBACK"); });
-    auto e = QJsonObject::fromVariantMap(episode);
-    const bool responseEpisode = e["responseV2"].toBool();
-    const auto p = evaluationProfile();
-    auto errors = responseEpisode ? validateResponseProfile(p) : (p["historical"].toBool() ? validateHistoricalProfile(p) : validateProfile(p));
-    if (responseEpisode ? !responseProfileApproved(p) : !p["approved"].toBool())
-        errors << QCoreApplication::translate("Studio", "Hyväksy profiili ") +
-                      QString(responseEpisode ? QCoreApplication::translate("Studio", "vastearvioon ensin.")
-                                              : QCoreApplication::translate("Studio", "lääkityslaskentaan ensin."));
-    if (!errors.isEmpty())
-        return QJsonObject{{"status", "blocked"}, {"reasons", QJsonArray::fromStringList(errors)}, {"requiresProfile", true}, {"researchOnly", true}}
-            .toVariantMap();
-    if ((e.contains("sourceRevision") && e["sourceRevision"].toString() != db.revision()) ||
-        (e.contains("profileVersion") && e["profileVersion"] != p["version"]))
-        return failure(QCoreApplication::translate("Studio", "Lähdetiedot tai hoitoprofiili ovat muuttuneet. Tarkista jakso ja vahvistukset uudelleen."))
-            .toVariantMap();
-    for (auto key : {"reviewed", "complete", "contextClear"})
-        if (!e[key].toBool())
-            return failure(QCoreApplication::translate(
-                               "Studio", "Vahvista jakson tarkistus, kattavat annos-/HH-tiedot ja sekoittavien tekijöiden puuttuminen ennen tallennusta."))
-                .toVariantMap();
-    const QString kind = e["kind"].toString();
-    if (kind != "icr" && kind != "isf" && kind != "basal") return failure(QCoreApplication::translate("Studio", "Tuntematon jaksotyyppi.")).toVariantMap();
-    const auto zone = QTimeZone(p["timezone"].toString().toUtf8());
-    auto dt = QDateTime::fromString(e["startText"].toString(), "yyyy-MM-dd HH:mm");
-    dt = QDateTime(dt.date(), dt.time(), zone);
-    if (!dt.isValid()) return failure(QCoreApplication::translate("Studio", "Virheellinen jakson aloitusaika.")).toVariantMap();
-    const qint64 start = dt.toMSecsSinceEpoch();
-    const auto rules = p["rules"].toObject();
-    const QString key = kind == "icr" ? "mealWindowMinutes" : kind == "isf" ? "correctionWindowMinutes" : "basalWindowMinutes";
-    const qint64 end = start + qRound64(number(rules, key) * 60000);
-    if (end > QDateTime::currentMSecsSinceEpoch() || start < number(p, "effectiveFrom"))
-        return failure(QCoreApplication::translate("Studio", "Jakson pitää olla valmistunut nykyisen hoitoprofiilin aikana.")).toVariantMap();
-    if (p["historical"].toBool() && (responseEpisode ? db.responseProfileAt(end) : db.profileAt(end))["version"] != p["version"])
-        return failure(QCoreApplication::translate("Studio", "Jakso ylittää hoitoprofiilin vaihdon tai kuuluu eri profiiliin.")).toVariantMap();
-    const qint64 lookback = qRound64(number(p["actionModel"].toObject(), "durationMinutes") * 60000);
-    qint64 dependencyFrom = start - lookback;
-    auto rs = db.readings(start, end + 1);
-    if (e["responseV2"].toBool()) {
-        const auto keys = db.artifactKeys(start, end + 1);
-        rs.removeIf([&](const Reading& r) { return keys.contains(r.key); });
-    }
-    for (qsizetype i = 1; i < rs.size(); ++i)
-        if (rs[i].sensor != rs[i - 1].sensor && rs[i].time - rs[i - 1].time < 60000)
-            return failure(QCoreApplication::translate("Studio", "Arviojaksossa on päällekkäisiä sensoreita; mittauslähde on tarkistettava.")).toVariantMap();
-    if (rs.size() < 2) return failure(QCoreApplication::translate("Studio", "Jaksossa ei ole riittävästi mittauksia.")).toVariantMap();
-    auto near = [&rs](qint64 t) {
-        return *std::min_element(rs.cbegin(), rs.cend(), [t](const auto& a, const auto& b) { return std::abs(a.time - t) < std::abs(b.time - t); });
-    };
-    const auto first = near(start), last = near(end);
-    const double gap = number(rules, "maxGapMinutes") * 60000;
-    if (std::abs(first.time - start) > gap || std::abs(last.time - end) > gap)
-        return failure(QCoreApplication::translate("Studio", "Jakson alku- tai loppumittaus puuttuu.")).toVariantMap();
-    const auto events = db.calculationAmounts(start - lookback, end + 1);
-    QJsonArray linked;
-    double carbs = 0, rapid = 0;
-    bool bad = false;
-    const auto ids = e["linkedIds"].toArray();
-    QSet<QString> wanted;
-    for (auto id : ids) wanted.insert(id.toString());
-    QSet<QString> found;
-    bool nonIsolated = false;
-    for (auto v : events) {
-        auto a = v.toObject();
-        const auto id = a["id"].toString(), k = a["kind"].toString();
-        const auto time = qint64(a["time"].toDouble());
-        if (k == "unknown") bad = true;
-        if (a["stale"].toBool()) bad = true;
-        if (wanted.contains(id)) {
-            linked.append(a);
-            found.insert(id);
-            if (k == "carbs") carbs += a["value"].toDouble();
-            if (k == "rapid") {
-                rapid += a["value"].toDouble();
-                const QString purpose = a["purpose"].toString();
-                if ((kind == "icr" && purpose != "ateria") || (kind == "isf" && purpose != "korjaus")) bad = true;
-            }
-            if (time < start - lookback || time > end) bad = true;
-        }
-        if (k == "rapid" || k == "carbs") {
-            const bool atStart = time >= start - 15 * 60000 && time <= start + 15 * 60000;
-            if (kind == "basal" || (kind == "isf" && k == "carbs") || !wanted.contains(id) || !atStart) nonIsolated = true;
-            if (k == "rapid" && a["medicine"] != p["rapidMedicine"]) bad = true;
-        }
-    }
-    if (found != wanted) return failure(QCoreApplication::translate("Studio", "Liitetty merkintä on muuttunut tai ei kuulu jaksoon.")).toVariantMap();
-    if (bad || nonIsolated)
-        return failure(
-                   QCoreApplication::translate("Studio", "Jaksossa on luokittelemattomia tai päällekkäisiä HH-/insuliinivaikutuksia. Valitse eristetty jakso."))
-            .toVariantMap();
-    if ((kind == "icr" && (!(carbs > 0) || !(rapid > 0))) || (kind == "isf" && (!(rapid > 0) || carbs > 0)))
-        return failure(QCoreApplication::translate("Studio", "Liitä toteutuneet ateria-/korjausmerkinnät. Aterialle tarvitaan HH ja pikainsuliini."))
-            .toVariantMap();
-    for (auto v : linked) {
-        const auto a = v.toObject();
-        if (a["kind"] == "rapid" && end - qint64(a["time"].toDouble()) < lookback)
-            return failure("Jakso ei kata pikainsuliinin koko vaikutusaikaa toteutuneesta pistoksesta alkaen. Tarkista alkuaika ja profiilin seurantajakson "
-                           "pituus.")
-                .toVariantMap();
-    }
-    if ((kind == "basal" || e["responseV2"].toBool()) && (!e["basalStable"].toBool() || !e["basalHistoryComplete"].toBool()))
-        return failure(QCoreApplication::translate("Studio", "Vahvista perusinsuliinin toteutuminen ja vakaa annostus profiilin koko tasaantumisjaksolta."))
-            .toVariantMap();
-    if (kind == "basal" || e["responseV2"].toBool()) {
-        const qint64 stableFrom = start - qRound64(number(p, "basalStableDays") * 86400000);
-        dependencyFrom = std::min(dependencyFrom, stableFrom);
-        const auto basalEvents = db.calculationAmounts(stableFrom, start + 1);
-        QMap<QDate, double> daily;
-        QMap<QDate, int> counts;
-        for (auto v : basalEvents) {
-            auto a = v.toObject();
-            if (a["kind"] != "basal") continue;
-            if (a["stale"].toBool())
-                return failure(QCoreApplication::translate(
-                                   "Studio", "Tasaantumisjakson perusannos on poistettu tai jätetty pois arviosta. Tarkista perusannosten kirjaushistoria."))
-                    .toVariantMap();
-            if (a["medicine"] != p["basalMedicine"])
-                return failure(QCoreApplication::translate("Studio", "Tasaantumisjaksolla on eri perusinsuliinivalmiste.")).toVariantMap();
-            auto t = QDateTime::fromMSecsSinceEpoch(qint64(a["time"].toDouble()), zone);
-            daily[t.date()] += a["value"].toDouble();
-            counts[t.date()]++;
-        }
-        int verified = 0;
-        QDate priorDate;
-        for (auto it = daily.cbegin(); it != daily.cend(); ++it) {
-            if (priorDate.isValid() && priorDate.daysTo(it.key()) != 1)
-                return failure(QCoreApplication::translate("Studio", "Tasaantumisjakson annoskirjauksissa on puuttuva päivä.")).toVariantMap();
-            if (counts[it.key()] != 1 || std::abs(it.value() - number(p, "basalDose")) > 1e-6)
-                return failure(QCoreApplication::translate("Studio", "Perusinsuliinin annostus poikkeaa arvioitavasta kerran vuorokaudessa -profiilista."))
-                    .toVariantMap();
-            ++verified;
-            priorDate = it.key();
-        }
-        if (verified < std::floor(number(p, "basalStableDays")))
-            return failure(QCoreApplication::translate("Studio", "Tasaantumisjakson kirjattuja perusinsuliiniannoksia puuttuu.")).toVariantMap();
-    }
-    if (e["responseV2"].toBool()) {
-        const auto policy = QJsonObject::fromVariantMap(responsePolicy());
-        const auto policyErrors = validateResponsePolicy(policy);
-        if (!policy["approved"].toBool() || !policyErrors.isEmpty())
-            return failure(QCoreApplication::translate("Studio", "Hyväksy vastepolitiikka ja sen rajat ensin.")).toVariantMap();
-        if (!e["endStable"].toBool() || !e["basalStable"].toBool() || !e["basalHistoryComplete"].toBool())
-            return failure(QCoreApplication::translate("Studio", "Vahvista päättynyt vakaa loppuvaste sekä vakaa ja kattavasti kirjattu perusinsuliini."))
-                .toVariantMap();
-        const qint64 span = qRound64(number(policy, "endpointMinutes") * 60000);
-        qint64 baseline = start, doseTime = start;
-        bool haveDose = false;
-        for (auto v : linked) {
-            auto a = v.toObject();
-            baseline = std::min(baseline, qint64(a["time"].toDouble()));
-            if (a["kind"] == "rapid") {
-                if (!haveDose)
-                    doseTime = qint64(a["time"].toDouble());
-                else
-                    doseTime = std::min(doseTime, qint64(a["time"].toDouble()));
-                haveDose = true;
-            }
-        }
-        auto medianReading = [&](qint64 a, qint64 b, Reading& out) {
-            auto values = db.readings(a, b);
-            const auto keys = db.artifactKeys(a, b);
-            values.removeIf([&](const Reading& r) { return keys.contains(r.key); });
-            if (values.size() < 2 || metrics(values, a, b, NAN, NAN, qRound(number(p["rules"].toObject(), "maxGapMinutes") * 60))["coverage"].toDouble() <
-                                         number(policy, "minCoverage"))
-                return false;
-            if (std::any_of(values.cbegin(), values.cend(), [](const Reading& r) { return !r.reliable; })) return false;
-            std::sort(values.begin(), values.end(), [](auto a, auto b) { return a.mmol < b.mmol; });
-            out = values[values.size() / 2];
-            if (values.size() % 2 == 0) out.mmol = (values[values.size() / 2 - 1].mmol + out.mmol) / 2;
-            return true;
-        };
-        Reading firstMedian, lastMedian;
-        if (!medianReading(baseline - span, baseline + 1, firstMedian) || !medianReading(end - span, end + 1, lastMedian))
-            return failure(QCoreApplication::translate("Studio", "Alku-/loppumediaanin havaintoja puuttuu.")).toVariantMap();
-        qint64 mealTime = start;
-        bool haveMeal = false;
-        for (auto v : linked) {
-            auto a = v.toObject();
-            if (a["kind"] == "carbs") {
-                mealTime = haveMeal ? std::min(mealTime, qint64(a["time"].toDouble())) : qint64(a["time"].toDouble());
-                haveMeal = true;
-            }
-        }
-        e["mealTime"] = double(mealTime);
-        e["responseFirst"] = firstMedian.mmol;
-        e["responseLast"] = lastMedian.mmol;
-        e["doseTime"] = double(doseTime);
-        e["methodVersion"] = 2;
-        e["endpointMinutes"] = policy["endpointMinutes"];
-        dependencyFrom = std::min(dependencyFrom, baseline - span);
-    }
-    bool hypo = false;
-    for (const auto& r : rs)
-        if (r.mmol < number(p, "hypo")) hypo = true;
-    const auto s = slotProfile(p, slotAt(p, start));
-    double deviation = last.mmol - first.mmol;
-    const double mealBaseline = responseEpisode ? number(e, "responseFirst") : first.mmol;
-    if (kind == "icr" && (mealBaseline < number(p, "targetLow") || mealBaseline > number(p, "targetHigh")))
-        return failure(QCoreApplication::translate("Studio", "HH-suhteen arvio tarvitsee tavoitealueella olevan lähtöglukoosin ilman korjaustarvetta."))
-            .toVariantMap();
-    if (kind == "isf" && std::isfinite(number(s, "isf"))) deviation += rapid * number(s, "isf");
-    e["start"] = double(start);
-    e["end"] = double(end);
-    e["dependencyFrom"] = double(dependencyFrom);
-    e["slot"] = slotAt(p, start);
-    e["linked"] = linked;
-    e["carbs"] = carbs;
-    e["rapid"] = rapid;
-    e["firstGlucose"] = responseEpisode ? e["responseFirst"] : QJsonValue(first.mmol);
-    e["lastGlucose"] = responseEpisode ? e["responseLast"] : QJsonValue(last.mmol);
-    // A missing prescribed ISF has no reference-deviation value; the observed delta remains intact.
-    e["deviation"] =
-        responseEpisode && kind == "isf" && !std::isfinite(number(s, "isf"))
-            ? QJsonValue()
-            : QJsonValue(responseEpisode ? e["lastGlucose"].toDouble() - e["firstGlucose"].toDouble() + (kind == "isf" ? rapid * number(s, "isf") : 0)
-                                         : deviation);
-    e["hypoObserved"] = hypo;
-    e["profileVersion"] = p["version"];
-    e["coverage"] = metrics(rs, start, end, number(p, "targetLow"), number(p, "targetHigh"), int(gap / 1000))["coverage"];
-    for (const auto& v : db.episodes()) {
-        auto prior = v.toObject();
-        const bool reviewed = prior["reviewed"].toBool() && prior["complete"].toBool() && prior["contextClear"].toBool();
-        if (reviewed && (prior["methodVersion"].toInt() == 2) == responseEpisode && prior["kind"] == kind && prior["profileVersion"] == p["version"] &&
-            !prior["stale"].toBool() && number(prior, "start") < end && number(prior, "end") > start)
-            return failure(QCoreApplication::translate("Studio", "Tämä jakso on jo tarkistettu tai päällekkäinen aiemman jakson kanssa.")).toVariantMap();
-    }
-    e["reviewer"] = p["reviewer"];
-    const QString id = db.saveEpisode(e);
-    if (id.isEmpty() || !db.run("COMMIT"))
-        return failure(QCoreApplication::translate("Studio", "Jakson tallennus epäonnistui. Mitään ei tallennettu.")).toVariantMap();
-    rollback.dismiss();
-    m_status = QCoreApplication::translate("Studio", "Tarkistettu jakso tallennettu. Muutosehdotus käyttää vain kelpuutettuja jaksoja.");
-    refresh();
-    return QJsonObject{{"status", "saved"}, {"id", id}}.toVariantMap();
-}
-QVariantMap Backend::assess(const QString& kind, const QString& slot) {
-    auto assessmentEpisodes = db.episodes();
-    if (evaluationProfile()["historical"].toBool()) {
-        QJsonArray chosen;
-        const double a = m_analysis.value("from").toDouble(), b = m_analysis.value("to").toDouble();
-        for (auto v : assessmentEpisodes) {
-            auto e = v.toObject();
-            if (number(e, "start") >= a && number(e, "end") <= b) chosen << e;
-        }
-        assessmentEpisodes = chosen;
-    }
-    lastRecommendation =
-        recommend(evaluationProfile(), kind, slot, assessmentEpisodes,
-                  evaluationProfile()["historical"].toBool() ? std::min(QDateTime::currentMSecsSinceEpoch(), qint64(m_analysis.value("to").toDouble()))
-                                                             : QDateTime::currentMSecsSinceEpoch());
-    recommendationRevision = db.revision();
-    lastRecommendation["sourceRevision"] = recommendationRevision;
-    db.saveCalculation("recommendation", lastRecommendation);
-    return lastRecommendation.toVariantMap();
-}
-QVariantMap Backend::acceptRecommendation() {
-    if (lastRecommendation["status"] != "research" || recommendationRevision != db.revision())
-        return failure(QCoreApplication::translate("Studio", "Ehdotus puuttuu tai aineisto on muuttunut. Laske arvio uudelleen.")).toVariantMap();
-    auto p = db.activeProfile();
-    if (selectedProfileVersion && selectedProfileVersion != p["version"].toInt())
-        return failure(QCoreApplication::translate("Studio", "Historiaprofiili ei ole uusin. Nykyisiä asetuksia ei muutettu.")).toVariantMap();
-    if (lastRecommendation["profileVersion"] != p["version"])
-        return failure(QCoreApplication::translate("Studio", "Hoitoprofiili on muuttunut.")).toVariantMap();
-    const auto kind = lastRecommendation["kind"].toString();
-    if (kind == "basal")
-        p["basalDose"] = lastRecommendation["candidate"];
-    else {
-        QJsonArray periods;
-        for (auto v : p["slots"].toArray()) {
-            auto s = v.toObject();
-            if (s["name"] == lastRecommendation["slot"]) s[kind] = lastRecommendation["candidate"];
-            periods.append(s);
-        }
-        p["slots"] = periods;
-    }
-    p["acceptedProposal"] = lastRecommendation;
-    if (p["historical"].toBool()) {
-        p["effectiveFromText"] = QDateTime::currentDateTime(QTimeZone(p["timezone"].toString().toUtf8())).toString("yyyy-MM-dd HH:mm");
-        p["historicalConfirmed"] = true;
-        return saveAnalysisProfile(p.toVariantMap(), true);
-    }
-    return saveProfile(p.toVariantMap(), true);
-}
-QVariantMap Backend::bolus(const QVariantMap& input) {
-    const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    auto p = db.activeProfile();
-    auto in = QJsonObject::fromVariantMap(input);
-    auto rs = db.readings(now - 86400000, now + 60001);
-    if (rs.isEmpty()) return failure(QCoreApplication::translate("Studio", "Glukoositietoa ei ole.")).toVariantMap();
-    const auto& r = rs.last();
-    in["glucose"] = r.mmol;
-    in["glucoseTime"] = double(r.time);
-    in["reliable"] = r.reliable && in["measurementConfirmed"].toBool();
-    const double duration = number(p["actionModel"].toObject(), "durationMinutes");
-    const qint64 lookback = std::isfinite(duration) ? qRound64(duration * 60000) : 86400000;
-    if (std::any_of(rs.cbegin(), rs.cend(), [&](const Reading& sample) { return sample.sensor != r.sensor && std::abs(sample.time - r.time) <= 60000; }))
-        return failure(QCoreApplication::translate("Studio", "Samanaikaisia mittauksia on useasta sensorista. Varmista oikea mittauslähde.")).toVariantMap();
-    auto result = calculateBolus(p, in, db.calculationAmounts(now - lookback, now + 60001), now);
-    result["sourceRevision"] = db.revision();
-    db.saveCalculation("bolus", result);
-    return result.toVariantMap();
-}
 QString Backend::backup() {
+    if (backupRunning || !db.available()) return {};
+    // Native system save dialog comes FIRST. No snapshot or temporary file
+    // exists until the user has accepted a destination (and overwrite prompt).
+    const auto source = config.source == "nightscout" ? QStringLiteral("Nightscout") : QStringLiteral("Juggluco");
+    const auto suggested = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Glucoid-" + source + "-" +
+                           QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss") + ".sqlite3";
+    const auto destination = QFileDialog::getSaveFileName(nullptr, QCoreApplication::translate("Studio", "Tallenna tietokannan varmuuskopio"), suggested,
+                                                          QCoreApplication::translate("Studio", "SQLite-tietokanta (*.sqlite3)"));
+    if (destination.isEmpty()) return {};
+    return backupTo(destination);
+}
+QString Backend::backupTo(const QString& destination) {
+    if (destination.isEmpty() || backupRunning || !db.available()) return {};
+    backupSucceeded = false;
+    const auto path = db.path(), source = config.source;
     if (backgroundWork) {
-        if (backupRunning)
-            backupPending = true;
-        else
-            launchBackup();
+        backupRunning = true;
+        m_backupStatus = QCoreApplication::translate("Studio", "Varmuuskopioidaan taustalla…");
+        backupWatcher.setFuture(QtConcurrent::run([path, destination, source] { return backupSnapshot(path, destination, source); }));
+        emit changed();
         return {};
     }
-    const auto result = backupSnapshot(db.path(), root, config);
-    updateBackupSucceeded = !result.value("path").toString().isEmpty();
-    m_status = result.value("status").toString();
+    const auto result = backupSnapshot(path, destination, source);
+    backupSucceeded = !result.value("path").toString().isEmpty();
+    m_backupStatus = result.value("status").toString();
     emit changed();
     return result.value("path").toString();
 }
-QString Backend::backupNow() {
-    const auto datasetRoot = QFileInfo(db.path()).absolutePath();
-    const QString dest = datasetRoot + "/backups/studio-" + QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss-zzz") + "-" +
-                         QUuid::createUuid().toString(QUuid::WithoutBraces).left(8) + ".sqlite3";
-    if (!db.backup(dest)) {
-        m_status = QCoreApplication::translate("Studio", "Varmuuskopiointi epäonnistui.");
-        emit changed();
-        return {};
-    }
-    QJsonArray files;
-    bool ok = true;
-    for (auto v : db.query("SELECT path,sha256 FROM import_chunks")) {
-        auto row = v.toObject();
-        const QString source = row["path"].toString(), relative = QDir(datasetRoot).relativeFilePath(source), target = dest + ".sources/" + relative;
-        if (relative.startsWith("..") || QFileInfo(source).isSymLink()) {
-            ok = false;
-            break;
-        }
-        QFile f(source);
-        if (!f.open(QIODevice::ReadOnly)) {
-            ok = false;
-            break;
-        }
-        const auto bytes = f.readAll();
-        if (QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex()) != row["sha256"].toString()) {
-            ok = false;
-            break;
-        }
-        if (!QDir().mkpath(QFileInfo(target).absolutePath()) || !QFile::copy(source, target)) {
-            ok = false;
-            break;
-        }
-        files << QJsonObject{{"relative", relative}, {"original", source}, {"sha256", row["sha256"]}};
-    }
-    QSaveFile manifest(dest + ".manifest.json");
-    if (ok) ok = manifest.open(QIODevice::WriteOnly);
-    if (ok) {
-        manifest.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
-        manifest.write(
-            QJsonDocument(
-                QJsonObject{{"schema", 1}, {"files", files}, {"connection", connectionObject(config)}, {"dataset", QDir(root).relativeFilePath(db.path())}})
-                .toJson());
-        ok = manifest.commit();
-    }
-    m_status = ok ? QCoreApplication::translate("Studio", "Eheä tietokanta ja alkuperäisviennit varmuuskopioitu paikallisesti.")
-                  : QCoreApplication::translate("Studio", "Tietokantakopio säilyi, mutta alkuperäisvientien varmistus jäi vajaaksi.");
-    emit changed();
-    return ok ? dest : QString();
-}
-
 void Backend::seedDemo() {
     if (!db.meta("lastSync").isEmpty()) {
         m_status = QCoreApplication::translate("Studio", "Esimerkkiaineisto sallitaan vain tyhjään tietokantaan.");
@@ -1230,41 +621,10 @@ void Backend::seedDemo() {
     db.ingest(rs, as, from - 1, now + 1, true);
     db.mapLabel(QCoreApplication::translate("Studio", "Esimerkki HH"), "carbs", "");
     db.mapLabel(QCoreApplication::translate("Studio", "Esimerkki pikainsuliini"), "rapid", QCoreApplication::translate("Studio", "Synteettinen esimerkki"));
-    db.setMeta("automaticMealSettings", encoded({{"targetLow", 6}, {"targetHigh", 8}, {"hypo", 4}, {"periodDays", 56}}));
     m_status = QCoreApplication::translate("Studio", "Keinotekoinen esimerkkiaineisto ladattu. Ei henkilökohtaisia hoitoasetuksia.");
     refresh();
 }
 
-QJsonObject Backend::evaluationProfile() const {
-    if (!selectedProfileVersion) return db.activeProfile();
-    for (auto v : db.profiles()) {
-        auto r = v.toObject();
-        if (r["version"].toInt() == selectedProfileVersion) {
-            auto p = QJsonDocument::fromJson(r["data"].toString().toUtf8()).object();
-            p["version"] = r["version"];
-            return p;
-        }
-    }
-    return {};
-}
-QVariantList Backend::profileVersions() const {
-    QVariantList out;
-    for (auto v : db.profiles()) {
-        auto row = v.toObject(), p = QJsonDocument::fromJson(row["data"].toString().toUtf8()).object();
-        out << QVariantMap{{"version", row["version"].toInt()},
-                           {"name", QString("Versio %1 · %2")
-                                        .arg(row["version"].toInt())
-                                        .arg(QDateTime::fromMSecsSinceEpoch(qint64(p["effectiveFrom"].toDouble())).toString("dd.MM.yyyy"))}};
-    }
-    return out;
-}
-void Backend::selectProfile(int version) {
-    selectedProfileVersion = version;
-    lastRecommendation = {};
-    responseResult = {};
-    responseDraft = {};
-    refresh();
-}
 QVariantMap Backend::analysisSettings() const {
     auto p = QJsonDocument::fromJson(db.meta("analysisSettings").toUtf8()).object();
     if (!p.contains("timezone")) p["timezone"] = "Europe/Helsinki";
@@ -1297,9 +657,6 @@ void Backend::setAnalysisWindow(int days, const QString& lastDate) {
     }
     analysisDays = days;
     analysisLastDate = lastDate;
-    lastRecommendation = {};
-    responseResult = {};
-    responseDraft = {};
     refreshAnalysis();
     emit changed();
 }
@@ -1343,9 +700,7 @@ void Backend::refreshAnalysis() {
     reference["nightInRange"] =
         result.contains("nightMean") && result["nightMean"].toDouble() >= referenceMeanLow && result["nightMean"].toDouble() <= referenceMeanHigh;
     result["reference"] = reference;
-    result["insulin"] = insulinSummary(db.amounts(qint64(result["from"].toDouble()), to, true), first, analysisDays, zone, db.completeDays());
-    result["observation"] =
-        observeProfile(db.observationProfile(), data, db.amounts(qint64(result["from"].toDouble()), to, true), first, analysisDays, zone, db.completeDays());
+    result["observation"] = observeProfile(db.observationProfile(), data, first, analysisDays, zone);
     result["lastImport"] = db.meta("lastCompleteImport").toDouble();
     const auto latest = db.query("SELECT max(time) AS t FROM glucose WHERE series_kind='stream'");
     if (!latest.isEmpty()) result["lastReading"] = latest[0].toObject()["t"];
@@ -1362,43 +717,14 @@ void Backend::refreshAnalysis() {
                             zone, number(settings, "low"), number(settings, "high"))
             .toVariantMap();
     m_analysis = result.toVariantMap();
-    m_comparisonChart = buildComparisonChart(settings, zone, last, gap);
+    m_currentDayChart["dateLabel"] = studioLocale(language()).toString(today, "ddd d.M.yyyy");
     m_dayComparisonCharts = buildDayComparisonCharts(settings, zone, today);
-    requestAutomaticAnalysis();
     refreshCurrentReading();
     summarySucceeded = db.good();
 }
 // Previous local calendar day with its own time axis. Research chart switches
 // remain independent of the standard summary policy.
-QVariantMap Backend::buildComparisonChart(const QJsonObject& settings, const QTimeZone& zone, const QDate& last, int gap) const {
-    auto selected = QDate::fromString(dateWindow, Qt::ISODate);
-    if (!selected.isValid()) selected = last;
-    const qint64 a = QDateTime(selected.addDays(-1), QTime(0, 0), zone).toMSecsSinceEpoch();
-    const qint64 b = QDateTime(selected, QTime(0, 0), zone).toMSecsSinceEpoch();
-    QVariantList segments, segment;
-    double maximum = 15;
-    qint64 prior = 0;
-    for (const auto& value : selectSeries(db.readings(a, b), db.readings(a, b, "history"), a, b, settings["fillHistory"].toBool(), gap)) {
-        Reading reading;
-        reading.time = value.from;
-        reading.mmol = value.value;
-        if (prior && reading.time - prior > gap * 1000) {
-            segments << QVariant(segment);
-            segment.clear();
-        }
-        segment << QVariantMap{{"x", double(reading.time)}, {"y", reading.mmol}};
-        prior = reading.time;
-        maximum = std::max(maximum, reading.mmol + 2);
-    }
-    if (!segment.isEmpty()) segments << QVariant(segment);
-    return {{"from", double(a)},
-            {"to", double(b)},
-            {"segments", segments},
-            {"markers", QVariantList{}},
-            {"max", maximum},
-            {"low", settings["low"].toVariant()},
-            {"high", settings["high"].toVariant()}};
-}
+
 // Four local days, standard stream/history policy and the front-page pre-roll.
 QVariantList Backend::buildDayComparisonCharts(const QJsonObject& settings, const QTimeZone& zone, const QDate& today) const {
     const auto comparisonDay = QDate::fromString(dateWindow, Qt::ISODate);
@@ -1412,6 +738,7 @@ QVariantList Backend::buildDayComparisonCharts(const QJsonObject& settings, cons
     for (int offset = 0; offset < 4; ++offset) {
         auto dayChart =
             currentDayChartData(comparisonStream, comparisonHistory, anchor.addDays(-offset), zone, number(settings, "low"), number(settings, "high"));
+        dayChart["dateLabel"] = studioLocale(language()).toString(anchor.addDays(-offset), "ddd d.M.yyyy");
         QJsonArray markers;
         const auto from = qint64(dayChart["from"].toDouble()), to = qint64(dayChart["to"].toDouble());
         for (const auto& value : comparisonAmounts) {
@@ -1447,140 +774,6 @@ void Backend::refreshCurrentReading() {
         emit currentReadingChanged();
     }
     requestDailyAnalysis();
-}
-bool Backend::confirmDay(const QString& date, bool complete) {
-    bool ok = db.confirmDay(date, complete);
-    refreshAnalysis();
-    emit changed();
-    return ok;
-}
-bool Backend::excludeFromAnalysis(const QString& id, const QString& reason) {
-    bool ok = db.exclude(id, reason);
-    lastRecommendation = {};
-    refresh();
-    return ok;
-}
-QVariantMap Backend::saveAnalysisProfile(const QVariantMap& profile, bool approve) {
-    return saveHistoricalProfile(profile, approve, false);
-}
-QVariantMap Backend::saveResponseProfile(const QVariantMap& profile, bool approve) {
-    return saveHistoricalProfile(profile, approve, true);
-}
-QVariantMap Backend::saveHistoricalProfile(const QVariantMap& profile, bool approve, bool responseOnly) {
-    auto p = QJsonObject::fromVariantMap(profile);
-    p.remove("observationActive");
-    p.remove("observationActivatedAt");
-    p.remove("observationSourceVersion");
-    p["historical"] = true;
-    p["schema"] = 1;
-    p["researchOnly"] = true;
-    p["approved"] = approve && !responseOnly;
-    p.remove("responseApproved");
-    p.remove("responseApprovedAt");
-    if (responseOnly) {
-        p["responseApproved"] = approve;
-        p["responseApprovedAt"] = approve ? QDateTime::currentDateTimeUtc().toString(Qt::ISODate) : QString();
-    }
-    auto dt = QDateTime::fromString(p["effectiveFromText"].toString(), "yyyy-MM-dd HH:mm");
-    const auto zone = QTimeZone(p["timezone"].toString().toUtf8());
-    dt = QDateTime(dt.date(), dt.time(), zone);
-    if (!dt.isValid() || dt.toMSecsSinceEpoch() > QDateTime::currentMSecsSinceEpoch())
-        return failure(QCoreApplication::translate("Studio", "Määritä asetusten todellinen alkuaika muodossa vvvv-kk-pp tt:mm.")).toVariantMap();
-    if (approve && !p["historicalConfirmed"].toBool())
-        return failure(QCoreApplication::translate("Studio", "Vahvista asetusten voimassaolo valitusta ajasta alkaen.")).toVariantMap();
-    const auto current = db.activeProfile();
-    if (!current.isEmpty() && dt.toMSecsSinceEpoch() < number(current, "effectiveFrom"))
-        return failure(QCoreApplication::translate("Studio", "Uuden version alkuaika ei saa edeltää viimeisintä versiota. Aiemmat profiilit säilyvät."))
-            .toVariantMap();
-    p["effectiveFrom"] = double(dt.toMSecsSinceEpoch());
-    p["approvedAt"] = approve && !responseOnly ? QDateTime::currentDateTimeUtc().toString(Qt::ISODate) : QString();
-    if (approve) {
-        const auto errors = responseOnly ? validateResponseProfile(p) : validateHistoricalProfile(p);
-        if (!errors.isEmpty()) return failure(errors.join('\n')).toVariantMap();
-    }
-    if (!db.run("BEGIN IMMEDIATE")) return failure(QCoreApplication::translate("Studio", "Tallennus epäonnistui.")).toVariantMap();
-    const int version = db.saveProfile(p);
-    bool ok = version > 0;
-    if (ok)
-        ok = db.run("INSERT INTO audit(time,kind,data) VALUES(?,?,?)",
-                    {QDateTime::currentMSecsSinceEpoch(), "historical-profile-saved",
-                     encoded(QJsonObject{
-                         {"version", version}, {"sourceVersion", p["version"]}, {"scope", responseOnly ? "response" : "medication"}, {"approved", approve}})});
-    if (ok) ok = db.setMeta("revision", QUuid::createUuid().toString());
-    if (ok) ok = db.run("COMMIT");
-    if (!ok) {
-        db.run("ROLLBACK");
-        return failure(QCoreApplication::translate("Studio", "Tallennus epäonnistui.")).toVariantMap();
-    }
-    selectedProfileVersion = version;
-    lastRecommendation = {};
-    responseResult = {};
-    responseDraft = {};
-    refresh();
-    return QVariantMap{{"status", "saved"}, {"version", version}};
-}
-QVariantMap Backend::activateObservationProfile(const QVariantMap& profile) {
-    auto p = QJsonObject::fromVariantMap(profile);
-    p["schema"] = 1;
-    p["researchOnly"] = true;
-    p["historical"] = true;
-    p["approved"] = false;
-    p["approvedAt"] = "";
-    p.remove("responseApproved");
-    p.remove("responseApprovedAt");
-    const auto zone = QTimeZone(p["timezone"].toString().toUtf8());
-    if (!p["effectiveFromText"].toString().isEmpty()) {
-        auto dt = QDateTime::fromString(p["effectiveFromText"].toString(), "yyyy-MM-dd HH:mm");
-        dt = QDateTime(dt.date(), dt.time(), zone);
-        if (!dt.isValid()) return failure(QCoreApplication::translate("Studio", "Tarkista hoitoasetusten alkuaika.")).toVariantMap();
-        p["effectiveFrom"] = double(dt.toMSecsSinceEpoch());
-    }
-    const auto errors = validateObservationProfile(p);
-    if (!errors.isEmpty()) return failure(errors.join('\n')).toVariantMap();
-    const auto latest = db.activeProfile();
-    if (!latest.isEmpty() && number(p, "effectiveFrom") < number(latest, "effectiveFrom"))
-        return failure(QCoreApplication::translate("Studio", "Vanhempaa historiaprofiilia ei oteta nykyisen hoidon seurantaprofiiliksi.")).toVariantMap();
-    const auto prior = db.observationProfile();
-    auto comparable = [](QJsonObject o) {
-        for (auto key : {"version", "observationActive", "observationActivatedAt", "observationSourceVersion"}) o.remove(key);
-        return o;
-    };
-    if (!prior.isEmpty() && comparable(prior) == comparable(p)) {
-        selectedProfileVersion = prior["version"].toInt();
-        refresh();
-        return QVariantMap{{"status", "active"}, {"version", selectedProfileVersion}, {"reused", true}};
-    }
-    const auto oldVersion = p["version"];
-    p["observationActive"] = true;
-    p["observationSourceVersion"] = oldVersion;
-    p["observationActivatedAt"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
-    if (!db.run("BEGIN IMMEDIATE")) return failure(QCoreApplication::translate("Studio", "Seurantaprofiilin tallennus epäonnistui.")).toVariantMap();
-    const int version = db.saveProfile(p);
-    bool ok = version > 0;
-    if (ok) ok = db.setMeta("observationProfileVersion", QString::number(version));
-    auto settings = QJsonObject::fromVariantMap(analysisSettings());
-    settings["low"] = p["targetLow"];
-    settings["high"] = p["targetHigh"];
-    settings["timezone"] = p["timezone"];
-    if (ok) ok = db.setMeta("analysisSettings", encoded(settings));
-    if (ok) ok = db.setMeta("analysisZone", p["timezone"].toString());
-    if (ok) ok = db.setMeta("revision", QUuid::createUuid().toString());
-    if (ok)
-        ok = db.run("INSERT INTO audit(time,kind,data) VALUES(?,?,?)",
-                    {QDateTime::currentMSecsSinceEpoch(), "profile-observation-activated",
-                     encoded(QJsonObject{{"version", version}, {"sourceVersion", oldVersion}, {"scope", "observation"}, {"medicationApproved", false}})});
-    if (ok) ok = db.run("COMMIT");
-    if (!ok) {
-        db.run("ROLLBACK");
-        return failure(QCoreApplication::translate("Studio", "Seurantaprofiilin tallennus epäonnistui.")).toVariantMap();
-    }
-    selectedProfileVersion = version;
-    responseResult = {};
-    responseDraft = {};
-    lastRecommendation = {};
-    m_status = QCoreApplication::translate("Studio", "Hoitoprofiili on käytössä seurannassa. Lääkityslaskennan hyväksyntä on erillinen.");
-    refresh();
-    return QVariantMap{{"status", "active"}, {"version", version}, {"reused", false}};
 }
 bool Backend::importFolder(const QString& path) {
     if (m_busy) return false;
@@ -1650,265 +843,11 @@ bool Backend::importFolder(const QString& path) {
         // File boundaries cannot prove source deletions; every piece still has provenance.
         ok = db.importChunk(run, p.kind, p.bytes, from, to, false);
     }
-    db.endImport(run, ok, ok ? QCoreApplication::translate("Studio", "Lisäävä tiedostotuonti; puuttuvia lähdetapahtumia ei poisteta.") : db.error());
+    if (!db.endImport(run, ok, ok ? QCoreApplication::translate("Studio", "Lisäävä tiedostotuonti; puuttuvia lähdetapahtumia ei poisteta.") : db.error()))
+        ok = false;
     syncLock->unlock();
     syncLock.reset();
     m_status = ok ? QCoreApplication::translate("Studio", "Tiedostot tuotu. Puuttuvia vanhoja merkintöjä ei poistettu.") : db.error();
-    refresh();
-    return ok;
-}
-void Backend::chooseImportFolder() {
-    auto path = QFileDialog::getExistingDirectory(nullptr, QCoreApplication::translate("Studio", "Jugglucon alkuperäiset TSV-viennit"));
-    if (!path.isEmpty()) importFolder(path);
-}
-QString Backend::saveReport() {
-    refresh();
-    const auto id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    QJsonObject report = QJsonObject::fromVariantMap(m_analysis);
-    report["sourceRevision"] = db.revision();
-    report["profile"] = evaluationProfile();
-    report["observationProfile"] = db.observationProfile();
-    report["recommendation"] = lastRecommendation;
-    report["response"] = responseResult;
-    report["automaticMeals"] = automaticResult;
-    report["responsePolicy"] = QJsonObject::fromVariantMap(responsePolicy());
-    report["artifactReviews"] = db.artifactReviews();
-    report["responseProposal"] = responseDraft;
-    report["exclusions"] = db.exclusions();
-    if (!db.run("INSERT INTO analysis_runs VALUES(?,?,?,?,?)",
-                {id, QDateTime::currentMSecsSinceEpoch(), db.revision(), encoded(QJsonObject::fromVariantMap(analysisSettings())), encoded(report)}))
-        return {};
-    QDir().mkpath(root + "/reports");
-    const QString path = root + "/reports/" + id + ".json";
-    QSaveFile f(path);
-    if (!f.open(QIODevice::WriteOnly)) return {};
-    f.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
-    f.write(QJsonDocument(report).toJson(QJsonDocument::Indented));
-    if (!f.commit()) return {};
-    m_status = QCoreApplication::translate("Studio", "Raportti tallennettu paikallisesti: ") + path;
-    emit changed();
-    return path;
-}
-
-QVariantMap Backend::responsePolicy() const {
-    auto p = QJsonDocument::fromJson(db.meta("responsePolicy").toUtf8()).object();
-    return (p.isEmpty() ? defaultResponsePolicy() : p).toVariantMap();
-}
-QVariantMap Backend::saveResponsePolicy(const QVariantMap& policy, bool approve) {
-    auto p = QJsonObject::fromVariantMap(policy);
-    p["version"] = 2;
-    p["approved"] = approve;
-    if (approve) {
-        const auto errors = validateResponsePolicy(p);
-        if (!errors.isEmpty()) return failure(errors.join('\n')).toVariantMap();
-    }
-    p["savedAt"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
-    p["sourceRevision"] = db.revision();
-    db.run("INSERT INTO audit(time,kind,data) VALUES(?,?,?)", {QDateTime::currentMSecsSinceEpoch(), "response-policy-previous", db.meta("responsePolicy")});
-    if (!db.setMeta("responsePolicy", encoded(p))) return failure(QCoreApplication::translate("Studio", "Tallennus epäonnistui.")).toVariantMap();
-    responseResult = {};
-    responseDraft = {};
-    emit changed();
-    return QVariantMap{{"status", "saved"}};
-}
-QVariantMap Backend::saveResponseEpisode(const QVariantMap& episode) {
-    auto input = episode;
-    input["responseV2"] = true;
-    return saveEpisode(input);
-}
-void Backend::analyseResponse(int referenceDays) {
-    if (referenceDays != 28 && referenceDays != 56 && referenceDays != 84) {
-        m_status = QCoreApplication::translate("Studio", "Valitse 28, 56 tai 84 päivän vertailu.");
-        emit changed();
-        return;
-    }
-    const auto p = evaluationProfile(), policy = QJsonObject::fromVariantMap(responsePolicy());
-    auto errors = validateResponseProfile(p);
-    errors << validateResponsePolicy(policy);
-    if (!responseProfileApproved(p) || !policy["approved"].toBool())
-        errors << QCoreApplication::translate("Studio", "Hyväksy profiili vastearvioon ja vastepolitiikka.");
-    if (!errors.isEmpty()) {
-        responseResult = failure(errors.join("\n"));
-        responseDraft = {};
-        emit changed();
-        return;
-    }
-    const qint64 from = qint64(m_analysis.value("from").toDouble()), to = qint64(m_analysis.value("to").toDouble());
-    if (analysisDays != 7 && analysisDays != 14) {
-        responseResult = failure(QCoreApplication::translate("Studio", "Vastearvio käyttää 7 tai 14 päivän nykyjaksoa. Valitse 1 tai 2 viikkoa."));
-        emit changed();
-        return;
-    }
-    const auto zone = QTimeZone(p["timezone"].toString().toUtf8());
-    const qint64 refFrom = QDateTime::fromMSecsSinceEpoch(from, zone).addDays(-referenceDays).toMSecsSinceEpoch();
-    auto responseEpisodes = db.episodes();
-    auto unsafe = [&](qint64 a, qint64 b) {
-        const auto keys = db.artifactKeys(a, b);
-        for (auto r : db.readings(a, b))
-            if (!keys.contains(r.key) && r.mmol < number(p, "hypo")) return true;
-        return false;
-    };
-    responseResult = responseEstimate(p, policy, responseEpisodes, from, to, unsafe(from, to), QDateTime::currentMSecsSinceEpoch());
-    responseResult["sourceRevision"] = db.revision();
-    responseResult["policy"] = policy;
-    const auto now = QDateTime::currentMSecsSinceEpoch();
-    const auto todayStart = QDateTime(QDateTime::fromMSecsSinceEpoch(now, zone).date(), QTime(0, 0), zone).toMSecsSinceEpoch();
-    responseResult["unsafe"] = responseResult["unsafe"].toBool() || unsafe(todayStart, now);
-    responseResult["currentSafetyUntil"] = double(now);
-    responseResult["artifactReviews"] = db.artifactReviews();
-    responseResult["short"] = responseEstimate(p, policy, responseEpisodes, QDateTime::fromMSecsSinceEpoch(to, zone).addDays(-7).toMSecsSinceEpoch(), to,
-                                               unsafe(from, to), QDateTime::currentMSecsSinceEpoch());
-    responseResult["reference"] = responseEstimate(p, policy, responseEpisodes, refFrom, from, unsafe(refFrom, from), QDateTime::currentMSecsSinceEpoch());
-    responseResult["comparison"] = responseComparison(responseResult, responseResult["reference"].toObject(), policy);
-    QJsonArray trend;
-    for (int offset = referenceDays; offset > 0; offset -= 14) {
-        const qint64 a = QDateTime::fromMSecsSinceEpoch(from, zone).addDays(-offset).toMSecsSinceEpoch(),
-                     b = QDateTime::fromMSecsSinceEpoch(from, zone).addDays(-std::max(0, offset - 14)).toMSecsSinceEpoch();
-        auto historical = db.responseProfileAt(a);
-        if (!historical.isEmpty() && db.responseProfileAt(b - 1)["version"] == historical["version"]) {
-            auto item = responseEstimate(historical, policy, responseEpisodes, a, b, unsafe(a, b), QDateTime::currentMSecsSinceEpoch());
-            item["comparable"] = historical["rapidMedicine"] == p["rapidMedicine"] && historical["basalMedicine"] == p["basalMedicine"] &&
-                                 historical["basalDose"] == p["basalDose"] && historical["actionModel"] == p["actionModel"];
-            trend << item;
-        } else
-            trend << QJsonObject{{"from", double(a)}, {"to", double(b)}, {"status", "regimen_changed"}};
-    }
-    responseResult["trend"] = trend;
-    auto compatible = [&](const QJsonObject& h) {
-        return h["rapidMedicine"] == p["rapidMedicine"] && h["basalMedicine"] == p["basalMedicine"] && h["basalDose"] == p["basalDose"] &&
-               h["actionModel"] == p["actionModel"];
-    };
-    auto referenceProfile = db.responseProfileAt(refFrom);
-    QJsonObject reference;
-    if (!referenceProfile.isEmpty() && db.responseProfileAt(from - 1)["version"] == referenceProfile["version"] && compatible(referenceProfile)) {
-        reference = responseEstimate(referenceProfile, policy, responseEpisodes, refFrom, from, unsafe(refFrom, from), QDateTime::currentMSecsSinceEpoch());
-        responseResult["referenceSelection"] = "entire_window";
-    } else {
-        for (int i = trend.size() - 1; i >= 0; --i) {
-            auto h = trend[i].toObject();
-            if (h["comparable"].toBool() && h["status"] == "evaluated") {
-                reference = h;
-                break;
-            }
-        }
-        responseResult["referenceSelection"] = "nearest_comparable_epoch";
-    }
-    responseResult["reference"] = reference;
-    responseResult["comparison"] = responseComparison(responseResult, reference, policy);
-    responseResult["referenceDays"] = referenceDays;
-    responseRevision = db.revision();
-    responseDraft = {};
-    db.saveCalculation("response-v2", responseResult);
-    m_status = QCoreApplication::translate("Studio", "Vastearvio laskettu. Arviot ja käytössä olevat hoitoasetukset ovat erillisiä.");
-    emit changed();
-}
-QVariantMap Backend::proposeResponse(int group) {
-    if (responseRevision != db.revision())
-        return failure(QCoreApplication::translate("Studio", "Lähdetiedot ovat muuttuneet; laske vaste uudelleen.")).toVariantMap();
-    responseDraft =
-        responseProposal(evaluationProfile(), QJsonObject::fromVariantMap(responsePolicy()), responseResult, group, QDateTime::currentMSecsSinceEpoch());
-    responseDraft["sourceRevision"] = db.revision();
-    db.saveCalculation("response-proposal", responseDraft);
-    return responseDraft.toVariantMap();
-}
-QVariantMap Backend::acceptResponse() {
-    auto p = db.activeProfile(), policy = QJsonObject::fromVariantMap(responsePolicy());
-    if (responseRevision != db.revision() || responseDraft["sourceRevision"].toString() != db.revision() || responseDraft["profileVersion"] != p["version"])
-        return failure(QCoreApplication::translate("Studio", "Ehdotus tai aineisto on vanhentunut.")).toVariantMap();
-    const auto current = responseProposal(p, policy, responseResult, responseDraft["group"].toInt(), QDateTime::currentMSecsSinceEpoch());
-    if (current["status"] != "proposal" || current["candidate"] != responseDraft["candidate"])
-        return failure(QCoreApplication::translate("Studio", "Ehdotus ei enää täytä ehtoja.")).toVariantMap();
-    auto next = applyResponseProposal(p, policy, responseDraft, QDateTime::currentMSecsSinceEpoch());
-    if (next.isEmpty() || !validateHistoricalProfile(next).isEmpty())
-        return failure(QCoreApplication::translate("Studio", "Uusi profiili ei kelpaa.")).toVariantMap();
-    if (!db.run("BEGIN IMMEDIATE")) return failure(QCoreApplication::translate("Studio", "Profiilin tallennus epäonnistui.")).toVariantMap();
-    const int version = db.saveProfile(next);
-    bool ok = version > 0;
-    if (ok)
-        ok = db.run("INSERT INTO audit(time,kind,data) VALUES(?,?,?)",
-                    {QDateTime::currentMSecsSinceEpoch(), "response-proposal-accepted",
-                     encoded(QJsonObject{{"version", version}, {"reviewer", p["reviewer"]}, {"proposal", responseDraft}})});
-    if (ok) ok = db.run("COMMIT");
-    if (!ok) {
-        db.run("ROLLBACK");
-        return failure(QCoreApplication::translate("Studio", "Profiilin tallennus epäonnistui.")).toVariantMap();
-    }
-    selectedProfileVersion = version;
-    responseDraft = {};
-    responseResult = {};
-    refresh();
-    return QVariantMap{{"status", "saved"}, {"version", version}};
-}
-QVariantList Backend::responseCandidates() const {
-    const auto p = evaluationProfile();
-    const auto zone = QTimeZone(p.value("timezone").toString("Europe/Helsinki").toUtf8());
-    const auto from = qint64(m_analysis.value("from").toDouble()), to = qint64(m_analysis.value("to").toDouble());
-    QVariantList out;
-    const auto events = db.amounts(from - 15 * 60000, to);
-    QSet<QString> consumed;
-    for (auto v : events) {
-        auto a = v.toObject();
-        const auto kind = a["kind"].toString(), id = a["id"].toString();
-        const qint64 at = qint64(a["time"].toDouble());
-        if (at < from || a["analysisExcluded"].toBool()) continue;
-        QStringList ids;
-        QString category;
-        if (kind == "carbs") {
-            category = "icr";
-            ids << id;
-            for (auto w : events) {
-                auto b = w.toObject();
-                if (b["kind"] == "rapid" && std::abs(qint64(b["time"].toDouble()) - at) <= 15 * 60000) {
-                    ids << b["id"].toString();
-                    consumed.insert(b["id"].toString());
-                }
-            }
-            if (ids.size() < 2) continue;
-        } else if (kind == "rapid" && a["purpose"] == "korjaus" && !consumed.contains(id)) {
-            category = "isf";
-            ids << id;
-            bool meal = false;
-            for (auto w : events) {
-                auto b = w.toObject();
-                if (b["kind"] == "carbs" && std::abs(qint64(b["time"].toDouble()) - at) <= 15 * 60000) meal = true;
-            }
-            if (meal) continue;
-        } else
-            continue;
-        out << QVariantMap{{"kind", category}, {"startText", QDateTime::fromMSecsSinceEpoch(at, zone).toString("yyyy-MM-dd HH:mm")}, {"linkedIds", ids}};
-    }
-    return out;
-}
-
-bool Backend::reviewGlucoseArtifact(const QString& from, const QString& to, const QString& reason, const QString& evidence, bool confirmed) {
-    const auto p = evaluationProfile();
-    if (!confirmed || !responseProfileApproved(p) || !validateResponseProfile(p).isEmpty() || p["reviewer"].toString().trimmed().isEmpty()) {
-        m_status = QCoreApplication::translate("Studio", "Artefaktin arvio tarvitsee vahvistuksen ja hyväksytyn profiilin tarkistajan.");
-        emit changed();
-        return false;
-    }
-    const auto zone = QTimeZone(p["timezone"].toString().toUtf8());
-    auto parse = [&](const QString& s) {
-        auto t = QDateTime::fromString(s, "yyyy-MM-dd HH:mm");
-        return QDateTime(t.date(), t.time(), zone);
-    };
-    auto a = parse(from), b = parse(to);
-    if (!a.isValid() || !b.isValid() || b <= a || b.toMSecsSinceEpoch() > QDateTime::currentMSecsSinceEpoch()) {
-        m_status = QCoreApplication::translate("Studio", "Tarkista toteutunut artefaktijakso.");
-        emit changed();
-        return false;
-    }
-    bool ok = db.reviewArtifact(a.toMSecsSinceEpoch(), b.toMSecsSinceEpoch(), reason, evidence, p["reviewer"].toString());
-    m_status = ok ? QCoreApplication::translate(
-                        "Studio", "Artefaktin tarkistus tallennettu. Riippuvat jaksot pitää tarkistaa uudelleen; alkuperäiset mittaukset säilyvät.")
-                  : QCoreApplication::translate("Studio", "Artefaktin tarkistusta ei tallennettu.");
-    refresh();
-    return ok;
-}
-bool Backend::removeGlucoseArtifact(const QString& id) {
-    bool ok = db.deactivateArtifact(id);
-    responseResult = {};
-    responseDraft = {};
     refresh();
     return ok;
 }

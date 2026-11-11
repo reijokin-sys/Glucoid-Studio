@@ -16,9 +16,31 @@ Glucoid Studio is a local glucose and treatment-entry history viewer for the Lin
 
 Juggluco network access requires a working Linux WireGuard interface and the phone's numeric tunnel address. Studio binds the connection to that interface and does not fall back to an unprotected route. USB/ADB is an alternative. Independent Nightscout access uses HTTPS/API v3 and does not require WireGuard. Read credentials are stored in KDE Wallet. Import runs on startup and every five minutes while the application is open.
 
-The application describes recorded data; it cannot guarantee that source data is correct. GMI is an estimate derived from sensor readings, not a laboratory HbA1c measurement. Its reference color is also shown for a one-week period; short or incomplete periods remain marked as indicative. Historical, clinically unvalidated research tools remain available separately with `--research`; they must not be used for independent medication decisions.
+The application describes recorded data; it cannot guarantee that source data is correct. GMI is an estimate derived from sensor readings, not a laboratory HbA1c measurement. Its reference color is also shown for a one-week period; short or incomplete periods remain marked as indicative. The application contains no treatment recommendations, dose calculator or research mode. Existing local history and backups are retained.
 
-#### New in version 1.6.0
+#### Version 4.0.0
+
+The product contains only Summary, Daily analysis, Charts and settings.
+Research and legacy views, report export, meal/response models and the dose
+calculator have been removed. Existing application data is retained.
+
+Database backups are fully manual. **Back up database…** opens the system
+Save File dialog first; cancelling creates no copy. The selected source is
+saved as one standalone SQLite file. There are no automatic backups,
+retention rules or automatic cloud transfers. Restore selects a file and
+requires confirmation; the current database is retained as a safety copy.
+Only the new backup format created by version 4.0.0 is accepted. Earlier
+manifest backups and 3.x standalone copies without the new format marker
+cannot be restored. Configure the source and credentials separately on a
+new installation before restoring. Juggluco and Nightscout data stay separate.
+
+Import completion and label mappings are stored atomically. The update state,
+single-point chart markers, language handling and fractional-second import
+boundaries have been corrected. Database copying and restore/import/new-copy
+flows were tested with synthetic data. Physical transfer to another computer
+has not yet been tested.
+
+#### Features retained from version 1.6.0
 
 - The interface is bilingual: **English (default)** or **Finnish** in
   Settings, also switched live. User data, entry names and connection
@@ -30,20 +52,20 @@ The application describes recorded data; it cannot guarantee that source data is
 - Import storage, summaries and backups run in the background in the main
   window. The selected tab has a clear mint-green highlight.
 - **Update data** stays grey during work and turns green only
-  after the import, calculations and backup succeed. Errors do not show success.
+  after the import and calculations succeed. Errors do not show success.
 
 #### Installation
 
-The release `.deb` targets **Ubuntu/Kubuntu 26.04 amd64**, Qt 6.10 and KDE/Kirigami 6. It uses distribution-provided libraries rather than bundled copies.
+The `.deb` targets **Ubuntu/Kubuntu 26.04 amd64**, Qt 6.10 and KDE/Kirigami 6. It uses distribution-provided libraries rather than bundled copies.
 
 ```sh
-sudo apt install ./glucoid-studio_1.6.0_amd64.deb
+sudo apt install ./glucoid-studio_4.0.0_amd64.deb
 glucoid-studio
 ```
 
 The application also appears in the desktop application menu. Choose the source and connection type in Settings. Studio does not install or configure a WireGuard tunnel. USB import requires `adb` to be installed separately and USB debugging to be approved on the device.
 
-Data is stored below the user's XDG application-data directory (normally `~/.local/share/glucoid-studio/live/`). Demo mode, `--demo`, uses a separate demo directory. Override the data directory with `--data-dir`. Secrets are not stored in the connection settings file. Reports and backups are local; a backup on the same disk does not protect against disk failure.
+Data is stored below the user's XDG application-data directory (normally `~/.local/share/glucoid-studio/live/`). Demo mode, `--demo`, uses a separate demo directory. Override the data directory with `--data-dir`. Secrets are not stored in the connection settings file. Existing report files are retained. Backups are local; a backup on the same disk does not protect against disk failure.
 
 ```sh
 sudo apt remove glucoid-studio
@@ -53,7 +75,7 @@ Removal preserves the user's history and wallet credentials.
 
 #### Building from source
 
-Requirements: a C++20 compiler, CMake, Ninja, SQLite3, Qt 6.10 (Core, Gui, Widgets, Quick, QuickControls2, Network, DBus, Test, Graphs, Concurrent and LinguistTools), KF6Wallet, KF6I18n, the Kirigami 6 QML modules, Python 3 and OpenSSL for the tests. Exact runtime dependencies are recorded in the `.deb` metadata. Translation sources live in `i18n/` and are compiled into the application.
+Requirements: a C++20 compiler, CMake, Ninja, SQLite3, Qt 6.10 (Core, Gui, Widgets, Quick, QuickControls2, Network, DBus, Test, Graphs, Concurrent and LinguistTools), KF6Wallet, KF6I18n, the Kirigami 6 QML modules, Python 3, OpenSSL, `nm` (binutils) and `dbus-run-session` for the tests. Exact runtime dependencies are recorded in the `.deb` metadata. Translation sources live in `i18n/` and are compiled into the application.
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON

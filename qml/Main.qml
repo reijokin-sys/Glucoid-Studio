@@ -73,21 +73,16 @@ Kirigami.ApplicationWindow {
         return v === null || v === undefined || !Number.isFinite(Number(v)) ? "—" : Number(v).toLocaleString(Qt.locale(window.studio.language === "fi" ? "fi_FI" : "en_GB"), 'f', d);
     }
     function stamp(v) {
-        return v > 0 ? new Date(v).toLocaleString(Qt.locale(window.studio.language === "fi" ? "fi_FI" : "en_GB")) : "Ei tietoa";
+        return v > 0 ? window.studio.formatTimestamp(v, "dd.MM.yyyy HH:mm") : qsTranslate("Studio", "Ei tietoa");
     }
     function isoDate(v) {
-        const d = new Date(v);
-        const p = x => String(x).padStart(2, "0");
-        return !isNaN(d.getTime()) ? d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) : "";
+        return v > 0 ? window.studio.formatTimestamp(v, "yyyy-MM-dd") : "";
     }
     function longDate(v) {
-        const d = new Date(v);
-        return isNaN(d.getTime()) ? "" : d.toLocaleDateString(Qt.locale(window.studio.language === "fi" ? "fi_FI" : "en_GB"), "ddd d.M.yyyy");
+        return v > 0 ? window.studio.formatTimestamp(v, "ddd d.M.yyyy") : "";
     }
     function shiftDay(v, days) {
-        const d = new Date(v);
-        d.setDate(d.getDate() + days);
-        return isoDate(d.getTime());
+        return window.shiftDate(window.isoDate(v), days);
     }
     function shiftDate(date, days) {
         const p = date.split("-").map(Number);
@@ -112,7 +107,7 @@ Kirigami.ApplicationWindow {
         }
     }
     Component.onCompleted: {
-        window.studio.setWindow(window.studio.currentDayChart.date || window.isoDate(new Date().getTime()), 1);
+        window.studio.setWindow(window.studio.currentDayChart.date || window.studio.today(), 1);
     }
     pageStack.initialPage: Kirigami.Page {
         objectName: "mainApplicationPage"
@@ -129,7 +124,7 @@ Kirigami.ApplicationWindow {
                     Layout.fillWidth: true
                 }
                 BusyIndicator {
-                    running: window.studio.busy || window.studio.backgroundBusy || window.studio.automaticBusy
+                    running: window.studio.busy || window.studio.backgroundBusy
                     visible: running
                     Layout.preferredWidth: 28
                     Layout.preferredHeight: 28
@@ -164,10 +159,6 @@ Kirigami.ApplicationWindow {
                     Menu {
                         id: moreMenu
                         MenuItem {
-                            text: qsTranslate("Studio", "Tallenna raportti")
-                            onTriggered: window.studio.saveReport()
-                        }
-                        MenuItem {
                             text: qsTranslate("Studio", "Varmuuskopioi")
                             onTriggered: window.studio.backup()
                         }
@@ -185,7 +176,7 @@ Kirigami.ApplicationWindow {
             }
             Label {
                 Layout.fillWidth: true
-                visible: !window.studio.status.startsWith("Valmis.") || window.studio.backupStatus.length > 0
+                visible: window.studio.status.length > 0 || window.studio.backupStatus.length > 0
                 text: window.studio.status + (window.studio.backupStatus.length ? " · " + window.studio.backupStatus : "")
                 elide: Text.ElideRight
                 HoverHandler {
@@ -198,7 +189,7 @@ Kirigami.ApplicationWindow {
                 Layout.fillWidth: true
                 opacity: 0.7
                 elide: Text.ElideRight
-                text: qsTranslate("Studio", "Lähde: ") + (window.studio.connection.source === "nightscout" ? "Nightscout" : "Juggluco") + " · Glukoosi: " + window.stamp(window.studio.analysis.lastReading) + " · Kirjaukset: " + window.stamp(window.studio.analysis.lastAmount)
+                text: qsTranslate("Studio", "Lähde: ") + (window.studio.connection.source === "nightscout" ? "Nightscout" : "Juggluco") + " · " + qsTranslate("Studio", "Glukoosi: ") + window.stamp(window.studio.analysis.lastReading) + " · " + qsTranslate("Studio", "Kirjaukset: ") + window.stamp(window.studio.analysis.lastAmount)
             }
             TabBar {
                 id: tabs
@@ -330,11 +321,11 @@ Kirigami.ApplicationWindow {
                                     }
                                     Label {
                                         objectName: "currentGlucoseTime"
-                                        text: currentCard.reading.hasData ? "klo " + new Date(currentCard.reading.time).toLocaleTimeString(Qt.locale(window.studio.language === "fi" ? "fi_FI" : "en_GB"), "HH:mm") : ""
+                                        text: currentCard.reading.hasData ? qsTranslate("Studio", "klo ") + window.studio.formatTimestamp(currentCard.reading.time, "HH:mm") : ""
                                     }
                                     Label {
                                         objectName: "currentGlucoseAge"
-                                        text: currentCard.reading.hasData ? (currentCard.reading.ageMinutes === 0 ? "nyt" : window.n(currentCard.reading.ageMinutes, 0) + qsTranslate("Studio", " min sitten")) : "Ei mittausta"
+                                        text: currentCard.reading.hasData ? (currentCard.reading.ageMinutes === 0 ? qsTranslate("Studio", "nyt") : window.n(currentCard.reading.ageMinutes, 0) + qsTranslate("Studio", " min sitten")) : qsTranslate("Studio", "Ei mittausta")
                                     }
                                     Label {
                                         objectName: "currentGlucoseSource"
@@ -821,6 +812,7 @@ Kirigami.ApplicationWindow {
     Dialog {
         id: settingsDialog
         objectName: "simpleSettings"
+        onOpened: connectionEditor.loadActive()
         title: qsTranslate("Studio", "Asetukset")
         modal: true
         anchors.centerIn: Overlay.overlay
@@ -848,8 +840,53 @@ Kirigami.ApplicationWindow {
                     title: qsTranslate("Studio", "Tietolähde ja yhteys")
                     summary: window.studio.connection.source === "nightscout" ? "Nightscout · HTTPS" : (window.studio.connection.mode === "usb" ? "Juggluco · USB" : "Juggluco · WireGuard")
                     ConnectionEditor {
+                        id: connectionEditor
                         Layout.fillWidth: true
                         backend: window.studio
+                    }
+                }
+                Disclosure {
+                    objectName: "backupSettings"
+                    Layout.fillWidth: true
+                    title: qsTranslate("Studio", "Varmuuskopiot")
+                    summary: qsTranslate("Studio", "Manuaalinen tietokantakopio valitsemaasi paikkaan")
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Label {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            text: qsTranslate("Studio", "Valitse tallennuspaikka järjestelmän tiedostoikkunassa. Voit siirtää tiedoston itse toiseen laitteeseen. Kopioita ei tehdä tai poisteta automaattisesti.")
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            text: qsTranslate("Studio", "Kopioitava tietolähde: %1").arg(window.studio.connection.source === "nightscout" ? "Nightscout" : "Juggluco")
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            visible: text.length > 0
+                            color: Theme.accentAmber
+                            text: window.studio.backupStatus
+                        }
+                        Button {
+                            objectName: "backupNowButton"
+                            text: qsTranslate("Studio", "Varmuuskopioi tietokanta…")
+                            enabled: !window.studio.backgroundBusy
+                            onClicked: window.studio.backup()
+                        }
+                        Button {
+                            objectName: "restoreBackupButton"
+                            text: qsTranslate("Studio", "Palauta tietokanta tiedostosta…")
+                            enabled: !window.demoMode && !window.studio.busy && !window.studio.backgroundBusy
+                            onClicked: {
+                                const selected = window.studio.chooseRestoreBackup();
+                                if (selected.length > 0) {
+                                    restoreBackupDialog.backupPath = selected;
+                                    restoreBackupDialog.open();
+                                }
+                            }
+                        }
                     }
                 }
                 Disclosure {
@@ -896,4 +933,40 @@ Kirigami.ApplicationWindow {
             }
         }
     }
+    Dialog {
+        id: restoreBackupDialog
+        objectName: "restoreBackupDialog"
+        property string backupPath: ""
+        title: qsTranslate("Studio", "Palauta varmuuskopio")
+        modal: true
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(window.width - 60, 560)
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        Label {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: qsTranslate("Studio", "Palautetaan varmuuskopio: ") + restoreBackupDialog.backupPath + "\n\n" + qsTranslate("Studio", "Sovellus suljetaan ja käynnistyy uudelleen. Nykyinen tietokanta säilytetään turvakopiona varmuuskopiohakemistossa. Jatketaanko?")
+        }
+        onAccepted: {
+            if (window.studio.scheduleRestore(backupPath))
+                window.studio.restartForRestore();
+            else
+                restoreFailureDialog.open();
+        }
+    }
+    Dialog {
+        id: restoreFailureDialog
+        objectName: "restoreFailureDialog"
+        title: qsTranslate("Studio", "Varmuuskopion palautus epäonnistui")
+        modal: true
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(window.width - 60, 560)
+        standardButtons: Dialog.Close
+        Label {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: window.studio.backupStatus.length > 0 ? window.studio.backupStatus : qsTranslate("Studio", "Varmuuskopiota ei voitu palauttaa.")
+        }
+    }
+
 }

@@ -1,3 +1,4 @@
+#include "storefixtures.h"
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "transport.h"
 #include "importer.h"
@@ -59,7 +60,7 @@ private slots:
     const auto r=get(t,c);QVERIFY(!r.error.isEmpty());QVERIFY(r.elapsed<1000);QVERIFY(r.body.isEmpty());QVERIFY(!t.busy);QVERIFY(!r.error.contains(c.secret));
  }
  void normalImportAndRepeat(){
-    QTemporaryDir dir;Store db(dir.path()+"/test.sqlite3");QVERIFY(db.good());Server server;QVERIFY(server.listen(QHostAddress::LocalHost));
+    QTemporaryDir dir;FixtureStore db(dir.path()+"/test.sqlite3");QVERIFY(db.good());Server server;QVERIFY(server.listen(QHostAddress::LocalHost));
     server.respond=[](const QByteArray&r){return Server::response(r.startsWith("GET /x/amounts")?amounts:glucose);};
     Transport t;auto c=server.connection();Importer importer(db,[&](const QString&p,auto done){t.get(c,p,done);});QSignalSpy spy(&importer,&Importer::finished);
     importer.start(from,until,"synthetic-network");QVERIFY(spy.wait(10000));QVERIFY(spy.last()[0].toBool());
@@ -72,7 +73,7 @@ private slots:
  }
  void unauthorized_data(){QTest::addColumn<bool>("missing");QTest::newRow("missing")<<true;QTest::newRow("wrong")<<false;}
  void unauthorized(){
-    QFETCH(bool,missing);QTemporaryDir dir;Store db(dir.path()+"/test.sqlite3");Server server;QVERIFY(server.listen(QHostAddress::LocalHost));
+    QFETCH(bool,missing);QTemporaryDir dir;FixtureStore db(dir.path()+"/test.sqlite3");Server server;QVERIFY(server.listen(QHostAddress::LocalHost));
     server.respond=[](auto){return Server::response({},403);};auto c=server.connection();if(missing)c.secret.clear();else c.secret="LAB_WRONG";
     Transport t;auto r=get(t,c);QVERIFY(!r.error.isEmpty());QVERIFY(r.body.isEmpty());QCOMPARE(server.requests.size(),missing?0:1);
     QCOMPARE(db.readings(from,until).size(),0);QVERIFY(!r.error.contains(c.secret)||c.secret.isEmpty());
@@ -99,7 +100,7 @@ private slots:
  }
  void slow(){Server server;QVERIFY(server.listen(QHostAddress::LocalHost));Transport t;auto r=get(t,server.connection());QVERIFY(!r.error.isEmpty());QVERIFY(r.elapsed>=18000&&r.elapsed<25000);QVERIFY(!t.busy);}
  void malformedAndRecovery(){
-    QTemporaryDir dir;Store db(dir.path()+"/test.sqlite3");Server server;QVERIFY(server.listen(QHostAddress::LocalHost));Transport t;auto c=server.connection();
+    QTemporaryDir dir;FixtureStore db(dir.path()+"/test.sqlite3");Server server;QVERIFY(server.listen(QHostAddress::LocalHost));Transport t;auto c=server.connection();
     const QList<QByteArray> bad={QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\nLAB\t1\tbad\t6\n"),QByteArray("Sensorid\tnr\tUnixTime\tunit\nLAB\t1\t1760000100\t6\n"),QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\nLAB\t1\t1760000100\tnan\n")};
     for(const auto&bytes:bad){server.respond=[bytes](auto){return Server::response(bytes);};auto r=get(t,c);QVERIFY(r.error.isEmpty());
         const auto id=db.beginImport(from,until,"synthetic");QVERIFY(!db.importChunk(id,"stream",r.body,from,until));QCOMPARE(db.readings(from,until).size(),0);}
@@ -107,7 +108,7 @@ private slots:
     Importer importer(db,[&](const QString&p,auto done){t.get(c,p,done);});QSignalSpy spy(&importer,&Importer::finished);importer.start(from,until,"synthetic");QVERIFY(spy.wait(10000));QVERIFY(spy.last()[0].toBool());QCOMPARE(db.readings(from,until).size(),1);
  }
  void networkErrorRecoveryAndAtomicPiece(){
-    QTemporaryDir dir;Store db(dir.path()+"/test.sqlite3");Server server;QVERIFY(server.listen(QHostAddress::LocalHost));Transport t;auto c=server.connection();
+    QTemporaryDir dir;FixtureStore db(dir.path()+"/test.sqlite3");Server server;QVERIFY(server.listen(QHostAddress::LocalHost));Transport t;auto c=server.connection();
     server.respond=[](auto){return QByteArray("HTTP/1.0 200 OK\r\nContent-Length: 100\r\n\r\nx");};
     auto bad=get(t,c);QVERIFY(!bad.error.isEmpty());QVERIFY(bad.body.isEmpty());QVERIFY(!t.busy);
     server.respond=[](auto){return Server::response(glucose);};auto recovered=get(t,c);QVERIFY(recovered.error.isEmpty());QCOMPARE(recovered.body,glucose);
@@ -117,7 +118,7 @@ private slots:
     QCOMPARE(db.readings(from,until).size(),1);QCOMPARE(db.query("SELECT count(*) AS n FROM import_chunks")[0].toObject()["n"].toInt(),1);
  }
  void credibleFalseSourceAndStale(){
-    QTemporaryDir dir;Store db(dir.path()+"/test.sqlite3");auto bytes=glucose;bytes.replace("\t6\n","\t7\n");const auto id=db.beginImport(from,until,"synthetic");QVERIFY(db.importChunk(id,"stream",bytes,from,until));
+    QTemporaryDir dir;FixtureStore db(dir.path()+"/test.sqlite3");auto bytes=glucose;bytes.replace("\t6\n","\t7\n");const auto id=db.beginImport(from,until,"synthetic");QVERIFY(db.importChunk(id,"stream",bytes,from,until));
     QCOMPARE(db.readings(from,until)[0].mmol,7.0);QCOMPARE(db.readings(from,until)[0].seriesKind,QString("stream"));
     auto current=currentGlucose(db.readings(from,until),{},until+3600000,QTimeZone("UTC"),4,10);QVERIFY(current["stale"].toBool());
     qInfo("EXPECTED-LIMIT B10: plausible false source data accepted; authenticated transport cannot establish measurement truth");

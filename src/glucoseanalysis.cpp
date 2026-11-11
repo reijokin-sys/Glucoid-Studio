@@ -269,7 +269,7 @@ QJsonObject currentGlucose(QList<Reading> stream, QList<Reading> history, qint64
 }
 double gmiPercent(double meanMmol) {
     // GMI(%) = 3.31 + 0.02392 × mean glucose in mg/dL.
-    return 3.31 + 0.02392 * (meanMmol * 18.0182);
+    return 3.31 + 0.02392 * (meanMmol * glucoseMgdlPerMmol);
 }
 double gmiMmolMol(double meanMmol) {
     // GMI(mmol/mol) = 12.71 + 4.70587 × mean glucose in mmol/L.

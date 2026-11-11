@@ -72,8 +72,8 @@ Store::Store(const QString& path, bool readOnly) : filename(path) {
     (void)std::any_of(schema.cbegin(), schema.cend(), [this](const QString& s) { return !run(s); });
     if (meta("schema").isEmpty()) setMeta("schema", "1");
     if (meta("schema") == "1" && m_error.isEmpty()) {
-        const QString target = QFileInfo(path).absolutePath() + "/backups/pre-schema2-" + QUuid::createUuid().toString(QUuid::WithoutBraces) + ".sqlite3";
-        if (!backup(target)) return;
+        // Schema changes below are transactional. User backups are exclusively
+        // manual; do not create a hidden pre-schema copy on every new database.
         bool ok = run("BEGIN IMMEDIATE");
         for (const auto& sql :
              QStringList{"ALTER TABLE glucose ADD COLUMN series_kind TEXT NOT NULL DEFAULT 'stream'",
@@ -127,17 +127,32 @@ bool Store::switchDatabase(const QString& path) {
     return true;
 }
 bool Store::purgeRetiredComparison() {
+    auto maintenance = [this] {
+        // VACUUM is optional maintenance AFTER the data transaction. Its
+        // failure must not make a committed and usable database unavailable.
+        const auto previousError = m_error;
+        if (run("VACUUM")) {
+            setMeta("retiredComparisonVacuumPending", "0");
+            run("PRAGMA wal_checkpoint(TRUNCATE)");
+        }
+        m_error = previousError;
+        return true;
+    };
     const auto rows = query("SELECT key FROM meta WHERE key IN ('supplementDaysV1','supplementSelectionV1','supplementSettingsV1')");
-    if (rows.isEmpty() && meta("retiredComparisonV1") == "1") return true;
+    if (rows.isEmpty() && meta("retiredComparisonV1") == "1") return meta("retiredComparisonVacuumPending") == "1" ? maintenance() : true;
     if (!run("PRAGMA secure_delete=ON") || !run("BEGIN IMMEDIATE")) return false;
     const bool ok = run("DELETE FROM meta WHERE key IN ('supplementDaysV1','supplementSelectionV1','supplementSettingsV1')") &&
-                    run("DELETE FROM audit WHERE kind GLOB 'supplement-*'") && setMeta("retiredComparisonV1", "1");
+                    run("DELETE FROM audit WHERE kind GLOB 'supplement-*'") && setMeta("retiredComparisonV1", "1") &&
+                    setMeta("retiredComparisonVacuumPending", "1");
     if (!ok) {
         run("ROLLBACK");
         return false;
     }
-    if (!run("COMMIT")) return false;
-    return run("VACUUM") && run("PRAGMA wal_checkpoint(TRUNCATE)");
+    if (!run("COMMIT")) {
+        run("ROLLBACK");
+        return false;
+    }
+    return maintenance();
 }
 static bool bind(sqlite3_stmt* stmt, const QVariantList& args) {
     for (int i = 0; i < args.size(); ++i) {
@@ -327,31 +342,6 @@ QJsonArray Store::amounts(qint64 from, qint64 to, bool includeDeleted) const {
     }
     return result;
 }
-QJsonArray Store::calculationAmounts(qint64 from, qint64 to) const {
-    QJsonArray result;
-    for (auto v : amounts(from, to, true)) {
-        auto a = v.toObject();
-        if (a["deleted"].toBool() || a["analysisExcluded"].toBool()) {
-            if (a["kind"] == "other") continue;
-            a["stale"] = true;
-        }
-        result.append(a);
-    }
-    return result;
-}
-bool Store::setDeleted(const QString& id, bool deleted) {
-    if (query("SELECT id FROM amounts WHERE id=? AND active=1", {id}).isEmpty()) return false;
-    if (!run("BEGIN IMMEDIATE")) return false;
-    bool ok = deleted ? run("INSERT INTO removed_amounts(id,time) VALUES(?,?) ON CONFLICT(id) DO NOTHING", {id, QDateTime::currentMSecsSinceEpoch()})
-                      : run("DELETE FROM removed_amounts WHERE id=?", {id});
-    if (ok)
-        ok = run("INSERT INTO audit(time,kind,data) VALUES(?,?,?)",
-                 {QDateTime::currentMSecsSinceEpoch(), deleted ? "diary-remove" : "diary-restore", json({{"id", id}})});
-    if (ok) ok = setMeta("revision", QUuid::createUuid().toString());
-    if (ok) ok = run("COMMIT");
-    if (!ok) run("ROLLBACK");
-    return ok;
-}
 QJsonArray Store::mappings() const {
     return query("SELECT DISTINCT a.label,COALESCE(m.kind,'unknown') AS kind,COALESCE(m.medicine,'') AS medicine FROM amounts a LEFT JOIN mappings m ON "
                  "a.label=m.label WHERE a.local=0 AND a.source<>'nightscout-v3' AND a.label<>'prot' ORDER BY a.label");
@@ -360,72 +350,17 @@ bool Store::mapLabel(const QString& label, const QString& kind, const QString& m
     if (!QStringList{"rapid", "correction", "basal", "carbs", "other", "unknown"}.contains(kind) ||
         ((kind == "rapid" || kind == "correction" || kind == "basal") && medicine.trimmed().isEmpty()))
         return false;
-    return run("INSERT INTO mapping_versions(time,label,kind,medicine) VALUES(?,?,?,?)", {QDateTime::currentMSecsSinceEpoch(), label, kind, medicine}) &&
-           run("INSERT INTO mappings VALUES(?,?,?) ON CONFLICT(label) DO UPDATE SET kind=excluded.kind,medicine=excluded.medicine", {label, kind, medicine}) &&
-           setMeta("revision", QUuid::createUuid().toString());
-}
-QString Store::addLocal(qint64 time, double value, const QString& kind, const QString& medicine, const QString& purpose) {
-    if (!std::isfinite(value) || value < 0 || time <= 0 || !QStringList{"rapid", "correction", "basal", "carbs", "other"}.contains(kind) ||
-        ((kind == "rapid" || kind == "correction" || kind == "basal") && medicine.trimmed().isEmpty()))
-        return {};
-    const auto id = "local:" + QUuid::createUuid().toString(QUuid::WithoutBraces);
-    if (!run("INSERT INTO amounts(id,source,time,label,value,raw,local,kind,medicine,purpose) VALUES(?,?,?,?,?,?,1,?,?,?)",
-             {id, "local", time, kind, value, "", kind, medicine, purpose}))
-        return {};
-    setMeta("revision", QUuid::createUuid().toString());
-    return id;
-}
-bool Store::annotate(const QString& id, const QJsonObject& annotation) {
-    return run("INSERT INTO annotations VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data", {id, json(annotation)}) &&
-           setMeta("revision", QUuid::createUuid().toString());
-}
-static QString dependency(const Store& s, qint64 from, qint64 to) {
-    QJsonArray readings;
-    for (const auto& r : s.readings(from, to))
-        readings.append(QJsonObject{{"id", r.key}, {"time", double(r.time)}, {"value", r.mmol}, {"reliable", r.reliable}});
-    QJsonObject o{{"readings", readings}, {"amounts", s.amounts(from, to, true)}};
-    auto artifacts = s.artifactKeys(from, to).values();
-    artifacts.sort();
-    if (!artifacts.isEmpty()) o["artifactKeys"] = QJsonArray::fromStringList(artifacts);
-    return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(o).toJson(QJsonDocument::Compact), QCryptographicHash::Sha256).toHex());
-}
-QString Store::saveEpisode(QJsonObject episode) {
-    const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    episode["id"] = id;
-    if (!run("SAVEPOINT reviewed_episode")) return {};
-    bool ok = run("INSERT INTO episodes VALUES(?,?,?)",
-                  {id, json(episode), dependency(*this, qint64(episode["dependencyFrom"].toDouble()), qint64(episode["end"].toDouble()) + 1)});
-    if (ok) ok = setMeta("revision", QUuid::createUuid().toString(QUuid::WithoutBraces));
-    if (ok)
-        ok = run("INSERT INTO audit(time,kind,data) VALUES(?,?,?)", {QDateTime::currentMSecsSinceEpoch(), "episode-reviewed",
-                                                                     json({{"id", id},
-                                                                           {"kind", episode["kind"]},
-                                                                           {"profileVersion", episode["profileVersion"]},
-                                                                           {"methodVersion", episode["methodVersion"]},
-                                                                           {"reviewer", episode["reviewer"]}})});
-    if (ok) ok = run("RELEASE reviewed_episode");
+    if (!run("SAVEPOINT studio_map_label")) return false;
+    bool ok =
+        run("INSERT INTO mapping_versions(time,label,kind,medicine) VALUES(?,?,?,?)", {QDateTime::currentMSecsSinceEpoch(), label, kind, medicine}) &&
+        run("INSERT INTO mappings VALUES(?,?,?) ON CONFLICT(label) DO UPDATE SET kind=excluded.kind,medicine=excluded.medicine", {label, kind, medicine}) &&
+        setMeta("revision", QUuid::createUuid().toString());
+    if (ok) ok = run("RELEASE studio_map_label");
     if (!ok) {
-        run("ROLLBACK TO reviewed_episode");
-        run("RELEASE reviewed_episode");
-        return {};
+        run("ROLLBACK TO studio_map_label");
+        run("RELEASE studio_map_label");
     }
-    return id;
-}
-QJsonArray Store::episodes() const {
-    QJsonArray out;
-    for (auto v : query("SELECT * FROM episodes ORDER BY rowid")) {
-        auto row = v.toObject(), e = object(row["data"]);
-        e["stale"] = row["dependency"].toString() != dependency(*this, qint64(e["dependencyFrom"].toDouble()), qint64(e["end"].toDouble()) + 1);
-        out.append(e);
-    }
-    return out;
-}
-QJsonObject Store::activeProfile() const {
-    auto rows = query("SELECT version,data FROM profiles ORDER BY version DESC LIMIT 1");
-    if (rows.isEmpty()) return {};
-    auto p = object(rows[0].toObject()["data"]);
-    p["version"] = rows[0].toObject()["version"];
-    return p;
+    return ok;
 }
 QJsonObject Store::observationProfile() const {
     const int version = meta("observationProfileVersion").toInt();
@@ -436,43 +371,6 @@ QJsonObject Store::observationProfile() const {
     if (!p["observationActive"].toBool()) return {};
     p["version"] = version;
     return p;
-}
-int Store::saveProfile(QJsonObject profile) {
-    profile.remove("version");
-    if (!run("INSERT INTO profiles(data) VALUES(?)", {json(profile)})) return 0;
-    return int(sqlite3_last_insert_rowid(db));
-}
-QJsonArray Store::profiles() const {
-    return query("SELECT version,data FROM profiles ORDER BY version DESC");
-}
-bool Store::saveCalculation(const QString& kind, const QJsonObject& result) {
-    return run("INSERT INTO calculations(time,kind,data,revision) VALUES(?,?,?,?)", {QDateTime::currentMSecsSinceEpoch(), kind, json(result), revision()});
-}
-bool Store::backup(const QString& target) {
-    if (QFileInfo::exists(target)) {
-        m_error = QCoreApplication::translate("Studio", "Varmuuskopion kohde on jo olemassa.");
-        return false;
-    }
-    QDir().mkpath(QFileInfo(target).absolutePath());
-    sqlite3* dest = nullptr;
-    if (sqlite3_open(target.toUtf8(), &dest) != SQLITE_OK) {
-        if (dest) sqlite3_close(dest);
-        return false;
-    }
-    auto* copy = sqlite3_backup_init(dest, "main", db, "main");
-    int code = copy ? sqlite3_backup_step(copy, -1) : SQLITE_ERROR;
-    if (copy) sqlite3_backup_finish(copy);
-    bool ok = code == SQLITE_DONE;
-    sqlite3_stmt* st = nullptr;
-    if (ok) {
-        ok = sqlite3_prepare_v2(dest, "PRAGMA integrity_check", -1, &st, nullptr) == SQLITE_OK && sqlite3_step(st) == SQLITE_ROW &&
-             QString::fromUtf8(reinterpret_cast<const char*>(sqlite3_column_text(st, 0))) == "ok";
-        if (st) sqlite3_finalize(st);
-    }
-    sqlite3_close(dest);
-    QFile::setPermissions(target, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
-    if (!ok) m_error = QCoreApplication::translate("Studio", "Varmuuskopion eheystarkistus epäonnistui.");
-    return ok;
 }
 QString Store::beginImport(qint64 from, qint64 to, const QString& transport) {
     const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -514,7 +412,10 @@ bool Store::importChunk(const QString& runId, const QString& kind, const QByteAr
     QFile::setPermissions(chunkPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     // A file can remain orphaned on failure, but no partial normalized piece is committed.
     if (!run("BEGIN IMMEDIATE")) return false;
-    bool ok = ingest(parsedReadings, parsedAmounts, from, to, kind == "amounts" && authoritative, true);
+    // A phone export can legitimately contain no rows, but an authoritative
+    // empty amounts page must not silently deactivate previously imported
+    // entries. The Store guard returns a visible import error instead.
+    bool ok = ingest(parsedReadings, parsedAmounts, from, to, kind == "amounts" && authoritative, false);
     const QString hash = QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex());
     if (ok)
         ok = run("INSERT INTO import_chunks VALUES(?,?,?,?,?,?,?,?,?)",
@@ -525,129 +426,25 @@ bool Store::importChunk(const QString& runId, const QString& kind, const QByteAr
     return ok;
 }
 
-void Store::endImport(const QString& runId, bool success, const QString& message) {
-    run("UPDATE import_runs SET finished=?,status=?,error=? WHERE id=?",
-        {QDateTime::currentMSecsSinceEpoch(), success ? "complete" : "partial", message, runId});
-    if (success) setMeta("lastCompleteImport", QString::number(QDateTime::currentMSecsSinceEpoch()));
+bool Store::endImport(const QString& runId, bool success, const QString& message) {
+    if (runId.isEmpty() || !run("SAVEPOINT studio_end_import")) return false;
+    bool ok = run("UPDATE import_runs SET finished=?,status=?,error=? WHERE id=?",
+                  {QDateTime::currentMSecsSinceEpoch(), success ? "complete" : "partial", message, runId});
+    if (ok && sqlite3_changes(db) != 1) {
+        m_error = QCoreApplication::translate("Studio", "Tuonnin valmistumisen tallentaminen epäonnistui.");
+        ok = false;
+    }
+    if (ok && success) ok = setMeta("lastCompleteImport", QString::number(QDateTime::currentMSecsSinceEpoch()));
+    if (ok) ok = run("RELEASE studio_end_import");
+    if (!ok) {
+        run("ROLLBACK TO studio_end_import");
+        run("RELEASE studio_end_import");
+    }
+    return ok;
 }
 QJsonArray Store::imports() const {
     return query("SELECT r.*, (SELECT count(*) FROM import_chunks c WHERE c.run_id=r.id) AS chunks FROM import_runs r ORDER BY started DESC LIMIT 50");
 }
-bool Store::exclude(const QString& id, const QString& reason) {
-    if (query("SELECT id FROM amounts WHERE id=?", {id}).isEmpty()) return false;
-    bool ok = reason.trimmed().isEmpty()
-                  ? run("DELETE FROM analysis_exclusions WHERE id=?", {id})
-                  : run("INSERT INTO analysis_exclusions VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET reason=excluded.reason,time=excluded.time",
-                        {id, reason.trimmed(), QDateTime::currentMSecsSinceEpoch()});
-    return ok && setMeta("revision", QUuid::createUuid().toString());
-}
-QJsonArray Store::exclusions() const {
-    return query("SELECT * FROM analysis_exclusions");
-}
-bool Store::confirmDay(const QString& date, bool complete) {
-    if (!QDate::fromString(date, Qt::ISODate).isValid()) return false;
-    const auto zone = QTimeZone(meta("analysisZone").isEmpty() ? "Europe/Helsinki" : meta("analysisZone").toUtf8());
-    const auto day = QDate::fromString(date, Qt::ISODate);
-    const qint64 from = QDateTime(day, QTime(0, 0), zone).toMSecsSinceEpoch(), to = QDateTime(day.addDays(1), QTime(0, 0), zone).toMSecsSinceEpoch();
-    const QString hash = QString::fromLatin1(
-        QCryptographicHash::hash(
-            QJsonDocument(QJsonObject{{"zone", QString::fromUtf8(zone.id())}, {"from", double(from)}, {"to", double(to)}, {"events", amounts(from, to, true)}})
-                .toJson(QJsonDocument::Compact),
-            QCryptographicHash::Sha256)
-            .toHex());
-    return complete ? run("INSERT INTO complete_days VALUES(?,?) ON CONFLICT(date) DO UPDATE SET revision=excluded.revision", {date, hash})
-                    : run("DELETE FROM complete_days WHERE date=?", {date});
-}
-QSet<QString> Store::completeDays() const {
-    QSet<QString> out;
-    for (auto v : query("SELECT date,revision FROM complete_days")) {
-        auto o = v.toObject();
-        const auto day = QDate::fromString(o["date"].toString(), Qt::ISODate);
-        const auto zone = QTimeZone(meta("analysisZone").isEmpty() ? "Europe/Helsinki" : meta("analysisZone").toUtf8());
-        auto a = QDateTime(day, QTime(0, 0), zone).toMSecsSinceEpoch(), b = QDateTime(day.addDays(1), QTime(0, 0), zone).toMSecsSinceEpoch();
-        auto hash = QString::fromLatin1(
-            QCryptographicHash::hash(
-                QJsonDocument(QJsonObject{{"zone", QString::fromUtf8(zone.id())}, {"from", double(a)}, {"to", double(b)}, {"events", amounts(a, b, true)}})
-                    .toJson(QJsonDocument::Compact),
-                QCryptographicHash::Sha256)
-                .toHex());
-        if (hash == o["revision"].toString()) out.insert(o["date"].toString());
-    }
-    return out;
-}
-QJsonObject Store::profileAt(qint64 time) const {
-    for (auto v : profiles()) {
-        auto row = v.toObject(), p = object(row["data"]);
-        if (p["approved"].toBool() && p["effectiveFrom"].toDouble() <= time) {
-            p["version"] = row["version"];
-            return p;
-        }
-    }
-    return {};
-}
-QJsonObject Store::responseProfileAt(qint64 time) const {
-    for (auto v : profiles()) {
-        auto row = v.toObject(), p = object(row["data"]);
-        if ((p["approved"].toBool() || p["responseApproved"].toBool()) && p["effectiveFrom"].toDouble() <= time) {
-            p["version"] = row["version"];
-            return p;
-        }
-    }
-    return {};
-}
-
 } // namespace Studio
 
-namespace Studio {
-static QString artifactHash(const Store& s, qint64 from, qint64 to) {
-    QJsonArray rows;
-    for (auto r : s.readings(from, to))
-        rows << QJsonObject{{"id", r.key},     {"time", double(r.time)}, {"sensor", r.sensor},
-                            {"value", r.mmol}, {"reliable", r.reliable}, {"calibration", r.calibration}};
-    return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(rows).toJson(QJsonDocument::Compact), QCryptographicHash::Sha256).toHex());
-}
-QSet<QString> Store::artifactKeys(qint64 from, qint64 to) const {
-    QSet<QString> keys;
-    for (auto v : query("SELECT * FROM glucose_artifacts WHERE active=1 AND from_time<? AND to_time>?", {to, from})) {
-        auto a = v.toObject();
-        auto start = qint64(a["from_time"].toDouble()), end = qint64(a["to_time"].toDouble());
-        if (a["source_hash"].toString() != artifactHash(*this, start, end)) continue;
-        for (auto r : readings(std::max(start, from), std::min(end, to))) keys.insert(r.key);
-    }
-    return keys;
-}
-QJsonArray Store::artifactReviews() const {
-    auto rows = query("SELECT * FROM glucose_artifacts ORDER BY created DESC");
-    for (int i = 0; i < rows.size(); i++) {
-        auto a = rows[i].toObject();
-        a["current"] =
-            a["active"].toInt() && a["source_hash"].toString() == artifactHash(*this, qint64(a["from_time"].toDouble()), qint64(a["to_time"].toDouble()));
-        a.remove("source_hash");
-        rows[i] = a;
-    }
-    return rows;
-}
-bool Store::reviewArtifact(qint64 from, qint64 to, const QString& reason, const QString& evidence, const QString& reviewer) {
-    if (to <= from || reason.trimmed().isEmpty() || evidence.trimmed().isEmpty() || reviewer.trimmed().isEmpty() || readings(from, to).isEmpty()) return false;
-    const auto id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    const auto now = QDateTime::currentMSecsSinceEpoch();
-    if (!run("BEGIN IMMEDIATE")) return false;
-    bool ok = run("INSERT INTO glucose_artifacts VALUES(?,?,?,?,?,?,?,?,1)",
-                  {id, from, to, reason.trimmed(), evidence.trimmed(), reviewer.trimmed(), artifactHash(*this, from, to), now});
-    if (ok) ok = run("INSERT INTO audit(time,kind,data) VALUES(?,?,?)", {now, "glucose-artifact-review", json({{"id", id}, {"reviewer", reviewer.trimmed()}})});
-    if (ok) ok = setMeta("revision", QUuid::createUuid().toString());
-    if (ok) ok = run("COMMIT");
-    if (!ok) run("ROLLBACK");
-    return ok;
-}
-bool Store::deactivateArtifact(const QString& id) {
-    if (query("SELECT id FROM glucose_artifacts WHERE id=? AND active=1", {id}).isEmpty() || !run("BEGIN IMMEDIATE")) return false;
-    bool ok = run("UPDATE glucose_artifacts SET active=0 WHERE id=?", {id});
-    if (ok)
-        ok = run("INSERT INTO audit(time,kind,data) VALUES(?,?,?)", {QDateTime::currentMSecsSinceEpoch(), "glucose-artifact-deactivate", json({{"id", id}})});
-    if (ok) ok = setMeta("revision", QUuid::createUuid().toString());
-    if (ok) ok = run("COMMIT");
-    if (!ok) run("ROLLBACK");
-    return ok;
-}
-} // namespace Studio
+namespace Studio {} // namespace Studio

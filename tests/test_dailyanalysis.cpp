@@ -1,3 +1,4 @@
+#include "storefixtures.h"
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "dailyanalysis.h"
 #include "store.h"
@@ -74,11 +75,11 @@ private slots:
     void constructorPurgesRetiredDataOnly(){
         QTemporaryDir dir;const auto file=dir.path()+"/studio.sqlite3";
         QJsonArray before;
-        {Store db(file);QVERIFY(db.setMeta("supplementDaysV1","synthetic-retired-record"));
+        {FixtureStore db(file);QVERIFY(db.setMeta("supplementDaysV1","synthetic-retired-record"));
             QVERIFY(db.run("INSERT INTO audit(time,kind,data) VALUES(1,'supplement-day','synthetic-retired-record')"));
             QVERIFY(db.run("INSERT INTO audit(time,kind,data) VALUES(2,'keep','synthetic-kept-record')"));
             QVERIFY(db.setMeta("keep","unchanged"));before=db.query("SELECT * FROM audit WHERE kind='keep'");}
-        {Store db(file);QVERIFY(db.good());QVERIFY(db.meta("supplementDaysV1").isEmpty());
+        {FixtureStore db(file);QVERIFY(db.good());QVERIFY(db.meta("supplementDaysV1").isEmpty());
             QCOMPARE(db.meta("keep"),QString("unchanged"));QCOMPARE(db.query("SELECT * FROM audit WHERE kind='keep'"),before);
             QVERIFY(db.query("SELECT * FROM audit WHERE kind GLOB 'supplement-*'").isEmpty());}
     }

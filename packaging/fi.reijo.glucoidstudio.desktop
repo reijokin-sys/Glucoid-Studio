@@ -2,7 +2,8 @@
 [Desktop Entry]
 Type=Application
 Name=Glucoid Studio
-Comment=Paikallinen Juggluco- ja Nightscout-glukoosihistorian tarkastelu
+Comment=Local Juggluco and Nightscout glucose history viewer
+Comment[fi]=Paikallinen Juggluco- ja Nightscout-glukoosihistorian tarkastelu
 Exec=glucoid-studio %u
 Icon=fi.reijo.glucoidstudio
 Terminal=false

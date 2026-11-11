@@ -1,5 +1,7 @@
+#include "storefixtures.h"
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "backend.h"
+#include "databasebackup.h"
 #include "nightscout.h"
 #include "qmltestfixture.h"
 #include <QFile>
@@ -99,7 +101,7 @@ class NightscoutTest : public QObject {
     }
     void typedRecordsEditsTombstonesAndRollback() {
         QTemporaryDir dir;
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         const auto run = store.beginImport(0, instant + 1, "nightscout");
         QVERIFY(!run.isEmpty());
         QVERIFY(store.importNightscoutPage(run, "entries", page({glucose()}), instant - 1));
@@ -136,7 +138,7 @@ class NightscoutTest : public QObject {
     }
     void unitsMissingValuesAndUnsupportedDoses() {
         QTemporaryDir dir;
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         const auto run = store.beginImport(0, instant + 1, "nightscout");
         auto mmol = glucose();
         mmol["units"] = "mmol/l";
@@ -168,7 +170,7 @@ class NightscoutTest : public QObject {
     }
     void snapshotReconciliationPreservesLocalAndOutOfWindow() {
         QTemporaryDir dir;
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         const auto run = store.beginImport(0, instant + 1, "nightscout");
         QVERIFY(store.importNightscoutPage(run, "treatments", page({treatment()}), instant - 1));
         const auto local = store.addLocal(instant, 1, "carbs", "", "synthetic");
@@ -184,7 +186,7 @@ class NightscoutTest : public QObject {
     }
     void pagedHistoryWithTimestampTiesAndAuthenticatedPrefix() {
         QTemporaryDir dir;
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         Server server;
         QVERIFY(server.listen(QHostAddress::LocalHost));
         QJsonArray entries;
@@ -225,7 +227,7 @@ class NightscoutTest : public QObject {
     }
     void firstImportCoversAboutSixMonths() {
         QTemporaryDir dir;
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         Server server;
         QVERIFY(server.listen(QHostAddress::LocalHost));
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -255,7 +257,7 @@ class NightscoutTest : public QObject {
     }
     void incrementalSyncPreservesHistoryAndImportsOldEditsAndTombstones() {
         QTemporaryDir dir;
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         Server server;
         QVERIFY(server.listen(QHostAddress::LocalHost));
         QJsonArray entries{glucose("old", instant - 1000), glucose("boundary", instant)};
@@ -294,7 +296,7 @@ class NightscoutTest : public QObject {
     }
     void recentWindowFindsBackdatedRecordsAndKeepsOlderHistory() {
         QTemporaryDir dir;
-        Store store(dir.path()+"/studio.sqlite3");
+        FixtureStore store(dir.path()+"/studio.sqlite3");
         Server server;
         QVERIFY(server.listen(QHostAddress::LocalHost));
         const qint64 now=QDateTime::currentMSecsSinceEpoch();
@@ -329,7 +331,7 @@ class NightscoutTest : public QObject {
     }
     void fullHistoryCheckUsesMinimumTimestamp() {
         QTemporaryDir dir;
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         Server server;
         QVERIFY(server.listen(QHostAddress::LocalHost));
         QVERIFY(store.setMeta("nightscoutCursor:entries", "full"));
@@ -350,7 +352,7 @@ class NightscoutTest : public QObject {
     }
     void failureDoesNotAdvanceCursorAndNextImportRecovers() {
         QTemporaryDir dir;
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         Server server;
         QVERIFY(server.listen(QHostAddress::LocalHost));
         bool broken = true;
@@ -383,7 +385,7 @@ class NightscoutTest : public QObject {
     void redirectsAndUnauthorizedResponsesDoNotLeakCredentials() {
         QFETCH(int, status);
         QTemporaryDir dir;
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         Server server, other;
         QVERIFY(server.listen(QHostAddress::LocalHost));
         QVERIFY(other.listen(QHostAddress::LocalHost));
@@ -419,7 +421,7 @@ class NightscoutTest : public QObject {
         server.key = QSslKey(keyFile.readAll(), QSsl::Rsa);
         QVERIFY(server.listen(QHostAddress::LocalHost));
         server.respond = [](QByteArray request) { return normalResponse(request, {glucose()}, {treatment()}); };
-        Store untrusted(dir.path() + "/untrusted.sqlite3");
+        FixtureStore untrusted(dir.path() + "/untrusted.sqlite3");
         NightscoutImporter denied(untrusted, server.address(), "synthetic-access", nullptr, allHistory);
         QSignalSpy rejected(&denied, &NightscoutImporter::finished);
         denied.start();
@@ -431,7 +433,7 @@ class NightscoutTest : public QObject {
         auto trusted = previous;
         trusted.setCaCertificates(previous.caCertificates() + QList<QSslCertificate>{server.certificate});
         QSslConfiguration::setDefaultConfiguration(trusted);
-        Store accepted(dir.path() + "/accepted.sqlite3");
+        FixtureStore accepted(dir.path() + "/accepted.sqlite3");
         NightscoutImporter importer(accepted, server.address(), "synthetic-access", nullptr, allHistory);
         QSignalSpy done(&importer, &NightscoutImporter::finished);
         importer.start();
@@ -443,7 +445,7 @@ class NightscoutTest : public QObject {
     void qmlSelectsOneSourceAndPreservesJugglucoHistory() {
         QTemporaryDir dir;
         {
-            Store store(dir.path() + "/studio.sqlite3");
+            FixtureStore store(dir.path() + "/studio.sqlite3");
             Reading r;
             r.key = "juggluco-kept";
             r.time = instant;
@@ -468,7 +470,7 @@ class NightscoutTest : public QObject {
         QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
         QCOMPARE(backend.connection()["source"].toString(), QString("nightscout"));
         {
-            Store selected(nightscoutDatasetPath(dir.path(), "https://nightscout.example"), true);
+            FixtureStore selected(nightscoutDatasetPath(dir.path(), "https://nightscout.example"), true);
             QVERIFY(selected.readings(0, instant + 1).isEmpty());
         }
         QVERIFY(!backend.importFolder(dir.path()));
@@ -478,12 +480,12 @@ class NightscoutTest : public QObject {
         QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
         QCOMPARE(backend.connection()["source"].toString(), QString("juggluco"));
         {
-            Store original(dir.path() + "/studio.sqlite3", true);
+            FixtureStore original(dir.path() + "/studio.sqlite3", true);
             QCOMPARE(original.readings(0, instant + 1).size(), 1);
         }
         QVERIFY(!QFile(dir.path() + "/connection.json").exists() || !backend.connection().contains("secret"));
     }
-    void nightscoutBackupRestoresSourceAndRawImports() {
+    void nightscoutPortableBackupRestoresToConfiguredEndpoint() {
         QTemporaryDir dir;
         Backend backend(dir.path());
         const QString address = "https://nightscout.example/base";
@@ -491,26 +493,47 @@ class NightscoutTest : public QObject {
         QCOMPARE(backend.connection()["mode"].toString(), QString("network"));
         QVERIFY(backend.connection()["wireguardInterface"].toString().isEmpty());
         {
-            Store store(nightscoutDatasetPath(dir.path(), address));
+            FixtureStore store(nightscoutDatasetPath(dir.path(), address));
             const auto run = store.beginImport(0, instant + 1, "nightscout");
             QVERIFY(store.importNightscoutPage(run, "entries", page({glucose()}), instant - 1));
             QVERIFY(store.importNightscoutPage(run, "treatments", page({treatment()}), instant - 1));
             store.endImport(run, true, "synthetic");
         }
-        const auto backup = backend.backup();
+        const auto backup = backend.backupTo(dir.path()+"/chosen.sqlite3");
         QVERIFY(!backup.isEmpty());
         const auto target = dir.path() + "/restored";
         QProcess restore;
-        restore.start("python3", {QStringLiteral(STUDIO_SOURCE_DIR) + "/tools/restore-backup.py", "--backup", backup, "--data-dir", target});
+        restore.start("python3", {QStringLiteral(STUDIO_SOURCE_DIR) + "/tools/restore-backup.py", "--backup", backup, "--data-dir", target, "--nightscout-address", address});
         QVERIFY(restore.waitForFinished(10000));
         QCOMPARE(restore.exitCode(), 0);
         Backend restored(target);
         QCOMPARE(restored.connection()["source"].toString(), QString("nightscout"));
-        Store verify(nightscoutDatasetPath(target, address), true);
+        FixtureStore verify(nightscoutDatasetPath(target, address), true);
         QVERIFY(verify.good());
         QCOMPARE(verify.readings(0, instant + 1).size(), 1);
         QCOMPARE(verify.amounts(0, instant + 1).size(), 2);
-        for (const auto& value : verify.query("SELECT path FROM import_chunks")) QVERIFY(QFile::exists(value.toObject()["path"].toString()));
+        QCOMPARE(verify.query("SELECT path FROM import_chunks").size(),2);
+        QVERIFY(!QFileInfo::exists(target+"/imports"));
+    }
+    void portableRestoreUsesCurrentSourceAndRejectsMismatch() {
+        QTemporaryDir dir,target;
+        const auto original=QStringLiteral("https://original.example");
+        QString backup;
+        { Backend source(dir.path());
+          QVERIFY(source.saveSourceConnection("nightscout","network",original,"token","",""));
+          source.seedDemo();
+          backup=source.backupTo(dir.path()+"/portable.sqlite3");QVERIFY(!backup.isEmpty()); }
+        // A portable Nightscout file must not silently become Juggluco data.
+        QVERIFY(!Studio::restoreBackup(backup,target.path(),false).ok);
+        const auto endpoint=QStringLiteral("https://new-device.example");
+        { Backend selected(target.path());
+          QVERIFY(selected.saveSourceConnection("nightscout","network",endpoint,"token","","")); }
+        const auto result=Studio::restoreBackup(backup,target.path(),true);
+        QVERIFY2(result.ok,qPrintable(result.error));
+        QCOMPARE(result.dataPath,Studio::nightscoutDatasetPath(target.path(),endpoint));
+        Backend restored(target.path());
+        QVERIFY(restored.healthy());QCOMPARE(restored.connection()["address"].toString(),endpoint);
+        QVERIFY(!restored.backupTo(target.path()+"/again.sqlite3").isEmpty());
     }
     void mainUiWorksWithNightscoutDataset() {
         QTemporaryDir dir;
@@ -521,7 +544,7 @@ class NightscoutTest : public QObject {
         QVERIFY(backend.connection()["wireguardInterface"].toString().isEmpty());
         const auto now = QDateTime::currentMSecsSinceEpoch();
         {
-            Store store(nightscoutDatasetPath(dir.path(), address));
+            FixtureStore store(nightscoutDatasetPath(dir.path(), address));
             const auto run = store.beginImport(0, now, "nightscout");
             auto current = glucose();
             current["date"] = double(now - 60000);

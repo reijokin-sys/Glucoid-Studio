@@ -1,3 +1,4 @@
+#include "storefixtures.h"
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "backend.h"
 #include "language.h"
@@ -11,6 +12,8 @@
 #include <QTemporaryDir>
 #include <QTimeZone>
 #include <QtTest>
+#include <QScopeGuard>
+#include <QLocale>
 
 class LanguageTest : public QObject {
     Q_OBJECT
@@ -18,6 +21,19 @@ class LanguageTest : public QObject {
         QCoreApplication::instance()->setProperty("studioLanguageController", QVariant::fromValue<QObject*>(&language));
     }
   private slots:
+    void dayChartLabelsFollowUiLanguageInsteadOfSystemLocale() {
+        const auto previous=QLocale();QLocale::setDefault(QLocale("fi_FI"));
+        const auto restoreLocale=qScopeGuard([&]{QLocale::setDefault(previous);});
+        QTemporaryDir dir;LanguageManager language(dir.path());attach(language);
+        Backend backend(dir.path());
+        const auto today=QDate::fromString(backend.today(),Qt::ISODate);
+        QCOMPARE(backend.currentDayChart()["dateLabel"].toString(),QLocale("en_GB").toString(today,"ddd d.M.yyyy"));
+        const auto first=backend.dayComparisonCharts().first().toMap();
+        QCOMPARE(first["dateLabel"].toString(),QLocale("en_GB").toString(QDate::fromString(first["date"].toString(),Qt::ISODate),"ddd d.M.yyyy"));
+        QVERIFY(language.setLanguage("fi"));
+        QCOMPARE(backend.currentDayChart()["dateLabel"].toString(),QLocale("fi_FI").toString(today,"ddd d.M.yyyy"));
+    }
+
     void cleanup() { QCoreApplication::instance()->setProperty("studioLanguageController", QVariant()); }
     void defaultEnglishAndPersistentFinnish() {
         QTemporaryDir dir;
@@ -50,7 +66,7 @@ class LanguageTest : public QObject {
         QFile connection(dir.path()+"/connection.json"); QVERIFY(connection.open(QIODevice::WriteOnly));
         const QByteArray bytes="{\"source\":\"juggluco\",\"mode\":\"usb\",\"auth\":\"none\"}\n";
         QCOMPARE(connection.write(bytes), qint64(bytes.size())); connection.close();
-        Studio::Store store(dir.path()+"/studio.sqlite3");
+        Studio::FixtureStore store(dir.path()+"/studio.sqlite3");
         const auto revision=store.revision();
         QQmlEngine engine;
         connect(&language,&LanguageManager::languageChanged,&engine,&QQmlEngine::retranslate);

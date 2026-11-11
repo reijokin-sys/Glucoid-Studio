@@ -45,7 +45,7 @@ ParsedReadings parseStream(const QByteArray& data, const QString& kind) {
         r.time = qRound64(t * 1000);
         r.original = v;
         r.originalUnit = mmol ? "mmol/L" : "mg/dL";
-        r.mmol = mmol ? v : v / 18.0;
+        r.mmol = mmol ? v : v / glucoseMgdlPerMmol;
         r.sensor = cols[si];
         r.seriesKind = kind;
         r.originalTimezone = h.contains("TZ") ? cols[h.indexOf("TZ")] : QString();

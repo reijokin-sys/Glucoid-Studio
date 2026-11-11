@@ -1,3 +1,4 @@
+#include "storefixtures.h"
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "backend.h"
 #include "daychart.h"
@@ -59,6 +60,69 @@ QString functionBody(const QString &source, const QString &marker) {
 class DebugFixesTest : public QObject {
     Q_OBJECT
 private slots:
+    void importedMgdlAndGmiUseTheSameConversion() {
+        const auto parsed=parseStream("Sensorid\tnr\tUnixTime\tmg/dL\nsynthetic\t1\t1760000000\t108\n");
+        QVERIFY(parsed.error.isEmpty());QCOMPARE(parsed.rows.size(),1);
+        QCOMPARE(parsed.rows[0].mmol,6.0);QCOMPARE(parsed.rows[0].original,108.0);
+        QVERIFY(qAbs(gmiPercent(parsed.rows[0].mmol)-(3.31+0.02392*108.0))<1e-12);
+    }
+
+    void mappingWritesRollBackTogether() {
+        QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");
+        const auto revision=store.revision();
+        QVERIFY(store.run("CREATE TRIGGER fail_mapping BEFORE INSERT ON mappings BEGIN SELECT RAISE(ABORT,'synthetic failure'); END"));
+        QVERIFY(!store.mapLabel("synthetic","carbs",""));
+        QCOMPARE(store.query("SELECT * FROM mapping_versions").size(),0);
+        QCOMPARE(store.query("SELECT * FROM mappings").size(),0);
+        QCOMPARE(store.revision(),revision);
+        QVERIFY(store.run("DROP TRIGGER fail_mapping"));
+        QVERIFY(store.mapLabel("synthetic","carbs",""));
+        QCOMPARE(store.query("SELECT * FROM mapping_versions").size(),1);
+    }
+    void importCompletionWriteFailureIsReportedAndAtomic() {
+        QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");
+        QVERIFY(store.run("CREATE TRIGGER fail_finish BEFORE UPDATE ON import_runs WHEN NEW.status='complete' BEGIN SELECT RAISE(ABORT,'synthetic failure'); END"));
+        Importer importer(store,[](const QString& path,auto done){
+            done(path.startsWith("/x/amounts")?QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n"):QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"),{});
+        });
+        QSignalSpy finished(&importer,&Importer::finished);
+        importer.start(1760000000000LL,1760000060000LL,"synthetic");
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(),1,5000);
+        QVERIFY(!finished[0][0].toBool());QVERIFY(!finished[0][1].toString().isEmpty());
+        QCOMPARE(store.meta("lastCompleteImport"),QString());
+        QCOMPARE(store.meta("lastSourceUntil"),QString());
+        QCOMPARE(store.imports()[0].toObject()["status"].toString(),QString("running"));
+        QVERIFY(!store.endImport("missing-run",true,"synthetic"));
+    }
+    void optionalVacuumFailureDoesNotInvalidateDatabaseAndIsRetried() {
+        QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");
+        QVERIFY(store.setMeta("retiredComparisonVacuumPending","1"));
+        QVERIFY(store.run("BEGIN")); // VACUUM deterministically fails within a transaction.
+        QVERIFY(store.purgeRetiredComparison());QVERIFY(store.good());QVERIFY(store.available());
+        QCOMPARE(store.meta("retiredComparisonVacuumPending"),QString("1"));
+        QVERIFY(store.run("ROLLBACK"));
+        QVERIFY(store.purgeRetiredComparison());
+        QCOMPARE(store.meta("retiredComparisonVacuumPending"),QString("0"));
+    }
+    void fractionalSecondImportWindowIncludesBoundaryMeasurement() {
+        QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");
+        bool checkedBoundary=false;
+        Importer importer(store,[&](const QString& path,auto done){
+            QUrlQuery query{QUrl(path)};
+            if(path.startsWith("/x/stream")){
+                QCOMPARE(query.queryItemValue("starttime"),QString("1760000001"));
+                QCOMPARE(query.queryItemValue("endtime"),QString("1760000003"));
+                checkedBoundary=true;
+                done(QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\nsynthetic\t1\t1760000001.750\t6\n"),{});
+            }else done(path.startsWith("/x/amounts")?QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n"):QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"),{});
+        });
+        QSignalSpy finished(&importer,&Importer::finished);
+        importer.start(1760000001750LL,1760000003500LL,"synthetic");
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(),1,5000);QVERIFY(finished[0][0].toBool());QVERIFY(checkedBoundary);
+        const auto readings=store.readings(1760000001000LL,1760000003500LL);
+        QCOMPARE(readings.size(),1);QCOMPARE(readings[0].time,1760000001750LL);
+    }
+
     void comparisonColorSegmentsPreserveCrossingsAndGaps() {
         QFile file(QStringLiteral(STUDIO_SOURCE_DIR)+"/qml/chartsegments.js");QVERIFY(file.open(QIODevice::ReadOnly));
         auto source=QString::fromUtf8(file.readAll());source.remove(".pragma library");QJSEngine engine;
@@ -81,11 +145,49 @@ private slots:
         const auto unset=evaluate("[[{x:0,y:2},{x:100,y:12}]]",0,10);QCOMPARE(unset.size(),1);QVERIFY(!unset[0].toObject()["outside"].toBool());
         const auto single=evaluate("[[{x:0,y:12}]]");QCOMPARE(single.size(),1);QVERIFY(single[0].toObject()["outside"].toBool());
     }
+    void emptyAuthoritativeAmountChunkKeepsImportedRows() {
+        QTemporaryDir dir;
+        FixtureStore store(dir.path() + "/studio.sqlite3");
+        const auto run = store.beginImport(1, 1000000, "synthetic");
+        QVERIFY(!run.isEmpty());
+        const auto page = [](const QByteArray &body) {
+            return QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n") + body;
+        };
+        QVERIFY(store.importChunk(run, "amounts", page("synthetic\t1\t100\t1\tsynthetic\n"), 1, 1000000, true));
+        const auto revision = store.revision();
+        QCOMPARE(store.amounts(0, 1000000).size(), 1);
+        // The empty response must fail instead of deactivating the imported row.
+        QVERIFY(!store.importChunk(run, "amounts", page(""), 1, 1000000, true));
+        QVERIFY(store.error().contains(QString::fromUtf8("tyhjää")));
+        QCOMPARE(store.amounts(0, 1000000).size(), 1);
+        QCOMPARE(store.revision(), revision);
+        store.endImport(run, false, "synthetic");
+    }
+
+    void timestampFormattingUsesAnalysisTimezone() {
+        QTemporaryDir dir;
+        FixtureStore store(dir.path() + "/studio.sqlite3");
+        Backend backend(dir.path());
+        QVariantMap settings{{"timezone", "Europe/Helsinki"}, {"low", 4}, {"high", 10},
+            {"maxGapMinutes", 20}, {"fillHistory", false}};
+        QVERIFY(backend.saveAnalysisSettings(settings));
+        const auto at = QDateTime(QDate(2026, 11, 1), QTime(0, 30), QTimeZone("Europe/Helsinki")).toMSecsSinceEpoch();
+        QCOMPARE(backend.formatTimestamp(at, "HH:mm"), QString("00:30"));
+        QCOMPARE(backend.formatTimestamp(at, "yyyy-MM-dd"), QString("2026-11-01"));
+        QCOMPARE(backend.formatTimestamp(at, "ddd d.M.yyyy"), QString("Sun 1.11.2026"));
+        QVERIFY(QDate::fromString(backend.today(), Qt::ISODate).isValid());
+        settings["timezone"] = "UTC";
+        QVERIFY(backend.saveAnalysisSettings(settings));
+        QCOMPARE(backend.formatTimestamp(at, "HH:mm"), QString("22:30"));
+        QCOMPARE(backend.formatTimestamp(at, "yyyy-MM-dd"), QString("2026-10-31"));
+        QCOMPARE(backend.formatTimestamp(at, "ddd d.M.yyyy"), QString("Sat 31.10.2026"));
+    }
+
     void fourComparisonDaysUseLocalDatesAndPreserveEntries_data() {
         QTest::addColumn<QDate>("anchor");QTest::newRow("spring")<<QDate(2026,3,30);QTest::newRow("autumn")<<QDate(2026,10,26);
     }
     void fourComparisonDaysUseLocalDatesAndPreserveEntries() {
-        QFETCH(QDate,anchor);const QTimeZone zone("Europe/Helsinki");QTemporaryDir dir;Store store(dir.path()+"/studio.sqlite3");
+        QFETCH(QDate,anchor);const QTimeZone zone("Europe/Helsinki");QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");
         const QJsonObject settings{{"timezone","Europe/Helsinki"},{"low",4},{"high",10},{"maxGapMinutes",1},{"fillHistory",false}};
         QVERIFY(store.setMeta("analysisSettings",QString::fromUtf8(QJsonDocument(settings).toJson())));
         QList<Reading> rows;
@@ -119,7 +221,7 @@ private slots:
         const qint64 now = QDateTime::currentSecsSinceEpoch() * 1000;
         const qint64 time = now - 2 * 86400000LL;
         {
-            Store setup(dir.path() + "/studio.sqlite3");
+            FixtureStore setup(dir.path() + "/studio.sqlite3");
             QVERIFY(setup.ingest(parseStream(streamAt(time)).rows, {}, time - 1, now, false));
             QVERIFY(setup.setMeta("connectionConfigured", "1"));
             QVERIFY(setup.setMeta("lastSourceUntil", QString::number(now)));
@@ -178,10 +280,10 @@ private slots:
 
     void operationErrorsDoNotHideInitializationFailures() {
         QTemporaryDir dir;
-        Store missing(dir.path() + "/missing.sqlite3", true);
+        FixtureStore missing(dir.path() + "/missing.sqlite3", true);
         QVERIFY(!missing.available());
         QVERIFY(!missing.good());
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         QVERIFY(store.available());
         QVERIFY(store.good());
         QVERIFY(!store.run("SELECT * FROM nonexistent_synthetic_table"));
@@ -192,7 +294,7 @@ private slots:
 
     void identicalImportsRetainRevisionAndRealChangesInvalidate() {
         QTemporaryDir dir;
-        Store store(dir.path() + "/studio.sqlite3");
+        FixtureStore store(dir.path() + "/studio.sqlite3");
         const auto first = amount(100000, 1), second = amount(200000, 2), third = amount(300000, 3);
         const QList<Amount> initial{first, second};
         QVERIFY(store.ingest({}, initial, 1, 1000000, true));
@@ -289,6 +391,34 @@ private slots:
         }
         QCOMPARE(threes, hours == 23 ? 0 : hours == 25 ? 2 : 1);
 
+        // The comparison chart has its own GraphsView, so its axis labels are
+        // drawn by GlucoseChart's grid canvas. Execute that real handler too.
+        QFile glucoseChart(QStringLiteral(STUDIO_SOURCE_DIR) + "/qml/GlucoseChart.qml");
+        QVERIFY(glucoseChart.open(QIODevice::ReadOnly));
+        const auto glucoseBody = functionBody(QString::fromUtf8(glucoseChart.readAll()), "onPaint:");
+        QVERIFY(!glucoseBody.isEmpty());
+        QJSEngine glucoseEngine;
+        const QString glucoseSetup = R"JS(
+            var labels=[], plot={x:10,y:10,width:1000,height:300};
+            var ctx={reset(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},
+                fillText(text,x,y){if(y===plot.y+plot.height+16)labels.push({label:text,x:x})}};
+            function getContext(){return ctx}
+            var Theme={chartGrid:"#000000",chartAxisText:"#ffffff"};
+            var root={};
+        )JS";
+        auto glucoseResult = glucoseEngine.evaluate(glucoseSetup + "root.chartData="
+            + QString::fromUtf8(QJsonDocument(model).toJson(QJsonDocument::Compact))
+            + ";(function()" + glucoseBody + ")();JSON.stringify(labels)");
+        QVERIFY2(!glucoseResult.isError(), qPrintable(glucoseResult.toString()));
+        const auto glucosePainted = QJsonDocument::fromJson(glucoseResult.toString().toUtf8()).array();
+        QCOMPARE(glucosePainted.size(), labels.size());
+        for (int i = 0; i < labels.size(); ++i) {
+            QCOMPARE(glucosePainted[i].toObject()["label"], labels[i].toObject()["label"]);
+            const double ratio = (labels[i].toObject()["time"].toDouble() - model["from"].toDouble())
+                / (model["to"].toDouble() - model["from"].toDouble());
+            QCOMPARE(glucosePainted[i].toObject()["x"].toDouble(), 10 + ratio * 1000 - 7);
+        }
+
         QFile chart(QStringLiteral(STUDIO_SOURCE_DIR) + "/qml/CurrentDayChart.qml");
         QVERIFY(chart.open(QIODevice::ReadOnly));
         const auto source = QString::fromUtf8(chart.readAll());
@@ -350,7 +480,7 @@ private slots:
         for (int minute : {0, 5, 10}) rows.append(sample(start + minute * 60000, "history"));
         rows.append(sample(start + 360000));
         {
-            Store setup(dir.path() + "/studio.sqlite3");
+            FixtureStore setup(dir.path() + "/studio.sqlite3");
             QVERIFY(setup.ingest(rows, {}, start - 1, start + 86400000, false));
         }
         Backend backend(dir.path());

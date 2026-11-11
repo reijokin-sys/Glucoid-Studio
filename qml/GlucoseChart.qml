@@ -40,6 +40,14 @@ Item {
             width: 2
         }
     }
+    Component {
+        id: singlePointMarker
+        Rectangle { width: 8; height: 8; radius: 4; color: Theme.accentTeal }
+    }
+    Component {
+        id: outsideSinglePointMarker
+        Rectangle { width: 8; height: 8; radius: 4; color: Theme.alertRed }
+    }
     function seriesAt(index) {
         if (index === created.length) {
             let s = lineFactory.createObject(graph);
@@ -52,6 +60,7 @@ Item {
         let s = seriesAt(index);
         s.color = color;
         s.width = width;
+        s.pointDelegate = points.length === 1 ? (color === Theme.alertRed ? outsideSinglePointMarker : singlePointMarker) : null;
         s.replace(points.map(p => Qt.point(p.x, p.y)));
         s.visible = points.length > 0;
     }
@@ -93,6 +102,7 @@ Item {
         }
     }
     onRenderedSegmentsChanged: redrawTimer.restart()
+    onChartDataChanged: gridCanvas.requestPaint()
     onVisibleChanged: if (visible)
         redrawTimer.restart()
     Component.onCompleted: redrawTimer.start()
@@ -123,6 +133,19 @@ Item {
                 ctx.lineTo(p.x + p.width, y);
                 ctx.stroke();
             }
+            // Qt's DateTimeAxis formats tick labels without the analysis
+            // timezone; draw backend-supplied local labels when available.
+            const data = root.chartData || {};
+            const from = Number(data.from), to = Number(data.to);
+            if (to > from) {
+                ctx.fillStyle = Theme.chartAxisText;
+                ctx.font = "9px sans-serif";
+                for (const tick of (data.ticks || [])) {
+                    const ratio = (Number(tick.time) - from) / (to - from);
+                    if (ratio >= 0 && ratio <= 1)
+                        ctx.fillText(tick.label, p.x + ratio * p.width - 7, p.y + p.height + 16);
+                }
+            }
         }
     }
     Loader {
@@ -143,6 +166,7 @@ Item {
                 min: new Date(root.chartData.from || Date.now() - 86400000)
                 max: new Date(root.chartData.to || Date.now())
                 labelFormat: "dd.MM HH:mm"
+                labelsVisible: !((root.chartData.ticks || []).length > 0)
             }
             axisY: ValueAxis {
                 min: 0
@@ -181,7 +205,7 @@ Item {
                 id: hover
             }
             ToolTip.visible: hover.hovered
-            ToolTip.text: (modelData.timeText || new Date(modelData.time).toLocaleString(Qt.locale(root.language === "fi" ? "fi_FI" : "en_GB"), "dd.MM HH:mm")) + " · " + modelData.label + " " + modelData.value + " · " + (modelData.local ? "paikallinen" : root.sourceName)
+            ToolTip.text: (modelData.timeText || "") + " · " + modelData.label + " " + modelData.value + " · " + (modelData.local ? "paikallinen" : root.sourceName)
         }
     }
     Label {

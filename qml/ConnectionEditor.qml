@@ -93,7 +93,7 @@ ColumnLayout {
         objectName: "sourceAuth"
         Layout.fillWidth: true
         visible: !editor.nightscout
-        model: [qsTranslate("Studio", "API-salaisuus"), qsTranslate("Studio", "Tunnus"), "Ei tunnistautumista"]
+        model: [qsTranslate("Studio", "API-salaisuus"), qsTranslate("Studio", "Tunnus"), qsTranslate("Studio", "Ei tunnistautumista")]
     }
     TextField {
         id: credential
@@ -118,7 +118,7 @@ ColumnLayout {
     Button {
         objectName: "saveSourceConnection"
         text: qsTranslate("Studio", "Tallenna tietolähde")
-        enabled: !editor.backend.busy && !editor.backend.automaticBusy
+        enabled: !editor.backend.busy
         onClicked: {
             const saved = editor.backend.saveSourceConnection(editor.chosenSource, editor.nightscout ? "network" : (mode.currentIndex === 0 ? "usb" : "wireguard"), address.text, editor.nightscout ? "token" : ["apisecret", "token", "none"][auth.currentIndex], credential.text, serial.text, editor.nightscout ? "" : tunnelInterface.text);
             if (saved)
@@ -159,7 +159,7 @@ ColumnLayout {
         }
         Button {
             text: qsTranslate("Studio", "Kopioi yhteysasetukset")
-            enabled: !editor.backend.busy && !editor.backend.automaticBusy
+            enabled: !editor.backend.busy
             onClicked: {
                 editor.backend.importGlucoid();
                 editor.loadActive();

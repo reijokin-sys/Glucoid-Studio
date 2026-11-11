@@ -37,6 +37,16 @@ shortcut = desktop_dir / 'fi.reijo.glucoidstudio.desktop'
 mime_env = os.environ.copy()
 mime_env['PATH'] = str(project / 'tools') + os.pathsep + mime_env.get('PATH', '')
 
+def save_manifest(report):
+    # Publish complete installation evidence atomically (audit finding M19).
+    temporary = manifest.with_name(manifest.name + '.new')
+    with temporary.open('w') as output:
+        json.dump(report, output, indent=2)
+        output.write('\n')
+        output.flush()
+        os.fsync(output.fileno())
+    temporary.replace(manifest)
+
 def systemctl(*parts):
     subprocess.run(['systemctl', '--user', *parts], check=True)
 
@@ -77,7 +87,7 @@ if args.desktop_only:
     temp.chmod(0o755)
     temp.replace(shortcut)
     previous['desktop_shortcut'] = {'path': str(shortcut), 'sha256': hashlib.sha256(shortcut.read_bytes()).hexdigest()}
-    manifest.write_text(json.dumps(previous, indent=2) + '\n')
+    save_manifest(previous)
     print('Desktop shortcut created: ' + str(shortcut))
 elif args.remove:
     for kind, path in icons.items():
@@ -177,5 +187,5 @@ WantedBy=graphical-session.target
     report = {'time': time.strftime('%Y-%m-%dT%H:%M:%S%z'), 'files': hashes, 'previous_uri_handler': previous_handler, 'data_preserved_on_remove': True, 'collector_mode': 'enabled' if args.enable_collector else 'manual', 'runtime_binary': str(binary)}
     if previous.get('desktop_shortcut'):
         report['desktop_shortcut'] = previous['desktop_shortcut']
-    manifest.write_text(json.dumps(report, indent=2) + '\n')
+    save_manifest(report)
     print('Desktop launcher and URI handler installed; background collection is optional.')

@@ -1,3 +1,4 @@
+#include "storefixtures.h"
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Optional live Nightscout check. Runs only when both environment variables
 // are present; the token is never printed. Use synthetic test data only.
@@ -30,7 +31,7 @@ int main(int argc, char** argv) {
     QDir().mkpath(root);
     const QString database = nightscoutDatasetPath(root, QString::fromUtf8(url));
     QDir().mkpath(QFileInfo(database).absolutePath());
-    Store store(database);
+    FixtureStore store(database);
     if (!store.good()) {
         std::fprintf(stderr, "store unavailable\n");
         return 1;

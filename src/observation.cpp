@@ -2,7 +2,6 @@
 #include <QCoreApplication>
 #include "observation.h"
 #include <QDateTime>
-#include <QMap>
 #include <algorithm>
 #include <cmath>
 
@@ -47,8 +46,7 @@ QStringList validateObservationProfile(const QJsonObject& profile, qint64 now) {
     return errors;
 }
 
-QJsonObject observeProfile(const QJsonObject& profile, const QList<Interval>& data, const QJsonArray& amounts, QDate first, int days, const QTimeZone& zone,
-                           const QSet<QString>& completeDays) {
+QJsonObject observeProfile(const QJsonObject& profile, const QList<Interval>& data, QDate first, int days, const QTimeZone& zone) {
     if (profile.isEmpty()) return {{"status", "inactive"}, {"active", false}};
     const auto errors = validateObservationProfile(profile);
     if (!errors.isEmpty()) return {{"status", "invalid"}, {"active", false}, {"reasons", QJsonArray::fromStringList(errors)}};
@@ -80,60 +78,6 @@ QJsonObject observeProfile(const QJsonObject& profile, const QList<Interval>& da
     stats["coverage"] = statistics["coveredSeconds"].toDouble() / ((to - start) / 1000.0);
     result["glucose"] = stats;
     if (clipped.isEmpty()) result["status"] = "waiting_for_glucose";
-    QMap<QString, QJsonArray> byDay;
-    for (auto value : amounts) {
-        auto amount = value.toObject();
-        auto time = qint64(amount["time"].toDouble());
-        if (time >= start && time < to) byDay[QDateTime::fromMSecsSinceEpoch(time, zone).date().toString(Qt::ISODate)] << amount;
-    }
-    QJsonArray daily;
-    int compared = 0, matching = 0;
-    for (int i = 0; i < days; ++i) {
-        auto date = first.addDays(i);
-        auto dayStart = QDateTime(date, QTime(0, 0), zone).toMSecsSinceEpoch();
-        if (QDateTime(date.addDays(1), QTime(0, 0), zone).toMSecsSinceEpoch() <= start) continue;
-        auto dateText = date.toString(Qt::ISODate);
-        bool unknown = false, medicineMatches = true;
-        int basalCount = 0;
-        double basal = 0;
-        for (auto value : byDay[dateText]) {
-            auto amount = value.toObject();
-            auto kind = amount["kind"].toString();
-            if (!std::isfinite(number(amount, "value")) || number(amount, "value") < 0 || amount["deleted"].toBool() || amount["analysisExcluded"].toBool() ||
-                kind.isEmpty() || kind == "unknown") {
-                unknown = true;
-                continue;
-            }
-            if (kind == "basal") {
-                ++basalCount;
-                basal += amount["value"].toDouble();
-                medicineMatches &= amount["medicine"].toString() == profile["basalMedicine"].toString();
-            }
-        }
-        QString reason;
-        if (dayStart < effective)
-            reason = "partial_profile_day";
-        else if (!completeDays.contains(dateText))
-            reason = "unconfirmed_day";
-        else if (unknown)
-            reason = "unclassified_or_excluded";
-        else if (!medicineMatches)
-            reason = "different_medicine";
-        else if (basalCount != 1)
-            reason = "single_basal_entry_required";
-        QJsonObject row{{"date", dateText}, {"basalEntries", basalCount}, {"comparisonReady", reason.isEmpty()}, {"reason", reason}};
-        row["basalRecorded"] = basalCount ? QJsonValue(basal) : QJsonValue();
-        if (reason.isEmpty()) {
-            row["basalDifference"] = basal - number(profile, "basalDose");
-            ++compared;
-            if (std::abs(basal - number(profile, "basalDose")) < 1e-6) ++matching;
-        }
-        daily << row;
-    }
-    result["daily"] = daily;
-    result["basalComparedDays"] = compared;
-    result["basalMatchingDays"] = matching;
-    result["note"] = QCoreApplication::translate("Studio", "Kirjattujen annosten vertailu ja glukoosiseuranta; ei arvio lääkkeen syyvaikutuksesta tai annosmuutosehdotus.");
     return result;
 }
 } // namespace Studio

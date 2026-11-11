@@ -19,7 +19,25 @@ source.mkdir(parents=True)
 selected = {name: root/name for name in ('CMakeLists.txt', 'LICENSE', '.clineignore', '.clang-format')}
 selected.update({'README.md':root/'github/README.md', '.gitignore':root/'github/.gitignore',
                  'THIRD_PARTY_NOTICES.md':root/'packaging/THIRD_PARTY_NOTICES.md'})
-for directory, suffixes in [('i18n',{'.ts'}),('src',{'.cpp','.h'}),('qml',{'.qml','.js'}),('tests',{'.cpp','.h','.py','.tsv'}),('packaging',{'.desktop','.md'})]:
+application_files = {
+    'src': (
+        'backend.cpp backend.h databasebackup.cpp databasebackup.h dailyanalysis.cpp dailyanalysis.h daychart.cpp daychart.h '
+        'domain.cpp domain.h glucose.cpp glucose.h glucoseanalysis.cpp glucoseanalysis.h '
+        'importer.cpp importer.h language.cpp language.h main.cpp nightscout.cpp nightscout.h '
+        'nightscoutstore.cpp observation.cpp observation.h store.cpp store.h syncpolicy.h '
+        'transport.cpp transport.h transportcore.cpp wireguard.cpp wireguard.h'
+    ).split(),
+    'qml': (
+        'chartsegments.js theme.js Main.qml DailyAnalysis.qml ConnectionEditor.qml '
+        'LanguageSelector.qml GlucoseChart.qml CurrentDayChart.qml ProfileChart.qml '
+        'Disclosure.qml MetricCard.qml Legend.qml'
+    ).split(),
+    'i18n': ['studio_en.ts', 'studio_fi.ts'],
+}
+for directory, names in application_files.items():
+    for name in names:
+        selected[directory+'/'+name] = root/directory/name
+for directory, suffixes in [('tests',{'.cpp','.h','.py','.tsv'}),('packaging',{'.desktop','.md'})]:
     for p in sorted((root/directory).rglob('*')):
         if p.is_file() and p.suffix in suffixes and '__pycache__' not in p.parts:
             selected[str(p.relative_to(root))] = p
@@ -28,7 +46,7 @@ for p in sorted((root/'packaging/licenses').glob('*')):
 for name in ('fi.reijo.glucoidstudio.svg','fi.reijo.glucoidstudio.png'):
     selected['packaging/'+name] = root/'packaging'/name
 selected['tests/security/README.md'] = root/'github/SECURITY_TESTING.md'
-for name in ('build.sh','install.py','qtpaths','restore-backup.py','purge_comparison.py','prepare-release.py','build-release-package.py'):
+for name in ('build.sh','install.py','qtpaths','restore-backup.py','prepare-release.py','build-release-package.py'):
     selected['tools/'+name] = root/'tools'/name
 # Public source keeps the generator inputs too, so packaging is reproducible.
 for name in ('README.md','.gitignore','SECURITY_TESTING.md'):

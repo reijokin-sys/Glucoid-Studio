@@ -59,7 +59,7 @@ bool parseRecord(const QJsonObject& object, const QString& collection, Record& r
         if (!quantity(object, "sgv", record.original)) return false;
         record.unit = object["units"].toString("mg/dl").toLower();
         if (record.unit == "mg" || record.unit == "mg/dl")
-            record.mmol = record.original / 18.0;
+            record.mmol = record.original / glucoseMgdlPerMmol;
         else if (record.unit == "mmol" || record.unit == "mmol/l")
             record.mmol = record.original;
         else
