@@ -105,6 +105,23 @@ Most tests use temporary synthetic datasets. Local HTTP/TLS tests need permissio
 
 Developers can set a local data root with the `STUDIO_LOCAL_DATA_ROOT` CMake option. The public package uses the XDG default.
 
+#### Juggluco entry labels
+
+After the first import, open **Settings → Juggluco entry categories** and classify the labels you use. Your Juggluco label names can be freely chosen; the names below are examples, not required names.
+
+| Example label | Studio category |
+| --- | --- |
+| `Carbs` | Carbohydrates |
+| `Fast insulin` | Rapid-acting insulin, including both meal and correction doses |
+| `Long insulin` | Basal insulin |
+| `Walking` | Other |
+
+Insulin labels also require an insulin product name. Multiple labels may use the same category. Check each new label after its first import: unclassified entries are not counted as carbohydrate or insulin amounts in Daily analysis.
+
+A single rapid-insulin label is sufficient for both meal and correction doses. Daily analysis includes both, excludes basal insulin from the insulin-to-carbohydrate ratio, and does not match individual doses to meals.
+
+Before renaming or reusing a Juggluco label, review its meaning in Studio. Juggluco can apply a renamed label to earlier entries, and changing a label's category or insulin product in Studio also affects the interpretation of earlier entries with that name.
+
 #### Calculation policy
 
 Glucose is weighted by measured duration. Stream data takes priority; sensor history fills only gaps, without double counting overlapping time. Missing time is not treated as zero, and the last reading is not extended across a long gap. The technical maximum gap is 20 minutes; covered time is also limited by the series' observed sampling interval.
