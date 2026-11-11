@@ -37,8 +37,25 @@ new installation before restoring. Juggluco and Nightscout data stay separate.
 Import completion and label mappings are stored atomically. The update state,
 single-point chart markers, language handling and fractional-second import
 boundaries have been corrected. Database copying and restore/import/new-copy
-flows were tested with synthetic data. Physical transfer to another computer
-has not yet been tested.
+flows were tested with synthetic data.
+
+Transfers between computers were verified on 11 November 2026: a database file
+created with the manual backup was moved to a second computer, where the same
+4.0.0 package had been installed from this repository, and the restore
+succeeded. Only the database file was transferred; settings and credentials
+were not.
+
+#### Nightscout verification
+
+The Nightscout data source was verified end to end on 11 November 2026 with the
+installed 4.0.0 and a temporary HTTPS test server that served synthetic data
+only. The read token was exchanged for a JWT, history was read with the API v3
+cursor requests, 2017 glucose readings and 50 treatment rows (rapid insulin,
+correction, basal and carbohydrate entries) were imported without duplicate
+timestamps, and a wrong read token was rejected with HTTP 401 without storing
+any rows. The read token was stored in KDE Wallet and not in the connection
+settings file. A real Nightscout server and the network-dependent
+`studio-nightscout-live` test remain unverified.
 
 #### Features retained from version 1.6.0
 
