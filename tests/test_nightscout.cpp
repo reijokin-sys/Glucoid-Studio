@@ -225,6 +225,53 @@ class NightscoutTest : public QObject {
         QVERIFY(repeated[0][0].toBool());
         QCOMPARE(store.revision(), revision);
     }
+    // Synthetic xDrip REST-uploader fields wrapped in an assumed Nightscout v3 response.
+    // This is not an Android uploader / real Nightscout end-to-end test.
+    void xdripUploaderPayloadThroughNightscoutHistory() {
+        QTemporaryDir dir;
+        FixtureStore store(dir.path() + "/studio.sqlite3");
+        Server server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        const QString iso = QDateTime::fromMSecsSinceEpoch(instant, Qt::UTC).toString(Qt::ISODateWithMs);
+        QJsonObject entry{{"identifier", "xdrip-glucose"}, {"srvModified", double(instant)},
+                          {"date", double(instant)}, {"dateString", iso}, {"sysTime", iso},
+                          {"device", "xDrip-synthetic"}, {"type", "sgv"}, {"sgv", 108},
+                          {"direction", "Flat"}, {"filtered", 100000}, {"unfiltered", 110000}};
+        // xDrip uploader has no units field here: SGV must default to mg/dL.
+        QJsonObject untyped{{"identifier", "xdrip-untyped"}, {"srvModified", double(instant)},
+                            {"timestamp", double(instant)}, {"created_at", iso}, {"sysTime", iso},
+                            {"uuid", "synthetic-xdrip-uuid"}, {"enteredBy", "xdrip"},
+                            {"eventType", "<none>"}, {"carbs", 30}, {"insulin", 3},
+                            {"notes", "synthetic fixture"}};
+        auto typed = untyped;
+        typed["identifier"] = "xdrip-meal";
+        typed["uuid"] = "synthetic-xdrip-meal-uuid";
+        typed["eventType"] = "Meal Bolus";
+        typed["carbs"] = 40;
+        typed["insulin"] = 4;
+        server.respond = [&](QByteArray request) { return normalResponse(request, {entry}, {untyped, typed}); };
+        auto sync = [&] {
+            NightscoutImporter importer(store, server.address(), "synthetic-access", nullptr, allHistory);
+            QSignalSpy done(&importer, &NightscoutImporter::finished);
+            importer.start();
+            QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 10000);
+            QVERIFY2(done[0][0].toBool(), qPrintable(done[0][1].toString()));
+        };
+        sync();
+        const auto readings = store.readings(0, instant + 1);
+        QCOMPARE(readings.size(), 1);
+        QCOMPARE(readings.first().mmol, 6.0);
+        QCOMPARE(store.query("SELECT value FROM amounts WHERE id='nightscout:xdrip-untyped:carbs'")[0].toObject()["value"].toDouble(), 30.0);
+        QVERIFY(store.query("SELECT id FROM amounts WHERE id='nightscout:xdrip-untyped:insulin'").isEmpty());
+        QCOMPARE(store.query("SELECT value FROM amounts WHERE id='nightscout:xdrip-meal:insulin' AND kind='rapid'")[0].toObject()["value"].toDouble(), 4.0);
+        QCOMPARE(store.query("SELECT count(*) AS n FROM meta WHERE key GLOB 'nightscoutUnsupported:*'")[0].toObject()["n"].toInt(), 1);
+        // Repeating a history page must not duplicate readings or treatment rows.
+        const auto revision = store.revision();
+        sync();
+        QCOMPARE(store.revision(), revision);
+        QCOMPARE(store.amounts(0, instant + 1).size(), 3);
+        qInfo("xDrip-shaped fixture: 108 mg/dL -> 6 mmol/L; carbs 30+40 g; typed insulin 4 U; untyped 3 U excluded and flagged; repeat deduplicated.");
+    }
     void firstImportCoversAboutSixMonths() {
         QTemporaryDir dir;
         FixtureStore store(dir.path() + "/studio.sqlite3");

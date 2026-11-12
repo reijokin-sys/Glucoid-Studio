@@ -83,6 +83,7 @@ private slots:
         QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");
         QVERIFY(store.run("CREATE TRIGGER fail_finish BEFORE UPDATE ON import_runs WHEN NEW.status='complete' BEGIN SELECT RAISE(ABORT,'synthetic failure'); END"));
         Importer importer(store,[](const QString& path,auto done){
+            if (path.startsWith("/api/v3/treatments?")) { done(QByteArray(R"({"status":200,"result":[]})"), {}); return; }
             done(path.startsWith("/x/amounts")?QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n"):QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"),{});
         });
         QSignalSpy finished(&importer,&Importer::finished);
@@ -108,6 +109,7 @@ private slots:
         QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");
         bool checkedBoundary=false;
         Importer importer(store,[&](const QString& path,auto done){
+            if (path.startsWith("/api/v3/treatments?")) { done(QByteArray(R"({"status":200,"result":[]})"), {}); return; }
             QUrlQuery query{QUrl(path)};
             if(path.startsWith("/x/stream")){
                 QCOMPARE(query.queryItemValue("starttime"),QString("1760000001"));
@@ -240,7 +242,7 @@ private slots:
                 const auto seconds = (time + 60000) / 1000;
                 const bool inWindow = seconds >= query.queryItemValue("starttime").toLongLong()
                     && seconds <= query.queryItemValue("endtime").toLongLong();
-                const auto body = broken ? QByteArray("broken TSV\n")
+                const auto body = request->startsWith("GET /api/v3/treatments?") ? QByteArray("{\"status\":200,\"result\":[]}") : broken ? QByteArray("broken TSV\n")
                     : request->startsWith("GET /x/amounts")
                         ? QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n")
                         : inWindow ? streamAt(time + 60000, 2)

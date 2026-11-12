@@ -19,7 +19,8 @@ void Transport::get(const Connection& connection, const QString& path, std::func
         done({}, QCoreApplication::translate("Studio", "Tiedonsiirto on jo käynnissä."));
         return;
     }
-    if (!path.startsWith("/x/") || path.contains('\r') || path.contains('\n')) {
+    const bool categories = QRegularExpression("^/api/v3/treatments\\?limit=[1-9][0-9]{0,5}$").match(path).hasMatch();
+    if ((!path.startsWith("/x/") && !categories) || path.contains('\r') || path.contains('\n')) {
         done({}, QCoreApplication::translate("Studio", "Virheellinen vientipolku."));
         return;
     }

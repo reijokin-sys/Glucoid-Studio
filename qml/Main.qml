@@ -832,7 +832,7 @@ Kirigami.ApplicationWindow {
                 Label {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: qsTranslate("Studio", "Tee päivittäiset merkinnät valitsemasi lähteen sovelluksessa. Studio lukee tiedot avattaessa ja viiden minuutin välein sovelluksen ollessa auki.")
+                    text: qsTranslate("Studio", "Tee päivittäiset merkinnät lähdesovelluksessa: Jugglucossa tai Nightscoutissa. Studio lukee ne avattaessa ja viiden minuutin välein. Merkinnän aika, määrä, nimi ja luokka tulevat lähteestä; Studio ei luo, muokkaa eikä poista merkintöjä.")
                 }
                 Disclosure {
                     objectName: "connectionDetails"
@@ -892,13 +892,60 @@ Kirigami.ApplicationWindow {
                 Disclosure {
                     objectName: "labelMappingSettings"
                     Layout.fillWidth: true
-                    title: qsTranslate("Studio", "Jugglucon merkintäluokat")
+                    title: qsTranslate("Studio", "Merkinnät ja niiden nimet")
                     visible: window.studio.connection.source !== "nightscout"
-                    summary: qsTranslate("Studio", "HH- ja insuliinimerkintöjen tunnistus")
+                    summary: qsTranslate("Studio", "Luetaan Jugglucosta · Studio ei muokkaa merkintöjä")
                     Label {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: qsTranslate("Studio", "Valitse, mitä kukin Jugglucon merkintänimi tarkoittaa. Insuliinimerkinnälle tarvitaan myös valmisteen nimi.")
+                        text: qsTranslate("Studio", "Jugglucossa jokainen kirjaus tallentuu numerolabeliin: aika, määrä ja labelin nimi. Juggluco lyhentää pitkiä nimiä (esimerkiksi ”Fast Insuli”), joten nimi näkyy tässä sellaisena kuin Juggluco sen antaa.")
+                    }
+                    Label {
+                        objectName: "jugglucoClassSourceNote"
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: qsTranslate("Studio", "Luokka tulee Jugglucosta: hiilihydraatit, pikainsuliini tai perusinsuliini on valittu siellä, kun merkintä on kirjattu. Studio ei kysy sitä uudelleen eikä päättele sitä nimestä.")
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: qsTranslate("Studio", "Valmisteen nimi on vapaaehtoinen ja vain sinua varten. Luokittelematon tarkoittaa, ettei Juggluco välittänyt tälle riville tunnistettavaa luokkaa: merkintä näkyy käyrällä, mutta ei ole mukana hiilihydraatti- eikä insuliinisummissa.")
+                    }
+                    Label {
+                        objectName: "labelNameFrozenNote"
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        text: qsTranslate("Studio", "Pidä labelin nimi pysyvänä: nimi yhdistää merkinnät toisiinsa ja valmisteeseen. Jos vaihdat nimen, tarkista summat.")
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label {
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                            font.bold: true
+                            font.pixelSize: 11
+                            opacity: 0.7
+                            text: qsTranslate("Studio", "Nimi Jugglucossa")
+                        }
+                        Label {
+                            Layout.preferredWidth: 160
+                            wrapMode: Text.WordWrap
+                            font.bold: true
+                            font.pixelSize: 11
+                            opacity: 0.7
+                            text: qsTranslate("Studio", "Luokka")
+                        }
+                        Label {
+                            Layout.preferredWidth: 150
+                            wrapMode: Text.WordWrap
+                            font.bold: true
+                            font.pixelSize: 11
+                            opacity: 0.7
+                            text: qsTranslate("Studio", "Valmiste")
+                        }
+                        Item {
+                            Layout.preferredWidth: 130
+                        }
                     }
                     Repeater {
                         model: window.studio.labels
@@ -911,21 +958,24 @@ Kirigami.ApplicationWindow {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
                             }
-                            ComboBox {
-                                id: kind
+                            Label {
+                                objectName: "jugglucoSourceClass"
                                 property var kinds: ["unknown", "carbs", "rapid", "basal", "correction", "other"]
-                                model: [qsTranslate("Studio", "Tuntematon"), qsTranslate("Studio", "Hiilihydraatit"), qsTranslate("Studio", "Pikainsuliini"), qsTranslate("Studio", "Perusinsuliini"), qsTranslate("Studio", "Korjausinsuliini"), qsTranslate("Studio", "Muu")]
-                                currentIndex: Math.max(0, kinds.indexOf(labelRow.modelData.kind))
+                                property var names: [qsTranslate("Studio", "Tuntematon"), qsTranslate("Studio", "Hiilihydraatit"), qsTranslate("Studio", "Pikainsuliini"), qsTranslate("Studio", "Perusinsuliini"), qsTranslate("Studio", "Korjausinsuliini"), qsTranslate("Studio", "Muu")]
+                                text: labelRow.modelData.origin === "juggluco" ? names[Math.max(0, kinds.indexOf(labelRow.modelData.kind))] : qsTranslate("Studio", "Vanha rivi: luokka Studion aiemmasta valinnasta")
+                                wrapMode: Text.WordWrap
+                                Layout.preferredWidth: 160
                             }
                             TextField {
                                 id: medicine
                                 text: labelRow.modelData.medicine || ""
-                                placeholderText: qsTranslate("Studio", "Valmiste")
+                                placeholderText: qsTranslate("Studio", "Valmiste (vapaaehtoinen)")
                                 Layout.preferredWidth: 150
                             }
                             Button {
-                                text: qsTranslate("Studio", "Tallenna")
-                                onClicked: window.studio.mapLabel(labelRow.modelData.label, kind.kinds[kind.currentIndex], medicine.text)
+                                Layout.preferredWidth: 130
+                                text: qsTranslate("Studio", "Tallenna valmiste")
+                                onClicked: window.studio.mapLabel(labelRow.modelData.label, labelRow.modelData.kind, medicine.text)
                             }
                         }
                     }

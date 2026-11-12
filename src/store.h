@@ -18,7 +18,11 @@ class Store {
     bool switchDatabase(const QString& path);
     bool importNightscoutPage(const QString& runId, const QString& collection, const QByteArray& bytes, qint64 cursor);
     bool reconcileNightscout(const QString& collection, qint64 from, const QSet<QString>& seen);
-    bool ingest(const QList<Reading>& readings, const QList<Amount>& amounts, qint64 from, qint64 to, bool authoritative, bool allowEmpty = false);
+    // reconcileFrom limits authoritative deactivation (default: the whole
+    // requested window). A normal update passes the correction window so an
+    // incremental export cannot retire older history it no longer carries.
+    bool ingest(const QList<Reading>& readings, const QList<Amount>& amounts, qint64 from, qint64 to, bool authoritative, bool allowEmpty = false,
+                qint64 reconcileFrom = -1);
     QList<Reading> readings(qint64 from, qint64 to, const QString& kind = "stream") const;
     QJsonArray amounts(qint64 from, qint64 to, bool includeDeleted = false) const;
     QJsonArray mappings() const;
@@ -26,7 +30,8 @@ class Store {
     QJsonObject observationProfile() const;
     QString revision() const;
     QString beginImport(qint64 from, qint64 to, const QString& transport);
-    bool importChunk(const QString& runId, const QString& kind, const QByteArray& bytes, qint64 from, qint64 to, bool authoritative = true);
+    bool importChunk(const QString& runId, const QString& kind, const QByteArray& bytes, qint64 from, qint64 to, bool authoritative = true,
+                     const QByteArray& sourceClasses = {}, qint64 reconcileFrom = -1);
     bool endImport(const QString& runId, bool success, const QString& message);
     QJsonArray imports() const;
 

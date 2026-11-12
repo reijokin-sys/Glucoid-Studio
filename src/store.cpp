@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QSaveFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QTimeZone>
@@ -232,7 +233,8 @@ bool Store::setMeta(const QString& key, const QString& value) {
 QString Store::revision() const {
     return meta("revision");
 }
-bool Store::ingest(const QList<Reading>& readings, const QList<Amount>& amounts, qint64 from, qint64 to, bool authoritative, bool allowEmpty) {
+bool Store::ingest(const QList<Reading>& readings, const QList<Amount>& amounts, qint64 from, qint64 to, bool authoritative, bool allowEmpty,
+                   qint64 reconcileFrom) {
     if (to <= from) {
         m_error = QCoreApplication::translate("Studio", "Virheellinen tuontijakso.");
         return false;
@@ -245,7 +247,12 @@ bool Store::ingest(const QList<Reading>& readings, const QList<Amount>& amounts,
         m_error = QCoreApplication::translate("Studio", "Merkintä ei kuulu pyydettyyn aikaväliin.");
         return false;
     }
-    const auto old = query("SELECT id FROM amounts WHERE local=0 AND active=1 AND time>=? AND time<?", {from, to});
+    // A normal update only proves what the source still carries inside the
+    // correction window. An incremental export that no longer contains older
+    // rows must not retire them; an explicit full-history check passes `from`
+    // here and keeps the authoritative behaviour over the whole window.
+    const qint64 reconcileBegin = reconcileFrom < 0 ? from : std::max(from, reconcileFrom);
+    const auto old = query("SELECT id FROM amounts WHERE local=0 AND active=1 AND time>=? AND time<?", {reconcileBegin, to});
     if (authoritative && !allowEmpty && amounts.isEmpty() && !old.isEmpty()) {
         m_error = QCoreApplication::translate("Studio", "Merkintälähde palautti tyhjää. Aiemmat merkinnät säilytettiin; tarkista vienti.");
         return false;
@@ -273,9 +280,12 @@ bool Store::ingest(const QList<Reading>& readings, const QList<Amount>& amounts,
                      {r.key, r.sensor, r.time, r.mmol, r.original, r.originalUnit, r.reliable, r.seriesKind, r.calibration, r.originalTimezone});
     for (const auto& a : amounts)
         if (ok) {
-            ok = run("INSERT INTO amounts(id,source,time,label,value,raw,active) VALUES(?,?,?,?,?,?,1) ON CONFLICT(id) DO UPDATE SET active=1 WHERE "
-                     "amounts.active<>1",
-                     {a.key, a.source, a.time, a.label, a.value, a.raw});
+            ok = run("INSERT INTO amounts(id,source,time,label,value,raw,active,kind) VALUES(?,?,?,?,?,?,1,?) ON CONFLICT(id) DO UPDATE SET active=1, "
+                     "source=CASE WHEN excluded.source='juggluco-v3' THEN excluded.source ELSE amounts.source END, "
+                     "kind=CASE WHEN excluded.source='juggluco-v3' THEN excluded.kind ELSE amounts.kind END, "
+                     "value=CASE WHEN excluded.source='juggluco-v3' THEN excluded.value ELSE amounts.value END "
+                     "WHERE amounts.active<>1 OR (excluded.source='juggluco-v3' AND (amounts.source<>excluded.source OR amounts.kind<>excluded.kind OR amounts.value<>excluded.value))",
+                     {a.key, a.source, a.time, a.label, a.value, a.raw, a.kind});
         }
     // Content snapshots, not arbitrary renumbering, determine whether review is invalidated.
     if (ok && sqlite3_total_changes(db) > before) ok = setMeta("revision", QUuid::createUuid().toString(QUuid::WithoutBraces));
@@ -323,10 +333,9 @@ QJsonArray Store::amounts(qint64 from, qint64 to, bool includeDeleted) const {
         auto o = v.toObject();
         o["local"] = o["local"].toInt() != 0;
         o["active"] = o["active"].toInt() != 0;
-        // Parked 2026-10-31: the Juggluco prot label is not used; the raw rows stay
-        // in the database but are hidden from every calculation and view.
-        if (!o["local"].toBool() && o["label"].toString() == "prot") continue;
-        if (!o["local"].toBool() && o["source"].toString() != "nightscout-v3") {
+        if (!o["local"].toBool() && o["source"].toString() == "juggluco-v3") {
+            o["medicine"] = o["mappedMedicine"].toString();
+        } else if (!o["local"].toBool() && o["source"].toString() != "nightscout-v3") {
             o["kind"] = o["mappedKind"].toString("unknown");
             o["medicine"] = o["mappedMedicine"].toString();
         }
@@ -343,12 +352,12 @@ QJsonArray Store::amounts(qint64 from, qint64 to, bool includeDeleted) const {
     return result;
 }
 QJsonArray Store::mappings() const {
-    return query("SELECT DISTINCT a.label,COALESCE(m.kind,'unknown') AS kind,COALESCE(m.medicine,'') AS medicine FROM amounts a LEFT JOIN mappings m ON "
-                 "a.label=m.label WHERE a.local=0 AND a.source<>'nightscout-v3' AND a.label<>'prot' ORDER BY a.label");
+    return query("SELECT DISTINCT a.label,CASE WHEN a.source='juggluco-v3' THEN a.kind ELSE COALESCE(m.kind,'unknown') END AS kind, "
+                 "COALESCE(m.medicine,'') AS medicine,CASE WHEN a.source='juggluco-v3' THEN 'juggluco' ELSE 'legacy' END AS origin "
+                 "FROM amounts a LEFT JOIN mappings m ON a.label=m.label WHERE a.local=0 AND a.active=1 AND a.source<>'nightscout-v3' ORDER BY a.label");
 }
 bool Store::mapLabel(const QString& label, const QString& kind, const QString& medicine) {
-    if (!QStringList{"rapid", "correction", "basal", "carbs", "other", "unknown"}.contains(kind) ||
-        ((kind == "rapid" || kind == "correction" || kind == "basal") && medicine.trimmed().isEmpty()))
+    if (!QStringList{"rapid", "correction", "basal", "carbs", "other", "unknown"}.contains(kind))
         return false;
     if (!run("SAVEPOINT studio_map_label")) return false;
     bool ok =
@@ -379,7 +388,8 @@ QString Store::beginImport(qint64 from, qint64 to, const QString& transport) {
                ? id
                : QString();
 }
-bool Store::importChunk(const QString& runId, const QString& kind, const QByteArray& bytes, qint64 from, qint64 to, bool authoritative) {
+bool Store::importChunk(const QString& runId, const QString& kind, const QByteArray& bytes, qint64 from, qint64 to, bool authoritative,
+                        const QByteArray& sourceClasses, qint64 reconcileFrom) {
     QList<Reading> parsedReadings;
     QList<Amount> parsedAmounts;
     if (kind == "amounts") {
@@ -388,6 +398,7 @@ bool Store::importChunk(const QString& runId, const QString& kind, const QByteAr
             m_error = p.error;
             return false;
         }
+        if (!sourceClasses.isEmpty() && !applyJugglucoClasses(p, sourceClasses, m_error)) return false;
         parsedAmounts = p.rows;
     } else {
         auto p = parseStream(bytes, kind);
@@ -409,13 +420,18 @@ bool Store::importChunk(const QString& runId, const QString& kind, const QByteAr
         return false;
     }
     f.close();
+    if (!sourceClasses.isEmpty()) {
+        QSaveFile classesFile(folder + "/" + id + ".classes.json");
+        if (!classesFile.open(QIODevice::WriteOnly) || classesFile.write(sourceClasses) != sourceClasses.size() || !classesFile.commit()) return false;
+        QFile::setPermissions(folder + "/" + id + ".classes.json", QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    }
     QFile::setPermissions(chunkPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     // A file can remain orphaned on failure, but no partial normalized piece is committed.
     if (!run("BEGIN IMMEDIATE")) return false;
     // A phone export can legitimately contain no rows, but an authoritative
     // empty amounts page must not silently deactivate previously imported
     // entries. The Store guard returns a visible import error instead.
-    bool ok = ingest(parsedReadings, parsedAmounts, from, to, kind == "amounts" && authoritative, false);
+    bool ok = ingest(parsedReadings, parsedAmounts, from, to, kind == "amounts" && authoritative, false, reconcileFrom);
     const QString hash = QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex());
     if (ok)
         ok = run("INSERT INTO import_chunks VALUES(?,?,?,?,?,?,?,?,?)",

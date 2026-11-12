@@ -552,7 +552,7 @@ void Backend::finishSync(const QString& error) {
 bool Backend::mapLabel(const QString& label, const QString& kind, const QString& medicine) {
     bool ok = db.mapLabel(label, kind, medicine);
     m_status = ok ? QCoreApplication::translate("Studio", "Merkintäluokka tallennettu.")
-                  : QCoreApplication::translate("Studio", "Luokan tallennus epäonnistui. Insuliinille tarvitaan valmiste.");
+                  : QCoreApplication::translate("Studio", "Luokan tallennus epäonnistui.");
     refresh();
     return ok;
 }

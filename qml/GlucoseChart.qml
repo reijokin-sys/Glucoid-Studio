@@ -33,6 +33,24 @@ Item {
     property var created: []
     readonly property var graph: graphLoader.item
     implicitHeight: 380
+    // The class shown in the tooltip is the one Studio received from the source;
+    // the label name is never interpreted as a class.
+    function kindLabel(kind) {
+        switch (kind) {
+        case "carbs":
+            return qsTranslate("Studio", "Hiilihydraatit");
+        case "rapid":
+            return qsTranslate("Studio", "Pikainsuliini");
+        case "basal":
+            return qsTranslate("Studio", "Perusinsuliini");
+        case "correction":
+            return qsTranslate("Studio", "Korjausinsuliini");
+        case "other":
+            return qsTranslate("Studio", "Muu");
+        default:
+            return qsTranslate("Studio", "Luokittelematon");
+        }
+    }
     Component {
         id: lineFactory
         LineSeries {
@@ -205,7 +223,7 @@ Item {
                 id: hover
             }
             ToolTip.visible: hover.hovered
-            ToolTip.text: (modelData.timeText || "") + " · " + modelData.label + " " + modelData.value + " · " + (modelData.local ? "paikallinen" : root.sourceName)
+            ToolTip.text: (modelData.timeText || "") + " · " + modelData.label + " " + modelData.value + " · " + root.kindLabel(modelData.kind) + " · " + (modelData.local ? qsTranslate("Studio", "paikallinen") : root.sourceName)
         }
     }
     Label {

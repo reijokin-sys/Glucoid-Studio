@@ -59,14 +59,21 @@ private slots:
     QFETCH(QString,interface);QFETCH(QString,address);Transport t;Connection c;c.mode="wireguard";c.address=address;c.wireguardInterface=interface;c.secret=QString::fromLatin1(testCredential());
     const auto r=get(t,c);QVERIFY(!r.error.isEmpty());QVERIFY(r.elapsed<1000);QVERIFY(r.body.isEmpty());QVERIFY(!t.busy);QVERIFY(!r.error.contains(c.secret));
  }
+ void classificationRouteRejectsOtherOperations(){
+    Server server;QVERIFY(server.listen(QHostAddress::LocalHost));Transport t;
+    for(const auto& path:QStringList{"/api/v3/treatments?limit=0","/api/v3/treatments?limit=1&delete=1","/api/v3/treatments/history/0?limit=1","/api/v3/settings?limit=1"}) {
+        const auto r=get(t,server.connection(),path);QVERIFY(!r.error.isEmpty());QVERIFY(r.body.isEmpty());
+    }
+    QVERIFY(server.requests.isEmpty());
+ }
  void normalImportAndRepeat(){
     QTemporaryDir dir;FixtureStore db(dir.path()+"/test.sqlite3");QVERIFY(db.good());Server server;QVERIFY(server.listen(QHostAddress::LocalHost));
-    server.respond=[](const QByteArray&r){return Server::response(r.startsWith("GET /x/amounts")?amounts:glucose);};
+    server.respond=[](const QByteArray&r){return Server::response(r.startsWith("GET /api/v3/treatments?")?QByteArray(R"({"status":200,"result":[]})"):r.startsWith("GET /x/amounts")?amounts:glucose);};
     Transport t;auto c=server.connection();Importer importer(db,[&](const QString&p,auto done){t.get(c,p,done);});QSignalSpy spy(&importer,&Importer::finished);
     importer.start(from,until,"synthetic-network");QVERIFY(spy.wait(10000));QVERIFY(spy.last()[0].toBool());
-    QCOMPARE(db.readings(from,until).size(),1);QCOMPARE(db.amounts(from,until).size(),1);QCOMPARE(server.requests.size(),4);
+    QCOMPARE(db.readings(from,until).size(),1);QCOMPARE(db.amounts(from,until).size(),1);QCOMPARE(server.requests.size(),5);
     const auto revision=db.revision();importer.start(from,until,"synthetic-network");QVERIFY(spy.wait(10000));QVERIFY(spy.last()[0].toBool());
-    QCOMPARE(db.readings(from,until).size(),1);QCOMPARE(db.amounts(from,until).size(),1);QCOMPARE(db.revision(),revision);QCOMPARE(server.requests.size(),8);
+    QCOMPARE(db.readings(from,until).size(),1);QCOMPARE(db.amounts(from,until).size(),1);QCOMPARE(db.revision(),revision);QCOMPARE(server.requests.size(),10);
     for(const auto&r:server.requests){QVERIFY(!r.contains(testCredential()));QVERIFY(r.contains("api-secret: "));}
     QCOMPARE(db.query("SELECT count(*) AS n FROM glucose")[0].toObject()["n"].toInt(),3); // distinct stream/history/scans provenance
     QCOMPARE(db.amounts(from,until)[0].toObject()["label"].toString(),QString::fromUtf8("LAB'); DROP TABLE glucose;--"));
@@ -104,7 +111,7 @@ private slots:
     const QList<QByteArray> bad={QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\nLAB\t1\tbad\t6\n"),QByteArray("Sensorid\tnr\tUnixTime\tunit\nLAB\t1\t1760000100\t6\n"),QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\nLAB\t1\t1760000100\tnan\n")};
     for(const auto&bytes:bad){server.respond=[bytes](auto){return Server::response(bytes);};auto r=get(t,c);QVERIFY(r.error.isEmpty());
         const auto id=db.beginImport(from,until,"synthetic");QVERIFY(!db.importChunk(id,"stream",r.body,from,until));QCOMPARE(db.readings(from,until).size(),0);}
-    server.respond=[](const QByteArray&r){return Server::response(r.startsWith("GET /x/amounts")?amounts:glucose);};
+    server.respond=[](const QByteArray&r){return Server::response(r.startsWith("GET /api/v3/treatments?")?QByteArray(R"({"status":200,"result":[]})"):r.startsWith("GET /x/amounts")?amounts:glucose);};
     Importer importer(db,[&](const QString&p,auto done){t.get(c,p,done);});QSignalSpy spy(&importer,&Importer::finished);importer.start(from,until,"synthetic");QVERIFY(spy.wait(10000));QVERIFY(spy.last()[0].toBool());QCOMPARE(db.readings(from,until).size(),1);
  }
  void networkErrorRecoveryAndAtomicPiece(){

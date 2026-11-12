@@ -110,13 +110,23 @@ private slots:
  }
 
  void mainSettingsOnlyShowCurrentFunctions(){
-    Fixture f;Backend b(f.dir.path());const auto profiles=f.db.query("SELECT * FROM profiles");
+    Fixture f;QVERIFY(f.db.run("UPDATE amounts SET source='juggluco-v3',kind=label"));Backend b(f.dir.path());const auto profiles=f.db.query("SELECT * FROM profiles");
     QQmlApplicationEngine engine;load(engine,b);QVERIFY(!engine.rootObjects().isEmpty());
     auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
     QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,4));
     auto *connection=item(window->contentItem(),"connectionDetails");
     auto *mapping=item(window->contentItem(),"labelMappingSettings");
     QVERIFY(connection&&mapping);QTRY_VERIFY(mapping->isVisible());
+    mapping->setProperty("expanded",true);
+    auto *sourceClass=item(window->contentItem(),"jugglucoSourceClass");QVERIFY(sourceClass);
+    QVERIFY(!sourceClass->property("currentIndex").isValid()); // class is read-only, not a second selector.
+    QVERIFY(!sourceClass->property("text").toString().isEmpty());
+    QVERIFY(!sourceClass->property("text").toString().contains("Update the category"));
+    auto *classNote=item(window->contentItem(),"jugglucoClassSourceNote");QVERIFY(classNote);
+    const QString classText=classNote->property("text").toString();
+    QVERIFY(classText.contains("Juggluco"));QVERIFY(!classText.contains("Update the category"));
+    auto *renameNote=item(window->contentItem(),"labelNameFrozenNote");QVERIFY(renameNote);
+    QVERIFY(renameNote->property("text").toString().contains("label"));
     QVERIFY(!connection->property("expanded").toBool());
     for(auto name:{"nightTargetSettings","legacyTargetSettings","automaticTargetLow","automaticHypo","saveAutomaticTargets","overnightSummary","observationSummary"})
         QVERIFY2(!item(window->contentItem(),name),name);

@@ -20,8 +20,8 @@
     </message>
     <message>
         <location filename="../qml/DailyAnalysis.qml" line="143"/>
-        <source> U. Mukana ovat ateria- ja korjausannokset, eivät perusinsuliinit.</source>
-        <translation> U. Includes meal and correction doses; excludes basal insulin.</translation>
+        <source> U. Perusinsuliini ei sisälly määrään.</source>
+        <translation> U. Excludes basal insulin.</translation>
     </message>
     <message>
         <location filename="../qml/DailyAnalysis.qml" line="127"/>
@@ -52,6 +52,11 @@
         <location filename="../qml/DailyAnalysis.qml" line="149"/>
         <source> päivää ilman positiivista HH-määrää. Näidenkin päivien kirjaukset sisältyvät yllä oleviin määriin.</source>
         <translation> days without positive carb entries. Entries from these days are still included in the totals above.</translation>
+    </message>
+    <message>
+        <location filename="../qml/DailyAnalysis.qml" line="173"/>
+        <source>Aineistossa on luokittelemattomia kirjauksia: Juggluco ei välittänyt niille tunnistettavaa luokkaa. Ne näkyvät käyrillä, mutta eivät ole mukana hiilihydraatti- eikä insuliinisummissa. Tarkista merkinnän vientiasetus Jugglucossa vain, jos kirjaus on tehty väärin.</source>
+        <translation>The data contains unclassified entries: Juggluco did not pass a recognisable category for them. They are shown on the charts but are not included in the carbohydrate or insulin totals. Check the entry&apos;s export setting in Juggluco only if the entry was recorded incorrectly.</translation>
     </message>
     <message>
         <location filename="../qml/ProfileChart.qml" line="119"/>
@@ -129,11 +134,6 @@ Night coverage </translation>
         <translation>Failed to read data. Refresh and try again.</translation>
     </message>
     <message>
-        <location filename="../qml/DailyAnalysis.qml" line="173"/>
-        <source>Aineistossa on luokittelemattomia kirjauksia. Tarkista tietolähteen kirjausluokat asetuksissa.</source>
-        <translation>The data contains unclassified entries. Check the data source’s entry categories in settings.</translation>
-    </message>
-    <message>
         <location filename="../qml/ConnectionEditor.qml" line="35"/>
         <source>Aktiivinen lähde: </source>
         <translation>Active source: </translation>
@@ -164,7 +164,7 @@ Night coverage </translation>
         <translation>Enter the WireGuard interface name (e.g., wg0).</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="120"/>
+        <location filename="../src/transportcore.cpp" line="121"/>
         <source>Anna palvelimen http/https-juuriosoite ilman tunnuksia tai kyselyparametreja.</source>
         <translation>Enter the server’s http/https root address without credentials or query parameters.</translation>
     </message>
@@ -181,141 +181,138 @@ Night coverage </translation>
     <message>
         <location filename="../qml/Main.qml" line="153"/>
         <location filename="../qml/Main.qml" line="816"/>
+        <location filename="../tests/test_language.cpp" line="44"/>
+        <location filename="../tests/test_language.cpp" line="48"/>
         <source>Asetukset</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="71"/>
+        <location filename="../src/main.cpp" line="67"/>
         <source>Tarkistetaan ja palautetaan varmuuskopiota…</source>
         <translation>Verifying and restoring backup…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="72"/>
+        <location filename="../src/main.cpp" line="68"/>
         <source>Varmuuskopion palautus</source>
         <translation>Restore backup</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="82"/>
+        <location filename="../src/main.cpp" line="78"/>
         <source>Nykyistä tietokantaa ei muutettu.</source>
         <translation>The current database was not changed.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="85"/>
-        <source>Varmuuskopio palautettu</source>
-        <translation>Backup restored</translation>
-    </message>
-    <message>
-        <location filename="../src/main.cpp" line="92"/>
+        <location filename="../src/main.cpp" line="87"/>
         <source>Tietokantaa ei löytynyt</source>
         <translation>Database not found</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="93"/>
-        <location filename="../src/main.cpp" line="240"/>
+        <location filename="../src/main.cpp" line="88"/>
+        <location filename="../src/main.cpp" line="235"/>
         <source>Tietokantaa ei voitu avata</source>
         <translation>Could not open database</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="94"/>
+        <location filename="../src/main.cpp" line="89"/>
         <source>Glucoid Studion tietokantaa ei löytynyt. Sovellus ei voi jatkaa nykyisellä tiedostolla.</source>
         <translation>The Glucoid Studio database was not found. The application cannot continue with the current file.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="96"/>
+        <location filename="../src/main.cpp" line="91"/>
         <source>Glucoid Studio ei voi käynnistyä, koska tietokanta on korruptoitunut tai sitä ei voi avata.</source>
         <translation>Glucoid Studio cannot start because the database is corrupt or cannot be opened.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="99"/>
+        <location filename="../src/main.cpp" line="94"/>
         <source>Odotettu tietokanta: %1</source>
         <translation>Expected database: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="100"/>
+        <location filename="../src/main.cpp" line="95"/>
         <source>Tietokanta: %1</source>
         <translation>Database: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="103"/>
+        <location filename="../src/main.cpp" line="98"/>
         <source>Voit myös luoda uuden tyhjän tietokannan. Nykyistä tiedostoa ei korvata ilman erillistä valintaa.</source>
         <translation>You can also create a new empty database. The current file is not replaced without a separate choice.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="107"/>
+        <location filename="../src/main.cpp" line="102"/>
         <source>Palauta varmuuskopio…</source>
         <translation>Restore backup…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="109"/>
+        <location filename="../src/main.cpp" line="104"/>
         <source>Luo uusi tyhjä tietokanta</source>
         <translation>Create a new empty database</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="110"/>
+        <location filename="../src/main.cpp" line="105"/>
         <source>Lopeta</source>
         <translation>Quit</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="120"/>
+        <location filename="../src/main.cpp" line="115"/>
         <source>Korvataanko nykyinen tietokanta valitulla kopiolla? Nykyinen tietokanta säilytetään turvakopiona.</source>
         <translation>Replace the current database with the selected copy? The current database will be kept as a safety copy.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="161"/>
+        <location filename="../src/main.cpp" line="156"/>
         <source>Avaa erillinen keinotekoinen esimerkkiaineisto.</source>
         <translation>Open separate artificial sample data.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="162"/>
+        <location filename="../src/main.cpp" line="157"/>
         <source>Varmuuskopioi tietokanta valittuun tiedostoon ja lopeta.</source>
         <translation>Back up the database to the selected file and exit.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="165"/>
+        <location filename="../src/main.cpp" line="160"/>
         <source>Varmuuskopion tallennustiedosto (--backup-only).</source>
         <translation>Backup destination file (--backup-only).</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="196"/>
+        <location filename="../src/main.cpp" line="191"/>
         <source>Kielitiedostojen lataaminen epäonnistui. Sovellus ei voi käynnistyä.</source>
         <translation>Failed to load language files. The application cannot start.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="212"/>
+        <location filename="../src/main.cpp" line="207"/>
         <source>Palautuspyyntö poistettiin. Nykyinen tietokanta säilytettiin.</source>
         <translation>The restore request was removed. The current database was preserved.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="221"/>
+        <location filename="../src/main.cpp" line="216"/>
         <source>Tietokantaa ei löytynyt: %1
 </source>
         <translation>Database not found: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="224"/>
+        <location filename="../src/main.cpp" line="219"/>
         <source>Tietokantaa ei löytynyt: %1</source>
         <translation>Database not found: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="233"/>
+        <location filename="../src/main.cpp" line="228"/>
         <source>Tietokannan avaaminen epäonnistui: %1
 </source>
         <translation>Failed to open the database: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="241"/>
+        <location filename="../src/main.cpp" line="236"/>
         <source>Tietokannan avaaminen epäonnistui myös palautuksen jälkeen.</source>
         <translation>Opening the database failed even after restoration.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="288"/>
+        <location filename="../src/main.cpp" line="283"/>
         <source>Käyttöliittymän lataaminen epäonnistui. Sovellus ei voi käynnistyä.</source>
         <translation>Failed to load the user interface. The application cannot start.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="27"/>
+        <location filename="../src/transportcore.cpp" line="28"/>
         <source>Avainrengas on lukittu tai yhteystunnus puuttuu.</source>
         <translation>Keyring is locked or contact ID is missing.</translation>
     </message>
@@ -378,9 +375,9 @@ Night coverage </translation>
         <translation>Glucoid connection setting not found.</translation>
     </message>
     <message>
-        <location filename="../qml/DailyAnalysis.qml" line="94"/>
         <location filename="../qml/Main.qml" line="498"/>
         <location filename="../qml/Main.qml" line="719"/>
+        <location filename="../qml/DailyAnalysis.qml" line="94"/>
         <source>Glukoosi</source>
         <translation>Glucose</translation>
     </message>
@@ -430,11 +427,6 @@ Night coverage </translation>
         <translation>Restore database from file…</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="897"/>
-        <source>HH- ja insuliinimerkintöjen tunnistus</source>
-        <translation>Carbs and insulin entry recognition</translation>
-    </message>
-    <message>
         <location filename="../qml/ConnectionEditor.qml" line="50"/>
         <source>HTTPS-yhteys omaan Nightscout-palvelimeesi. WireGuardia ei tarvita. Lukutunnuksella tulee olla lukuoikeus glukoosiin ja kirjauksiin.</source>
         <translation>HTTPS connection to your own Nightscout server. No WireGuard required. The read token must have read access to glucose and entries.</translation>
@@ -445,7 +437,8 @@ Night coverage </translation>
         <translation>Fetches the full history of the selected source and also checks old entries. May take longer than a normal update.</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
+        <location filename="../qml/GlucoseChart.qml" line="41"/>
         <source>Hiilihydraatit</source>
         <translation>Carbs</translation>
     </message>
@@ -480,14 +473,9 @@ Night coverage </translation>
         <translation>If you use the Glucoid widget, you can replace Studio’s Juggluco connection settings with its settings.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="84"/>
+        <location filename="../src/transportcore.cpp" line="85"/>
         <source>Juggluco hylkäsi USB-haun. Tarkista tunnistautuminen ja palvelin.</source>
         <translation>Juggluco rejected the USB request. Check authentication and server.</translation>
-    </message>
-    <message>
-        <location filename="../qml/Main.qml" line="895"/>
-        <source>Jugglucon merkintäluokat</source>
-        <translation>Juggluco entry categories</translation>
     </message>
     <message>
         <location filename="../qml/ConnectionEditor.qml" line="50"/>
@@ -515,7 +503,7 @@ Night coverage </translation>
         <translation>Artificial sample data loaded. No personal treatment settings.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="158"/>
+        <location filename="../src/main.cpp" line="153"/>
         <source>Kerää taustalla 60 sekunnin välein.</source>
         <translation>Collect in the background every 60 seconds.</translation>
     </message>
@@ -568,7 +556,8 @@ Night coverage </translation>
         <translation>Copy connection settings</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
+        <location filename="../qml/GlucoseChart.qml" line="47"/>
         <source>Korjausinsuliini</source>
         <translation>correction insulin</translation>
     </message>
@@ -624,8 +613,8 @@ Night coverage </translation>
     </message>
     <message>
         <location filename="../src/backend.cpp" line="555"/>
-        <source>Luokan tallennus epäonnistui. Insuliinille tarvitaan valmiste.</source>
-        <translation>Failed to save category. Insulin requires a preparation.</translation>
+        <source>Luokan tallennus epäonnistui.</source>
+        <translation>Failed to save the category.</translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="373"/>
@@ -669,7 +658,7 @@ Night coverage </translation>
         <translation>Median </translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="245"/>
+        <location filename="../src/store.cpp" line="247"/>
         <source>Merkintä ei kuulu pyydettyyn aikaväliin.</source>
         <translation>Entry is outside the requested time range.</translation>
     </message>
@@ -679,12 +668,12 @@ Night coverage </translation>
         <translation>Entry category saved.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="250"/>
+        <location filename="../src/store.cpp" line="257"/>
         <source>Merkintälähde palautti tyhjää. Aiemmat merkinnät säilytettiin; tarkista vienti.</source>
         <translation>Entry source returned empty. Previous entries were preserved; check export.</translation>
     </message>
     <message>
-        <location filename="../src/domain.cpp" line="39"/>
+        <location filename="../src/domain.cpp" line="41"/>
         <source>Merkintäviennissä on vajaa rivi.</source>
         <translation>Entry export has an incomplete row.</translation>
     </message>
@@ -694,7 +683,7 @@ Night coverage </translation>
         <translation>Where data is imported from</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="241"/>
+        <location filename="../src/store.cpp" line="243"/>
         <source>Mittaus ei kuulu pyydettyyn aikaväliin.</source>
         <translation>Measurement is outside the requested time range.</translation>
     </message>
@@ -704,7 +693,8 @@ Night coverage </translation>
         <translation>Reading not recent</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
+        <location filename="../qml/GlucoseChart.qml" line="49"/>
         <source>Muu</source>
         <translation>Other</translation>
     </message>
@@ -839,7 +829,7 @@ Night coverage </translation>
         <translation>Wait for the ongoing request or analysis to complete.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="119"/>
+        <location filename="../src/store.cpp" line="120"/>
         <source>Odota tietokannan käytön päättymistä.</source>
         <translation>Wait for database usage to finish.</translation>
     </message>
@@ -859,7 +849,7 @@ Night coverage </translation>
         <translation>Time in range </translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="157"/>
+        <location filename="../src/main.cpp" line="152"/>
         <source>Paikallisen yksityisen tietohakemiston polku.</source>
         <translation>Path of the local private data directory.</translation>
     </message>
@@ -869,18 +859,19 @@ Night coverage </translation>
         <translation>Server address</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="160"/>
+        <location filename="../src/transportcore.cpp" line="161"/>
         <source>Palvelin ei palauttanut HTTP-vastausta.</source>
         <translation>Server did not return an HTTP response.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="167"/>
+        <location filename="../src/transportcore.cpp" line="168"/>
         <source>Palvelin hylkäsi haun (HTTP %1).</source>
         <translation>Server rejected the request (HTTP %1).</translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="734"/>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
+        <location filename="../qml/GlucoseChart.qml" line="45"/>
         <source>Perusinsuliini</source>
         <translation>Basal insulin</translation>
     </message>
@@ -900,13 +891,14 @@ Night coverage </translation>
         <translation>Backups</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="940"/>
-        <location filename="../src/main.cpp" line="119"/>
+        <location filename="../qml/Main.qml" line="990"/>
+        <location filename="../src/main.cpp" line="114"/>
         <source>Palauta varmuuskopio</source>
         <translation>Restore backup</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
+        <location filename="../qml/GlucoseChart.qml" line="43"/>
         <source>Pikainsuliini</source>
         <translation>rapid-acting insulin</translation>
     </message>
@@ -941,24 +933,84 @@ Night coverage </translation>
         <translation>No measurement</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="948"/>
+        <location filename="../qml/Main.qml" line="835"/>
+        <source>Tee päivittäiset merkinnät lähdesovelluksessa: Jugglucossa tai Nightscoutissa. Studio lukee ne avattaessa ja viiden minuutin välein. Merkinnän aika, määrä, nimi ja luokka tulevat lähteestä; Studio ei luo, muokkaa eikä poista merkintöjä.</source>
+        <translation>Make the daily entries in the source app: Juggluco or Nightscout. Studio reads them on open and every five minutes. The time, amount, name and category of an entry come from the source; Studio does not create, edit or delete entries.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="895"/>
+        <source>Merkinnät ja niiden nimet</source>
+        <translation>Entries and their names</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="897"/>
+        <source>Luetaan Jugglucosta · Studio ei muokkaa merkintöjä</source>
+        <translation>Read from Juggluco · Studio does not edit entries</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="901"/>
+        <source>Jugglucossa jokainen kirjaus tallentuu numerolabeliin: aika, määrä ja labelin nimi. Juggluco lyhentää pitkiä nimiä (esimerkiksi ”Fast Insuli”), joten nimi näkyy tässä sellaisena kuin Juggluco sen antaa.</source>
+        <translation>In Juggluco every entry is stored under a numeric label: time, amount and the label&apos;s name. Juggluco shortens long names (for example ”Fast Insuli”), so the name is shown here exactly as Juggluco provides it.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="907"/>
+        <source>Luokka tulee Jugglucosta: hiilihydraatit, pikainsuliini tai perusinsuliini on valittu siellä, kun merkintä on kirjattu. Studio ei kysy sitä uudelleen eikä päättele sitä nimestä.</source>
+        <translation>The category comes from Juggluco: carbohydrates, rapid insulin or long-acting insulin was chosen there when the entry was recorded. Studio does not ask for it again and does not infer it from the name.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="912"/>
+        <source>Valmisteen nimi on vapaaehtoinen ja vain sinua varten. Luokittelematon tarkoittaa, ettei Juggluco välittänyt tälle riville tunnistettavaa luokkaa: merkintä näkyy käyrällä, mutta ei ole mukana hiilihydraatti- eikä insuliinisummissa.</source>
+        <translation>The medicine name is optional and only for your own use. Unclassified means that Juggluco did not pass a recognisable category for this row: the entry is shown on the chart but is not included in the carbohydrate or insulin totals.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="918"/>
+        <source>Pidä labelin nimi pysyvänä: nimi yhdistää merkinnät toisiinsa ja valmisteeseen. Jos vaihdat nimen, tarkista summat.</source>
+        <translation>Keep the label name unchanged: the name links the entries to each other and to the medicine. If you do rename it, check the totals.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="928"/>
+        <source>Nimi Jugglucossa</source>
+        <translation>Name in Juggluco</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="936"/>
+        <source>Luokka</source>
+        <translation>Category</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="944"/>
+        <source>Valmiste</source>
+        <translation>Medicine</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="965"/>
+        <source>Vanha rivi: luokka Studion aiemmasta valinnasta</source>
+        <translation>Old row: category from an earlier Studio selection</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="977"/>
+        <source>Tallenna valmiste</source>
+        <translation>Save medicine</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="998"/>
         <source>Palautetaan varmuuskopio: </source>
         <translation>Restoring backup: </translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="948"/>
+        <location filename="../qml/Main.qml" line="998"/>
         <source>Sovellus suljetaan ja käynnistyy uudelleen. Nykyinen tietokanta säilytetään turvakopiona varmuuskopiohakemistossa. Jatketaanko?</source>
         <translation>The application will close and restart. The current database will be preserved as a safety copy in the backup directory. Continue?</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="960"/>
-        <location filename="../src/main.cpp" line="81"/>
-        <location filename="../src/main.cpp" line="211"/>
+        <location filename="../qml/Main.qml" line="1010"/>
+        <location filename="../src/main.cpp" line="77"/>
+        <location filename="../src/main.cpp" line="206"/>
         <source>Varmuuskopion palautus epäonnistui</source>
         <translation>Backup restore failed</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="968"/>
+        <location filename="../qml/Main.qml" line="1018"/>
         <source>Varmuuskopiota ei voitu palauttaa.</source>
         <translation>The backup could not be restored.</translation>
     </message>
@@ -994,7 +1046,7 @@ Night coverage </translation>
         <translation>Day comparison</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="408"/>
+        <location filename="../src/store.cpp" line="419"/>
         <source>Raakaviennin tallennus epäonnistui.</source>
         <translation>Failed to save raw export.</translation>
     </message>
@@ -1049,11 +1101,6 @@ Night coverage </translation>
         <translation>TSV folder import belongs to the Juggluco source. Select it first as the data source.</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="927"/>
-        <source>Tallenna</source>
-        <translation>Save</translation>
-    </message>
-    <message>
         <location filename="../qml/ConnectionEditor.qml" line="120"/>
         <source>Tallenna tietolähde</source>
         <translation>Save data source</translation>
@@ -1089,8 +1136,8 @@ Night coverage </translation>
         <translation>Check the reported carbs ratio periods.</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionEditor.qml" line="139"/>
         <location filename="../qml/Main.qml" line="171"/>
+        <location filename="../qml/ConnectionEditor.qml" line="139"/>
         <source>Tarkista koko historia</source>
         <translation>Check full history</translation>
     </message>
@@ -1140,12 +1187,7 @@ Night coverage </translation>
         <translation>No target range set</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="835"/>
-        <source>Tee päivittäiset merkinnät valitsemasi lähteen sovelluksessa. Studio lukee tiedot avattaessa ja viiden minuutin välein sovelluksen ollessa auki.</source>
-        <translation>Make daily entries in your chosen source app. Studio reads data on open and every five minutes while the app is open.</translation>
-    </message>
-    <message>
-        <location filename="../src/main.cpp" line="159"/>
+        <location filename="../src/main.cpp" line="154"/>
         <source>Tee yksi tietohaku ja lopeta.</source>
         <translation>Perform one data fetch and exit.</translation>
     </message>
@@ -1160,55 +1202,55 @@ Night coverage </translation>
         <translation>Files imported. Missing old entries were not removed.</translation>
     </message>
     <message>
+        <location filename="../src/store.cpp" line="37"/>
         <location filename="../src/databasebackup.cpp" line="100"/>
-        <location filename="../src/store.cpp" line="36"/>
         <source>Tietohakemiston luominen epäonnistui.</source>
         <translation>Failed to create the data directory.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="41"/>
+        <location filename="../src/store.cpp" line="42"/>
         <source>Tietokannan avaaminen epäonnistui.</source>
         <translation>Failed to open the database.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="26"/>
+        <location filename="../src/store.cpp" line="27"/>
         <source>Tietokannan lukeminen epäonnistui.</source>
         <translation>Failed to read the database.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="222"/>
+        <location filename="../src/store.cpp" line="223"/>
         <source>Tietokannan lukeminen jäi kesken.</source>
         <translation>Database read was interrupted.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="184"/>
-        <location filename="../src/store.cpp" line="204"/>
+        <location filename="../src/store.cpp" line="185"/>
+        <location filename="../src/store.cpp" line="205"/>
         <source>Tietokannan parametrivirhe.</source>
         <translation>Database parameter error.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="30"/>
-        <location filename="../src/store.cpp" line="99"/>
+        <location filename="../src/store.cpp" line="31"/>
+        <location filename="../src/store.cpp" line="100"/>
         <source>Tietokannan versio ei ole tuettu.</source>
         <translation>Database version is not supported.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="179"/>
+        <location filename="../src/store.cpp" line="180"/>
         <source>Tietokantakomennon valmistelu epäonnistui.</source>
         <translation>Failed to prepare database command.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="190"/>
+        <location filename="../src/store.cpp" line="191"/>
         <source>Tietokantakomento epäonnistui.</source>
         <translation>Database command failed.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="199"/>
+        <location filename="../src/store.cpp" line="200"/>
         <source>Tietokantakysely epäonnistui.</source>
         <translation>Database query failed.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="434"/>
+        <location filename="../src/store.cpp" line="450"/>
         <source>Tuonnin valmistumisen tallentaminen epäonnistui.</source>
         <translation>Could not record import completion.</translation>
     </message>
@@ -1250,7 +1292,7 @@ Night coverage </translation>
         <translation>Token</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
         <source>Tuntematon</source>
         <translation>Unknown</translation>
     </message>
@@ -1260,7 +1302,7 @@ Night coverage </translation>
         <translation>Unknown Nightscout data or query limit.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="175"/>
+        <location filename="../src/main.cpp" line="170"/>
         <source>Tuntematon avauspyyntö.
 </source>
         <translation>Unknown open request.
@@ -1272,7 +1314,7 @@ Night coverage </translation>
         <translation>Unknown or truncated glucose export.</translation>
     </message>
     <message>
-        <location filename="../src/domain.cpp" line="31"/>
+        <location filename="../src/domain.cpp" line="33"/>
         <source>Tuntematon tai katkennut merkintävienti.</source>
         <translation>Unknown or truncated entry export.</translation>
     </message>
@@ -1287,22 +1329,22 @@ Night coverage </translation>
         <translation>Unknown connection method.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="163"/>
+        <location filename="../src/main.cpp" line="158"/>
         <source>Tuo alkuperäiset TSV-viennit paikallisesta kansiosta ja lopeta.</source>
         <translation>Import original TSV exports from local folder and exit.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="160"/>
+        <location filename="../src/main.cpp" line="155"/>
         <source>Tuo yhteys Glucoidista ja tallenna tunnus avainrenkaaseen.</source>
         <translation>Import connection from Glucoid and save ID to keyring.</translation>
     </message>
     <message>
-        <location filename="../src/importer.cpp" line="76"/>
+        <location filename="../src/importer.cpp" line="83"/>
         <source>Tuodaan %1 · uudelleenyritys %2/%3 · jonossa %4</source>
         <translation>Importing %1 · retry %2/%3 · %4 in queue</translation>
     </message>
     <message>
-        <location filename="../src/importer.cpp" line="62"/>
+        <location filename="../src/importer.cpp" line="68"/>
         <source>Tuodaan %1 · valmis %2 osaa · jonossa %3</source>
         <translation>Importing %1 · %2 parts done · %3 in queue</translation>
     </message>
@@ -1312,22 +1354,22 @@ Night coverage </translation>
         <translation>Importing from Nightscout </translation>
     </message>
     <message>
-        <location filename="../src/importer.cpp" line="85"/>
+        <location filename="../src/importer.cpp" line="92"/>
         <source>Tuonti jäi osittaiseksi uudelleenyritysten jälkeen. Valmiit osat ja aiempi historia säilyivät. </source>
         <translation>Import remained partial after retries. Completed parts and prior history were preserved. </translation>
     </message>
     <message>
-        <location filename="../src/importer.cpp" line="57"/>
+        <location filename="../src/importer.cpp" line="63"/>
         <source>Tuonti valmis: %1 varmennettua osaa. Historia on käytettävissä ilman puhelinta.</source>
         <translation>Import complete: %1 confirmed parts. History is available without the phone.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="402"/>
+        <location filename="../src/store.cpp" line="413"/>
         <source>Tuontiarkiston luominen epäonnistui.</source>
         <translation>Failed to create import archive.</translation>
     </message>
     <message>
-        <location filename="../src/importer.cpp" line="33"/>
+        <location filename="../src/importer.cpp" line="38"/>
         <source>Tuontierän aloittaminen epäonnistui.</source>
         <translation>Failed to start import batch.</translation>
     </message>
@@ -1337,7 +1379,17 @@ Night coverage </translation>
         <translation>Import method</translation>
     </message>
     <message>
-        <location filename="../qml/GlucoseChart.qml" line="214"/>
+        <location filename="../qml/GlucoseChart.qml" line="51"/>
+        <source>Luokittelematon</source>
+        <translation>Unclassified</translation>
+    </message>
+    <message>
+        <location filename="../qml/GlucoseChart.qml" line="226"/>
+        <source>paikallinen</source>
+        <translation>local</translation>
+    </message>
+    <message>
+        <location filename="../qml/GlucoseChart.qml" line="232"/>
         <source>Tällä aikavälillä ei ole mittauksia</source>
         <translation>No measurements in this time range</translation>
     </message>
@@ -1352,12 +1404,12 @@ Night coverage </translation>
         <translation>Today</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="73"/>
+        <location filename="../src/transportcore.cpp" line="74"/>
         <source>USB-lähde ei palauttanut HTTP-vastausta.</source>
         <translation>USB source did not return an HTTP response.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="68"/>
+        <location filename="../src/transportcore.cpp" line="69"/>
         <source>USB-siirto epäonnistui tai aikakatkaistiin. Tarkista yhteys.</source>
         <translation>USB transfer failed or timed out. Check connection.</translation>
     </message>
@@ -1407,11 +1459,6 @@ Night coverage </translation>
         <translation>Select a completed calendar day in yyyy-mm-dd format.</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="901"/>
-        <source>Valitse, mitä kukin Jugglucon merkintänimi tarkoittaa. Insuliinimerkinnälle tarvitaan myös valmisteen nimi.</source>
-        <translation>Select what each Juggluco entry name means. Insulin entries also require a product name.</translation>
-    </message>
-    <message>
         <location filename="../qml/Main.qml" line="767"/>
         <source>Valittu päivä</source>
         <translation>Selected day</translation>
@@ -1432,9 +1479,9 @@ Night coverage </translation>
         <translation>Failed to open local data for the selected source.</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="923"/>
-        <source>Valmiste</source>
-        <translation>Product</translation>
+        <location filename="../qml/Main.qml" line="972"/>
+        <source>Valmiste (vapaaehtoinen)</source>
+        <translation>Insulin product (optional)</translation>
     </message>
     <message>
         <location filename="../src/backend.cpp" line="222"/>
@@ -1447,14 +1494,14 @@ Night coverage </translation>
         <translation>Back up</translation>
     </message>
     <message>
+        <location filename="../src/main.cpp" line="110"/>
         <location filename="../src/backend.cpp" line="154"/>
-        <location filename="../src/main.cpp" line="115"/>
         <source>Valitse palautettava tietokanta</source>
         <translation>Select a database to restore</translation>
     </message>
     <message>
+        <location filename="../src/main.cpp" line="112"/>
         <location filename="../src/backend.cpp" line="155"/>
-        <location filename="../src/main.cpp" line="117"/>
         <source>SQLite-tietokanta (*.sqlite3 *.db);;Kaikki tiedostot (*)</source>
         <translation>SQLite database (*.sqlite3 *.db);;All files (*)</translation>
     </message>
@@ -1520,12 +1567,12 @@ Night coverage </translation>
         <translation>History updated.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="182"/>
+        <location filename="../src/transportcore.cpp" line="183"/>
         <source>Vastaus on vajaa tai sen kehystys ei ole tuettu.</source>
         <translation>Response is incomplete or its framing is unsupported.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="208"/>
+        <location filename="../src/transportcore.cpp" line="209"/>
         <source>Vastaus ylittää kokorajan.</source>
         <translation>Response exceeds size limit.</translation>
     </message>
@@ -1535,12 +1582,12 @@ Night coverage </translation>
         <translation>Network / WireGuard (required)</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="220"/>
+        <location filename="../src/transportcore.cpp" line="221"/>
         <source>Verkkohaku aikakatkaistiin.</source>
         <translation>Network request timed out.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="216"/>
+        <location filename="../src/transportcore.cpp" line="217"/>
         <source>Verkkohaku epäonnistui. Tarkista vaadittu yhteys, palvelin ja tunnistautuminen.</source>
         <translation>Network request failed. Check required connection, server, and authentication.</translation>
     </message>
@@ -1550,7 +1597,7 @@ Night coverage </translation>
         <translation>Reading the export file failed or it is too large.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="99"/>
+        <location filename="../src/transportcore.cpp" line="100"/>
         <source>Vientivastaus on vajaa tai sen kehystys ei ole tuettu.</source>
         <translation>Export response is incomplete or its framing is unsupported.</translation>
     </message>
@@ -1580,14 +1627,14 @@ Night coverage </translation>
         <translation>Invalid time zone or day.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="168"/>
+        <location filename="../src/main.cpp" line="163"/>
         <source>Virheellinen avauspyyntö.
 </source>
         <translation>Invalid open request.
 </translation>
     </message>
     <message>
-        <location filename="../src/domain.cpp" line="45"/>
+        <location filename="../src/domain.cpp" line="47"/>
         <source>Virheellinen merkintä.</source>
         <translation>Invalid entry.</translation>
     </message>
@@ -1597,18 +1644,18 @@ Night coverage </translation>
         <translation>Invalid measurement or timestamp.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="237"/>
+        <location filename="../src/store.cpp" line="239"/>
         <source>Virheellinen tuontijakso.</source>
         <translation>Invalid import period.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="23"/>
+        <location filename="../src/transportcore.cpp" line="24"/>
         <source>Virheellinen vientipolku.</source>
         <translation>Invalid export path.</translation>
     </message>
     <message>
-        <location filename="../qml/DailyAnalysis.qml" line="23"/>
         <location filename="../qml/Main.qml" line="202"/>
+        <location filename="../qml/DailyAnalysis.qml" line="23"/>
         <source>Vuorokausianalyysi</source>
         <translation>Daily analysis</translation>
     </message>
@@ -1639,7 +1686,7 @@ Night coverage </translation>
         <translation>WireGuard network requests require Linux interface binding.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="130"/>
+        <location filename="../src/transportcore.cpp" line="131"/>
         <source>WireGuard-yhteys tarvitsee puhelimen numeerisen tunneliosoitteen.</source>
         <translation>WireGuard connection requires the phone’s numeric tunnel address.</translation>
     </message>
@@ -1776,6 +1823,16 @@ Night coverage </translation>
         <location filename="../qml/ConnectionEditor.qml" line="96"/>
         <source>Ei tunnistautumista</source>
         <translation>No authentication</translation>
+    </message>
+    <message>
+        <location filename="../src/domain.cpp" line="75"/>
+        <source>Jugglucon luokkatietoja ei voitu yhdistää merkintöihin. Päivitä tiedot uudelleen; aiempi historia säilyi.</source>
+        <translation>Juggluco categories could not be matched to entries. Update again; previous history was preserved.</translation>
+    </message>
+    <message>
+        <location filename="../src/importer.cpp" line="103"/>
+        <source>Jugglucon luokkavienti on liian suuri. Aiempi historia säilyi.</source>
+        <translation>The Juggluco category export is too large. Previous history was preserved.</translation>
     </message>
 </context>
 </TS>

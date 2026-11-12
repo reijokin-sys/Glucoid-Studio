@@ -34,6 +34,8 @@ class Importer : public QObject {
     qint64 to = 0;
     bool discovery = false, expanded = false;
     int completed = 0;
+    QByteArray sourceClasses;
+    int classificationLimit = 1000;
     void enqueueGlucose(const QStringList& kinds, qint64 from, qint64 until);
     void next();
     void finish(bool ok, const QString& why);

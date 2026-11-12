@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QCoreApplication>
 #include "importer.h"
+#include "syncpolicy.h"
 #include <QDateTime>
+#include <QJsonDocument>
 #include <QTimer>
+#include <algorithm>
 #include <QtConcurrent/QtConcurrentRun>
 namespace Studio {
 // A transient failure (slow phone export, dropped connection, timeout) is
@@ -28,6 +31,8 @@ void Importer::start(qint64 from, qint64 to, const QString& transport) {
     expanded = false;
     completed = 0;
     tasks.clear();
+    sourceClasses.clear();
+    classificationLimit = 1000;
     run = db.beginImport(from, to, transport);
     if (run.isEmpty()) {
         emit finished(false, QCoreApplication::translate("Studio", "Tuontierän aloittaminen epäonnistui."));
@@ -37,9 +42,10 @@ void Importer::start(qint64 from, qint64 to, const QString& transport) {
         tasks << Task{"history", 1000, to} << Task{"amounts", 1000, to};
     } else {
         enqueueGlucose({"stream", "history", "scans"}, from, to);
-        tasks << Task{"amounts", from, to};
+        tasks << Task{"amounts", 1000, to};
         expanded = true;
     }
+    tasks.prepend(Task{"classes", 1000, to});
     next();
 }
 void Importer::next() {
@@ -61,7 +67,8 @@ void Importer::next() {
     emit progress(
         QString(QCoreApplication::translate("Studio", "Tuodaan %1 · valmis %2 osaa · jonossa %3")).arg(task.kind).arg(completed).arg(tasks.size() + 1));
     // API endtime is inclusive seconds; the store uses a half-open interval.
-    const QString path = QString("/x/%1?header&starttime=%2&endtime=%3&mmol/L").arg(task.kind).arg(task.from / 1000).arg((task.to - 1) / 1000);
+    const QString path = task.kind == "classes" ? QString("/api/v3/treatments?limit=%1").arg(classificationLimit) :
+        QString("/x/%1?header&starttime=%2&endtime=%3&mmol/L").arg(task.kind).arg(task.from / 1000).arg((task.to - 1) / 1000);
     fetch(path, [this, task](const QByteArray& bytes, const QString& error) {
         if (error == "HTTP 413" && task.to - task.from > 3600000) {
             const qint64 mid = ((task.from + task.to) / 2000) * 1000;
@@ -86,24 +93,46 @@ void Importer::next() {
                        task.kind + ": " + error);
             return;
         }
+        if (task.kind == "classes") {
+            ParsedAmounts empty;
+            QString parseError;
+            if (!applyJugglucoClasses(empty, bytes, parseError)) { finish(false, parseError); return; }
+            const int count = QJsonDocument::fromJson(bytes).object()["result"].toArray().size();
+            if (count >= classificationLimit) {
+                if (classificationLimit >= 100000) {
+                    finish(false, QCoreApplication::translate("Studio", "Jugglucon luokkavienti on liian suuri. Aiempi historia säilyi."));
+                    return;
+                }
+                classificationLimit = std::min(100000, classificationLimit * 2);
+                tasks.prepend(task);
+            } else sourceClasses = bytes;
+            QTimer::singleShot(0, this, &Importer::next);
+            return;
+        }
         storePage(task, bytes);
     });
 }
 void Importer::storePage(const Task& task, const QByteArray& bytes) {
+    // A normal update reconciles only the correction window: the amounts export
+    // is read from the beginning, but its silence about older rows must not
+    // retire local history. The initial import is the explicit full snapshot.
+    const qint64 reconcileFrom =
+        task.kind == "amounts" && !discovery ? std::max<qint64>(1000, task.to - correctionHistoryMs) : -1;
     if (!backgroundWrites) {
-        const bool ok = db.importChunk(run, task.kind, bytes, task.from, task.to);
+        const bool ok = db.importChunk(run, task.kind, bytes, task.from, task.to, true, task.kind == "amounts" ? sourceClasses : QByteArray(), reconcileFrom);
         pageStored(task, ok, ok ? QString() : db.error());
         return;
     }
     const auto path = db.path(), runId = run;
+    const auto classes = task.kind == "amounts" ? sourceClasses : QByteArray();
     writeWatcher.disconnect(this);
     connect(&writeWatcher, &QFutureWatcher<QPair<bool, QString>>::finished, this, [this, task] {
         const auto result = writeWatcher.result();
         pageStored(task, result.first, result.second);
     });
-    writeWatcher.setFuture(QtConcurrent::run([path, runId, task, bytes] {
+    writeWatcher.setFuture(QtConcurrent::run([path, runId, task, bytes, classes, reconcileFrom] {
         Store store(path);
-        const bool ok = store.good() && store.importChunk(runId, task.kind, bytes, task.from, task.to);
+        const bool ok = store.good() && store.importChunk(runId, task.kind, bytes, task.from, task.to, true, classes, reconcileFrom);
         return qMakePair(ok, ok ? QString() : store.error());
     }));
 }

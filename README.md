@@ -18,7 +18,13 @@ Juggluco network access requires a working Linux WireGuard interface and the pho
 
 The application describes recorded data; it cannot guarantee that source data is correct. GMI is an estimate derived from sensor readings, not a laboratory HbA1c measurement. Its reference color is also shown for a one-week period; short or incomplete periods remain marked as indicative. The application contains no treatment recommendations, dose calculator or research mode. Existing local history and backups are retained.
 
-#### Version 4.0.0
+#### Version 4.1.0
+
+Entry categories are read from Juggluco's amounts export, so the same entries
+do not have to be classified twice in Studio. The insulin product name is
+optional. Amounts reconciliation is limited to a three-day correction window:
+an older row that disappears from the source is removed only after a full
+history fetch.
 
 The product contains only Summary, Daily analysis, Charts and settings.
 Research and legacy views, report export, meal/response models and the dose
@@ -76,7 +82,7 @@ settings file. A real Nightscout server and the network-dependent
 The `.deb` targets **Ubuntu/Kubuntu 26.04 amd64**, Qt 6.10 and KDE/Kirigami 6. It uses distribution-provided libraries rather than bundled copies.
 
 ```sh
-sudo apt install ./glucoid-studio_4.0.0_amd64.deb
+sudo apt install ./glucoid-studio_4.1.0_amd64.deb
 glucoid-studio
 ```
 
@@ -105,22 +111,15 @@ Most tests use temporary synthetic datasets. Local HTTP/TLS tests need permissio
 
 Developers can set a local data root with the `STUDIO_LOCAL_DATA_ROOT` CMake option. The public package uses the XDG default.
 
-#### Juggluco entry labels
+#### Juggluco entries
 
-After the first import, open **Settings → Juggluco entry categories** and classify the labels you use. Your Juggluco label names can be freely chosen; the names below are examples, not required names.
+Studio reads the entry category from Juggluco's amounts export.
 
-| Example label | Studio category |
-| --- | --- |
-| `Carbs` | Carbohydrates |
-| `Fast insulin` | Rapid-acting insulin, including both meal and correction doses |
-| `Long insulin` | Basal insulin |
-| `Walking` | Other |
+Enter amounts in Juggluco by selecting the appropriate label, such as `Carbohydra`. Studio preserves your entry names and obtains their categories from Juggluco's export. You do not need to classify the same entries again in Studio. The insulin product name is optional.
 
-Insulin labels also require an insulin product name. Multiple labels may use the same category. Check each new label after its first import: unclassified entries are not counted as carbohydrate or insulin amounts in Daily analysis.
+Studio retains the original amounts export, including entries omitted from Juggluco's typed export. An entry remains unknown when Juggluco does not provide a recognized export category; check its export setting in Juggluco rather than relying on the label's spelling. Zero amounts and other entries are retained. Label names have no special reserved meaning in Studio.
 
-A single rapid-insulin label is sufficient for both meal and correction doses. Daily analysis includes both, excludes basal insulin from the insulin-to-carbohydrate ratio, and does not match individual doses to meals.
-
-Before renaming or reusing a Juggluco label, review its meaning in Studio. Juggluco can apply a renamed label to earlier entries, and changing a label's category or insulin product in Studio also affects the interpretation of earlier entries with that name.
+Daily analysis excludes basal insulin from its insulin-to-carbohydrate ratio and does not match individual doses to meals. Before renaming or reusing a Juggluco label, consider its effect on earlier entries: Juggluco can apply the new name to its existing history.
 
 #### Calculation policy
 

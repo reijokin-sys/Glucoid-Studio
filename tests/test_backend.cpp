@@ -29,6 +29,7 @@ private slots:
         file.write("{\"source\":\"juggluco\",\"mode\":\"usb\",\"auth\":\"none\"}");file.close();
         bool broken=false,completeAtImportFinish=true;
         Backend backend(dir.path(),nullptr,[&](const QString& path,auto done){
+            if (path.startsWith("/api/v3/treatments?")) { done(QByteArray(R"({"status":200,"result":[]})"), {}); return; }
             if(broken){done({},"synthetic failure");return;}
             done(path.startsWith("/x/amounts")?QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n"):QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"),{});
         });
@@ -95,6 +96,7 @@ private slots:
         QFile file(dir.path()+"/connection.json");QVERIFY(file.open(QIODevice::WriteOnly));
         file.write("{\"source\":\"juggluco\",\"mode\":\"usb\",\"auth\":\"none\"}");file.close();
         Backend backend(dir.path(),nullptr,[](const QString& path,auto done){
+            if (path.startsWith("/api/v3/treatments?")) { done(QByteArray(R"({"status":200,"result":[]})"), {}); return; }
             done(path.startsWith("/x/amounts")?QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n"):QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"),{});
         });
         backend.enableBackgroundWork();
@@ -127,9 +129,10 @@ private slots:
         const qint64 expected=!daysSinceSync?now-initialImportHistoryMs:daysSinceSync<3?now-correctionHistoryMs:last;
         qint64 amountsFrom=0,minimumFrom=now;
         Backend backend(dir.path(),nullptr,[&](const QString& path,auto done){
+            if (path.startsWith("/api/v3/treatments?")) { done(QByteArray(R"({"status":200,"result":[]})"), {}); return; }
             const QUrlQuery query(QUrl("http://localhost"+path));
             const qint64 from=query.queryItemValue("starttime").toLongLong()*1000;
-            minimumFrom=std::min(minimumFrom,from);
+            if (!path.startsWith("/x/amounts")) minimumFrom=std::min(minimumFrom,from);
             const bool amounts=path.startsWith("/x/amounts");
             if(amounts)amountsFrom=from;
             done(amounts?QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n"):QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"),{});
@@ -140,7 +143,7 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(done.size(),1,10000);
         QVERIFY(done[0][0].toBool());
         QVERIFY(minimumFrom>=expected && minimumFrom<=expected+10000);
-        QVERIFY(amountsFrom>=expected && amountsFrom<=expected+10000);
+        QCOMPARE(amountsFrom,1000LL);
     }
     void standardSummaryIgnoresResearchSwitchesAndRetainsData(){
         const GlucoidFixture::SummaryPolicy f;
@@ -213,7 +216,7 @@ private slots:
         Backend old(oldDir.path());const auto stale=old.currentReading();
         QCOMPARE(stale["hasData"].toBool(),true);QCOMPARE(stale["value"].toDouble(),9.0);QVERIFY(stale["stale"].toBool());QCOMPARE(stale["status"].toString(),QString("stale"));
     }
-    void nutritionRemovalPreservesSavedDataAndIgnoresProt(){
+    void nutritionRemovalPreservesSavedDataWithoutProtException(){
         QTemporaryDir dir;FixtureStore s(dir.path()+"/studio.sqlite3");const auto at=start();
         const auto meal=s.addLocal(at,40,"carbs","","ateria");
         Amount a;a.key="protein-source";a.source="synthetic";a.time=at+60000;a.value=50;a.label="prot";
@@ -227,7 +230,7 @@ private slots:
         for(const auto *name:{"nutritionMeals","nutritionNotes","proteinCarbFactor"})
             QCOMPARE(b.metaObject()->indexOfProperty(name),-1);
         QCOMPARE(b.metaObject()->indexOfMethod("saveNutrition(QString,double,QString,bool,QString,bool)"),-1);
-        QCOMPARE(s.amounts(at,at+120000).size(),1); // HH survives; prot remains ignored.
+        QCOMPARE(s.amounts(at,at+120000).size(),2); // prot is an ordinary imported label.
         QCOMPARE(s.amounts(at,at+120000)[0].toObject()["id"].toString(),meal);
         QCOMPARE(s.query("SELECT id FROM amounts WHERE id='protein-source'").size(),1);
     }
@@ -267,6 +270,7 @@ private slots:
         QVERIFY(file.open(QIODevice::WriteOnly));
         file.write("{\"source\":\"juggluco\",\"mode\":\"usb\",\"auth\":\"none\"}");file.close();
         Backend backend(dir.path(), nullptr, [](const QString& path, auto done) {
+            if (path.startsWith("/api/v3/treatments?")) { done(QByteArray(R"({"status":200,"result":[]})"), {}); return; }
             done(path.startsWith("/x/amounts") ? QByteArray("Source\tnr\tUnixTime\tValue\tLabel\n")
                                                : QByteArray("Sensorid\tnr\tUnixTime\tmmol/L\n"), {});
         });

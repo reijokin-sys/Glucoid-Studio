@@ -20,8 +20,8 @@
     </message>
     <message>
         <location filename="../qml/DailyAnalysis.qml" line="143"/>
-        <source> U. Mukana ovat ateria- ja korjausannokset, eivät perusinsuliinit.</source>
-        <translation> U. Mukana ovat ateria- ja korjausannokset, eivät perusinsuliinit.</translation>
+        <source> U. Perusinsuliini ei sisälly määrään.</source>
+        <translation> U. Perusinsuliini ei sisälly määrään.</translation>
     </message>
     <message>
         <location filename="../qml/DailyAnalysis.qml" line="127"/>
@@ -52,6 +52,11 @@
         <location filename="../qml/DailyAnalysis.qml" line="149"/>
         <source> päivää ilman positiivista HH-määrää. Näidenkin päivien kirjaukset sisältyvät yllä oleviin määriin.</source>
         <translation> päivää ilman positiivista HH-määrää. Näidenkin päivien kirjaukset sisältyvät yllä oleviin määriin.</translation>
+    </message>
+    <message>
+        <location filename="../qml/DailyAnalysis.qml" line="173"/>
+        <source>Aineistossa on luokittelemattomia kirjauksia: Juggluco ei välittänyt niille tunnistettavaa luokkaa. Ne näkyvät käyrillä, mutta eivät ole mukana hiilihydraatti- eikä insuliinisummissa. Tarkista merkinnän vientiasetus Jugglucossa vain, jos kirjaus on tehty väärin.</source>
+        <translation>Aineistossa on luokittelemattomia kirjauksia: Juggluco ei välittänyt niille tunnistettavaa luokkaa. Ne näkyvät käyrillä, mutta eivät ole mukana hiilihydraatti- eikä insuliinisummissa. Tarkista merkinnän vientiasetus Jugglucossa vain, jos kirjaus on tehty väärin.</translation>
     </message>
     <message>
         <location filename="../qml/ProfileChart.qml" line="119"/>
@@ -129,11 +134,6 @@ Yöajan kattavuus </translation>
         <translation>Aineiston lukeminen ei onnistunut. Päivitä tiedot ja yritä uudelleen.</translation>
     </message>
     <message>
-        <location filename="../qml/DailyAnalysis.qml" line="173"/>
-        <source>Aineistossa on luokittelemattomia kirjauksia. Tarkista tietolähteen kirjausluokat asetuksissa.</source>
-        <translation>Aineistossa on luokittelemattomia kirjauksia. Tarkista tietolähteen kirjausluokat asetuksissa.</translation>
-    </message>
-    <message>
         <location filename="../qml/ConnectionEditor.qml" line="35"/>
         <source>Aktiivinen lähde: </source>
         <translation>Aktiivinen lähde: </translation>
@@ -164,7 +164,7 @@ Yöajan kattavuus </translation>
         <translation>Anna WireGuard-liittymän nimi (esimerkiksi wg0).</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="120"/>
+        <location filename="../src/transportcore.cpp" line="121"/>
         <source>Anna palvelimen http/https-juuriosoite ilman tunnuksia tai kyselyparametreja.</source>
         <translation>Anna palvelimen http/https-juuriosoite ilman tunnuksia tai kyselyparametreja.</translation>
     </message>
@@ -181,141 +181,138 @@ Yöajan kattavuus </translation>
     <message>
         <location filename="../qml/Main.qml" line="153"/>
         <location filename="../qml/Main.qml" line="816"/>
+        <location filename="../tests/test_language.cpp" line="44"/>
+        <location filename="../tests/test_language.cpp" line="48"/>
         <source>Asetukset</source>
         <translation>Asetukset</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="71"/>
+        <location filename="../src/main.cpp" line="67"/>
         <source>Tarkistetaan ja palautetaan varmuuskopiota…</source>
         <translation>Tarkistetaan ja palautetaan varmuuskopiota…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="72"/>
+        <location filename="../src/main.cpp" line="68"/>
         <source>Varmuuskopion palautus</source>
         <translation>Varmuuskopion palautus</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="82"/>
+        <location filename="../src/main.cpp" line="78"/>
         <source>Nykyistä tietokantaa ei muutettu.</source>
         <translation>Nykyistä tietokantaa ei muutettu.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="85"/>
-        <source>Varmuuskopio palautettu</source>
-        <translation>Varmuuskopio palautettu</translation>
-    </message>
-    <message>
-        <location filename="../src/main.cpp" line="92"/>
+        <location filename="../src/main.cpp" line="87"/>
         <source>Tietokantaa ei löytynyt</source>
         <translation>Tietokantaa ei löytynyt</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="93"/>
-        <location filename="../src/main.cpp" line="240"/>
+        <location filename="../src/main.cpp" line="88"/>
+        <location filename="../src/main.cpp" line="235"/>
         <source>Tietokantaa ei voitu avata</source>
         <translation>Tietokantaa ei voitu avata</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="94"/>
+        <location filename="../src/main.cpp" line="89"/>
         <source>Glucoid Studion tietokantaa ei löytynyt. Sovellus ei voi jatkaa nykyisellä tiedostolla.</source>
         <translation>Glucoid Studion tietokantaa ei löytynyt. Sovellus ei voi jatkaa nykyisellä tiedostolla.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="96"/>
+        <location filename="../src/main.cpp" line="91"/>
         <source>Glucoid Studio ei voi käynnistyä, koska tietokanta on korruptoitunut tai sitä ei voi avata.</source>
         <translation>Glucoid Studio ei voi käynnistyä, koska tietokanta on korruptoitunut tai sitä ei voi avata.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="99"/>
+        <location filename="../src/main.cpp" line="94"/>
         <source>Odotettu tietokanta: %1</source>
         <translation>Odotettu tietokanta: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="100"/>
+        <location filename="../src/main.cpp" line="95"/>
         <source>Tietokanta: %1</source>
         <translation>Tietokanta: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="103"/>
+        <location filename="../src/main.cpp" line="98"/>
         <source>Voit myös luoda uuden tyhjän tietokannan. Nykyistä tiedostoa ei korvata ilman erillistä valintaa.</source>
         <translation>Voit myös luoda uuden tyhjän tietokannan. Nykyistä tiedostoa ei korvata ilman erillistä valintaa.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="107"/>
+        <location filename="../src/main.cpp" line="102"/>
         <source>Palauta varmuuskopio…</source>
         <translation>Palauta varmuuskopio…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="109"/>
+        <location filename="../src/main.cpp" line="104"/>
         <source>Luo uusi tyhjä tietokanta</source>
         <translation>Luo uusi tyhjä tietokanta</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="110"/>
+        <location filename="../src/main.cpp" line="105"/>
         <source>Lopeta</source>
         <translation>Lopeta</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="120"/>
+        <location filename="../src/main.cpp" line="115"/>
         <source>Korvataanko nykyinen tietokanta valitulla kopiolla? Nykyinen tietokanta säilytetään turvakopiona.</source>
         <translation>Korvataanko nykyinen tietokanta valitulla kopiolla? Nykyinen tietokanta säilytetään turvakopiona.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="161"/>
+        <location filename="../src/main.cpp" line="156"/>
         <source>Avaa erillinen keinotekoinen esimerkkiaineisto.</source>
         <translation>Avaa erillinen keinotekoinen esimerkkiaineisto.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="162"/>
+        <location filename="../src/main.cpp" line="157"/>
         <source>Varmuuskopioi tietokanta valittuun tiedostoon ja lopeta.</source>
         <translation>Varmuuskopioi tietokanta valittuun tiedostoon ja lopeta.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="165"/>
+        <location filename="../src/main.cpp" line="160"/>
         <source>Varmuuskopion tallennustiedosto (--backup-only).</source>
         <translation>Varmuuskopion tallennustiedosto (--backup-only).</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="196"/>
+        <location filename="../src/main.cpp" line="191"/>
         <source>Kielitiedostojen lataaminen epäonnistui. Sovellus ei voi käynnistyä.</source>
         <translation>Kielitiedostojen lataaminen epäonnistui. Sovellus ei voi käynnistyä.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="212"/>
+        <location filename="../src/main.cpp" line="207"/>
         <source>Palautuspyyntö poistettiin. Nykyinen tietokanta säilytettiin.</source>
         <translation>Palautuspyyntö poistettiin. Nykyinen tietokanta säilytettiin.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="221"/>
+        <location filename="../src/main.cpp" line="216"/>
         <source>Tietokantaa ei löytynyt: %1
 </source>
         <translation>Tietokantaa ei löytynyt: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="224"/>
+        <location filename="../src/main.cpp" line="219"/>
         <source>Tietokantaa ei löytynyt: %1</source>
         <translation>Tietokantaa ei löytynyt: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="233"/>
+        <location filename="../src/main.cpp" line="228"/>
         <source>Tietokannan avaaminen epäonnistui: %1
 </source>
         <translation>Tietokannan avaaminen epäonnistui: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="241"/>
+        <location filename="../src/main.cpp" line="236"/>
         <source>Tietokannan avaaminen epäonnistui myös palautuksen jälkeen.</source>
         <translation>Tietokannan avaaminen epäonnistui myös palautuksen jälkeen.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="288"/>
+        <location filename="../src/main.cpp" line="283"/>
         <source>Käyttöliittymän lataaminen epäonnistui. Sovellus ei voi käynnistyä.</source>
         <translation>Käyttöliittymän lataaminen epäonnistui. Sovellus ei voi käynnistyä.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="27"/>
+        <location filename="../src/transportcore.cpp" line="28"/>
         <source>Avainrengas on lukittu tai yhteystunnus puuttuu.</source>
         <translation>Avainrengas on lukittu tai yhteystunnus puuttuu.</translation>
     </message>
@@ -378,9 +375,9 @@ Yöajan kattavuus </translation>
         <translation>Glucoidin yhteysasetusta ei löytynyt.</translation>
     </message>
     <message>
-        <location filename="../qml/DailyAnalysis.qml" line="94"/>
         <location filename="../qml/Main.qml" line="498"/>
         <location filename="../qml/Main.qml" line="719"/>
+        <location filename="../qml/DailyAnalysis.qml" line="94"/>
         <source>Glukoosi</source>
         <translation>Glukoosi</translation>
     </message>
@@ -430,11 +427,6 @@ Yöajan kattavuus </translation>
         <translation>Palauta tietokanta tiedostosta…</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="897"/>
-        <source>HH- ja insuliinimerkintöjen tunnistus</source>
-        <translation>HH- ja insuliinimerkintöjen tunnistus</translation>
-    </message>
-    <message>
         <location filename="../qml/ConnectionEditor.qml" line="50"/>
         <source>HTTPS-yhteys omaan Nightscout-palvelimeesi. WireGuardia ei tarvita. Lukutunnuksella tulee olla lukuoikeus glukoosiin ja kirjauksiin.</source>
         <translation>HTTPS-yhteys omaan Nightscout-palvelimeesi. WireGuardia ei tarvita. Lukutunnuksella tulee olla lukuoikeus glukoosiin ja kirjauksiin.</translation>
@@ -445,7 +437,8 @@ Yöajan kattavuus </translation>
         <translation>Hakee valitun lähteen koko historian ja tarkistaa myös vanhat merkinnät. Voi kestää tavallista päivitystä pidempään.</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
+        <location filename="../qml/GlucoseChart.qml" line="41"/>
         <source>Hiilihydraatit</source>
         <translation>Hiilihydraatit</translation>
     </message>
@@ -480,14 +473,9 @@ Yöajan kattavuus </translation>
         <translation>Jos käytät Glucoid-widgetiä, voit korvata Studion Juggluco-yhteysasetukset sen asetuksilla.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="84"/>
+        <location filename="../src/transportcore.cpp" line="85"/>
         <source>Juggluco hylkäsi USB-haun. Tarkista tunnistautuminen ja palvelin.</source>
         <translation>Juggluco hylkäsi USB-haun. Tarkista tunnistautuminen ja palvelin.</translation>
-    </message>
-    <message>
-        <location filename="../qml/Main.qml" line="895"/>
-        <source>Jugglucon merkintäluokat</source>
-        <translation>Jugglucon merkintäluokat</translation>
     </message>
     <message>
         <location filename="../qml/ConnectionEditor.qml" line="50"/>
@@ -515,7 +503,7 @@ Yöajan kattavuus </translation>
         <translation>Keinotekoinen esimerkkiaineisto ladattu. Ei henkilökohtaisia hoitoasetuksia.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="158"/>
+        <location filename="../src/main.cpp" line="153"/>
         <source>Kerää taustalla 60 sekunnin välein.</source>
         <translation>Kerää taustalla 60 sekunnin välein.</translation>
     </message>
@@ -568,7 +556,8 @@ Yöajan kattavuus </translation>
         <translation>Kopioi yhteysasetukset</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
+        <location filename="../qml/GlucoseChart.qml" line="47"/>
         <source>Korjausinsuliini</source>
         <translation>Korjausinsuliini</translation>
     </message>
@@ -624,8 +613,8 @@ Yöajan kattavuus </translation>
     </message>
     <message>
         <location filename="../src/backend.cpp" line="555"/>
-        <source>Luokan tallennus epäonnistui. Insuliinille tarvitaan valmiste.</source>
-        <translation>Luokan tallennus epäonnistui. Insuliinille tarvitaan valmiste.</translation>
+        <source>Luokan tallennus epäonnistui.</source>
+        <translation>Luokan tallennus epäonnistui.</translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="373"/>
@@ -669,7 +658,7 @@ Yöajan kattavuus </translation>
         <translation>Mediaani </translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="245"/>
+        <location filename="../src/store.cpp" line="247"/>
         <source>Merkintä ei kuulu pyydettyyn aikaväliin.</source>
         <translation>Merkintä ei kuulu pyydettyyn aikaväliin.</translation>
     </message>
@@ -679,12 +668,12 @@ Yöajan kattavuus </translation>
         <translation>Merkintäluokka tallennettu.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="250"/>
+        <location filename="../src/store.cpp" line="257"/>
         <source>Merkintälähde palautti tyhjää. Aiemmat merkinnät säilytettiin; tarkista vienti.</source>
         <translation>Merkintälähde palautti tyhjää. Aiemmat merkinnät säilytettiin; tarkista vienti.</translation>
     </message>
     <message>
-        <location filename="../src/domain.cpp" line="39"/>
+        <location filename="../src/domain.cpp" line="41"/>
         <source>Merkintäviennissä on vajaa rivi.</source>
         <translation>Merkintäviennissä on vajaa rivi.</translation>
     </message>
@@ -694,7 +683,7 @@ Yöajan kattavuus </translation>
         <translation>Mistä tiedot tuodaan</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="241"/>
+        <location filename="../src/store.cpp" line="243"/>
         <source>Mittaus ei kuulu pyydettyyn aikaväliin.</source>
         <translation>Mittaus ei kuulu pyydettyyn aikaväliin.</translation>
     </message>
@@ -704,7 +693,8 @@ Yöajan kattavuus </translation>
         <translation>Mittaus ei ole tuore</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
+        <location filename="../qml/GlucoseChart.qml" line="49"/>
         <source>Muu</source>
         <translation>Muu</translation>
     </message>
@@ -839,7 +829,7 @@ Yöajan kattavuus </translation>
         <translation>Odota käynnissä olevan haun tai analyysin valmistumista.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="119"/>
+        <location filename="../src/store.cpp" line="120"/>
         <source>Odota tietokannan käytön päättymistä.</source>
         <translation>Odota tietokannan käytön päättymistä.</translation>
     </message>
@@ -859,7 +849,7 @@ Yöajan kattavuus </translation>
         <translation>Osuus mittausajasta alueella </translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="157"/>
+        <location filename="../src/main.cpp" line="152"/>
         <source>Paikallisen yksityisen tietohakemiston polku.</source>
         <translation>Paikallisen yksityisen tietohakemiston polku.</translation>
     </message>
@@ -869,18 +859,19 @@ Yöajan kattavuus </translation>
         <translation>Palvelimen osoite</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="160"/>
+        <location filename="../src/transportcore.cpp" line="161"/>
         <source>Palvelin ei palauttanut HTTP-vastausta.</source>
         <translation>Palvelin ei palauttanut HTTP-vastausta.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="167"/>
+        <location filename="../src/transportcore.cpp" line="168"/>
         <source>Palvelin hylkäsi haun (HTTP %1).</source>
         <translation>Palvelin hylkäsi haun (HTTP %1).</translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="734"/>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
+        <location filename="../qml/GlucoseChart.qml" line="45"/>
         <source>Perusinsuliini</source>
         <translation>Perusinsuliini</translation>
     </message>
@@ -900,13 +891,14 @@ Yöajan kattavuus </translation>
         <translation>Varmuuskopiot</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="940"/>
-        <location filename="../src/main.cpp" line="119"/>
+        <location filename="../qml/Main.qml" line="990"/>
+        <location filename="../src/main.cpp" line="114"/>
         <source>Palauta varmuuskopio</source>
         <translation>Palauta varmuuskopio</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
+        <location filename="../qml/GlucoseChart.qml" line="43"/>
         <source>Pikainsuliini</source>
         <translation>Pikainsuliini</translation>
     </message>
@@ -941,24 +933,84 @@ Yöajan kattavuus </translation>
         <translation>Ei mittausta</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="948"/>
+        <location filename="../qml/Main.qml" line="835"/>
+        <source>Tee päivittäiset merkinnät lähdesovelluksessa: Jugglucossa tai Nightscoutissa. Studio lukee ne avattaessa ja viiden minuutin välein. Merkinnän aika, määrä, nimi ja luokka tulevat lähteestä; Studio ei luo, muokkaa eikä poista merkintöjä.</source>
+        <translation>Tee päivittäiset merkinnät lähdesovelluksessa: Jugglucossa tai Nightscoutissa. Studio lukee ne avattaessa ja viiden minuutin välein. Merkinnän aika, määrä, nimi ja luokka tulevat lähteestä; Studio ei luo, muokkaa eikä poista merkintöjä.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="895"/>
+        <source>Merkinnät ja niiden nimet</source>
+        <translation>Merkinnät ja niiden nimet</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="897"/>
+        <source>Luetaan Jugglucosta · Studio ei muokkaa merkintöjä</source>
+        <translation>Luetaan Jugglucosta · Studio ei muokkaa merkintöjä</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="901"/>
+        <source>Jugglucossa jokainen kirjaus tallentuu numerolabeliin: aika, määrä ja labelin nimi. Juggluco lyhentää pitkiä nimiä (esimerkiksi ”Fast Insuli”), joten nimi näkyy tässä sellaisena kuin Juggluco sen antaa.</source>
+        <translation>Jugglucossa jokainen kirjaus tallentuu numerolabeliin: aika, määrä ja labelin nimi. Juggluco lyhentää pitkiä nimiä (esimerkiksi ”Fast Insuli”), joten nimi näkyy tässä sellaisena kuin Juggluco sen antaa.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="907"/>
+        <source>Luokka tulee Jugglucosta: hiilihydraatit, pikainsuliini tai perusinsuliini on valittu siellä, kun merkintä on kirjattu. Studio ei kysy sitä uudelleen eikä päättele sitä nimestä.</source>
+        <translation>Luokka tulee Jugglucosta: hiilihydraatit, pikainsuliini tai perusinsuliini on valittu siellä, kun merkintä on kirjattu. Studio ei kysy sitä uudelleen eikä päättele sitä nimestä.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="912"/>
+        <source>Valmisteen nimi on vapaaehtoinen ja vain sinua varten. Luokittelematon tarkoittaa, ettei Juggluco välittänyt tälle riville tunnistettavaa luokkaa: merkintä näkyy käyrällä, mutta ei ole mukana hiilihydraatti- eikä insuliinisummissa.</source>
+        <translation>Valmisteen nimi on vapaaehtoinen ja vain sinua varten. Luokittelematon tarkoittaa, ettei Juggluco välittänyt tälle riville tunnistettavaa luokkaa: merkintä näkyy käyrällä, mutta ei ole mukana hiilihydraatti- eikä insuliinisummissa.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="918"/>
+        <source>Pidä labelin nimi pysyvänä: nimi yhdistää merkinnät toisiinsa ja valmisteeseen. Jos vaihdat nimen, tarkista summat.</source>
+        <translation>Pidä labelin nimi pysyvänä: nimi yhdistää merkinnät toisiinsa ja valmisteeseen. Jos vaihdat nimen, tarkista summat.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="928"/>
+        <source>Nimi Jugglucossa</source>
+        <translation>Nimi Jugglucossa</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="936"/>
+        <source>Luokka</source>
+        <translation>Luokka</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="944"/>
+        <source>Valmiste</source>
+        <translation>Valmiste</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="965"/>
+        <source>Vanha rivi: luokka Studion aiemmasta valinnasta</source>
+        <translation>Vanha rivi: luokka Studion aiemmasta valinnasta</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="977"/>
+        <source>Tallenna valmiste</source>
+        <translation>Tallenna valmiste</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="998"/>
         <source>Palautetaan varmuuskopio: </source>
         <translation>Palautetaan varmuuskopio: </translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="948"/>
+        <location filename="../qml/Main.qml" line="998"/>
         <source>Sovellus suljetaan ja käynnistyy uudelleen. Nykyinen tietokanta säilytetään turvakopiona varmuuskopiohakemistossa. Jatketaanko?</source>
         <translation>Sovellus suljetaan ja käynnistyy uudelleen. Nykyinen tietokanta säilytetään turvakopiona varmuuskopiohakemistossa. Jatketaanko?</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="960"/>
-        <location filename="../src/main.cpp" line="81"/>
-        <location filename="../src/main.cpp" line="211"/>
+        <location filename="../qml/Main.qml" line="1010"/>
+        <location filename="../src/main.cpp" line="77"/>
+        <location filename="../src/main.cpp" line="206"/>
         <source>Varmuuskopion palautus epäonnistui</source>
         <translation>Varmuuskopion palautus epäonnistui</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="968"/>
+        <location filename="../qml/Main.qml" line="1018"/>
         <source>Varmuuskopiota ei voitu palauttaa.</source>
         <translation>Varmuuskopiota ei voitu palauttaa.</translation>
     </message>
@@ -994,7 +1046,7 @@ Yöajan kattavuus </translation>
         <translation>Päivävertailu</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="408"/>
+        <location filename="../src/store.cpp" line="419"/>
         <source>Raakaviennin tallennus epäonnistui.</source>
         <translation>Raakaviennin tallennus epäonnistui.</translation>
     </message>
@@ -1049,11 +1101,6 @@ Yöajan kattavuus </translation>
         <translation>TSV-kansiotuonti kuuluu Juggluco-lähteeseen. Valitse se ensin tietolähteeksi.</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="927"/>
-        <source>Tallenna</source>
-        <translation>Tallenna</translation>
-    </message>
-    <message>
         <location filename="../qml/ConnectionEditor.qml" line="120"/>
         <source>Tallenna tietolähde</source>
         <translation>Tallenna tietolähde</translation>
@@ -1089,8 +1136,8 @@ Yöajan kattavuus </translation>
         <translation>Tarkista ilmoitetut HH-suhdejaksot.</translation>
     </message>
     <message>
-        <location filename="../qml/ConnectionEditor.qml" line="139"/>
         <location filename="../qml/Main.qml" line="171"/>
+        <location filename="../qml/ConnectionEditor.qml" line="139"/>
         <source>Tarkista koko historia</source>
         <translation>Tarkista koko historia</translation>
     </message>
@@ -1140,12 +1187,7 @@ Yöajan kattavuus </translation>
         <translation>Tavoitealuetta ei ole asetettu</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="835"/>
-        <source>Tee päivittäiset merkinnät valitsemasi lähteen sovelluksessa. Studio lukee tiedot avattaessa ja viiden minuutin välein sovelluksen ollessa auki.</source>
-        <translation>Tee päivittäiset merkinnät valitsemasi lähteen sovelluksessa. Studio lukee tiedot avattaessa ja viiden minuutin välein sovelluksen ollessa auki.</translation>
-    </message>
-    <message>
-        <location filename="../src/main.cpp" line="159"/>
+        <location filename="../src/main.cpp" line="154"/>
         <source>Tee yksi tietohaku ja lopeta.</source>
         <translation>Tee yksi tietohaku ja lopeta.</translation>
     </message>
@@ -1160,55 +1202,55 @@ Yöajan kattavuus </translation>
         <translation>Tiedostot tuotu. Puuttuvia vanhoja merkintöjä ei poistettu.</translation>
     </message>
     <message>
+        <location filename="../src/store.cpp" line="37"/>
         <location filename="../src/databasebackup.cpp" line="100"/>
-        <location filename="../src/store.cpp" line="36"/>
         <source>Tietohakemiston luominen epäonnistui.</source>
         <translation>Tietohakemiston luominen epäonnistui.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="41"/>
+        <location filename="../src/store.cpp" line="42"/>
         <source>Tietokannan avaaminen epäonnistui.</source>
         <translation>Tietokannan avaaminen epäonnistui.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="26"/>
+        <location filename="../src/store.cpp" line="27"/>
         <source>Tietokannan lukeminen epäonnistui.</source>
         <translation>Tietokannan lukeminen epäonnistui.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="222"/>
+        <location filename="../src/store.cpp" line="223"/>
         <source>Tietokannan lukeminen jäi kesken.</source>
         <translation>Tietokannan lukeminen jäi kesken.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="184"/>
-        <location filename="../src/store.cpp" line="204"/>
+        <location filename="../src/store.cpp" line="185"/>
+        <location filename="../src/store.cpp" line="205"/>
         <source>Tietokannan parametrivirhe.</source>
         <translation>Tietokannan parametrivirhe.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="30"/>
-        <location filename="../src/store.cpp" line="99"/>
+        <location filename="../src/store.cpp" line="31"/>
+        <location filename="../src/store.cpp" line="100"/>
         <source>Tietokannan versio ei ole tuettu.</source>
         <translation>Tietokannan versio ei ole tuettu.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="179"/>
+        <location filename="../src/store.cpp" line="180"/>
         <source>Tietokantakomennon valmistelu epäonnistui.</source>
         <translation>Tietokantakomennon valmistelu epäonnistui.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="190"/>
+        <location filename="../src/store.cpp" line="191"/>
         <source>Tietokantakomento epäonnistui.</source>
         <translation>Tietokantakomento epäonnistui.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="199"/>
+        <location filename="../src/store.cpp" line="200"/>
         <source>Tietokantakysely epäonnistui.</source>
         <translation>Tietokantakysely epäonnistui.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="434"/>
+        <location filename="../src/store.cpp" line="450"/>
         <source>Tuonnin valmistumisen tallentaminen epäonnistui.</source>
         <translation>Tuonnin valmistumisen tallentaminen epäonnistui.</translation>
     </message>
@@ -1250,7 +1292,7 @@ Yöajan kattavuus </translation>
         <translation>Tunnus</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="917"/>
+        <location filename="../qml/Main.qml" line="964"/>
         <source>Tuntematon</source>
         <translation>Tuntematon</translation>
     </message>
@@ -1260,7 +1302,7 @@ Yöajan kattavuus </translation>
         <translation>Tuntematon Nightscout-aineisto tai hakuraja.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="175"/>
+        <location filename="../src/main.cpp" line="170"/>
         <source>Tuntematon avauspyyntö.
 </source>
         <translation>Tuntematon avauspyyntö.
@@ -1272,7 +1314,7 @@ Yöajan kattavuus </translation>
         <translation>Tuntematon tai katkennut glukoosivienti.</translation>
     </message>
     <message>
-        <location filename="../src/domain.cpp" line="31"/>
+        <location filename="../src/domain.cpp" line="33"/>
         <source>Tuntematon tai katkennut merkintävienti.</source>
         <translation>Tuntematon tai katkennut merkintävienti.</translation>
     </message>
@@ -1287,22 +1329,22 @@ Yöajan kattavuus </translation>
         <translation>Tuntematon yhteystapa.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="163"/>
+        <location filename="../src/main.cpp" line="158"/>
         <source>Tuo alkuperäiset TSV-viennit paikallisesta kansiosta ja lopeta.</source>
         <translation>Tuo alkuperäiset TSV-viennit paikallisesta kansiosta ja lopeta.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="160"/>
+        <location filename="../src/main.cpp" line="155"/>
         <source>Tuo yhteys Glucoidista ja tallenna tunnus avainrenkaaseen.</source>
         <translation>Tuo yhteys Glucoidista ja tallenna tunnus avainrenkaaseen.</translation>
     </message>
     <message>
-        <location filename="../src/importer.cpp" line="76"/>
+        <location filename="../src/importer.cpp" line="83"/>
         <source>Tuodaan %1 · uudelleenyritys %2/%3 · jonossa %4</source>
         <translation>Tuodaan %1 · uudelleenyritys %2/%3 · jonossa %4</translation>
     </message>
     <message>
-        <location filename="../src/importer.cpp" line="62"/>
+        <location filename="../src/importer.cpp" line="68"/>
         <source>Tuodaan %1 · valmis %2 osaa · jonossa %3</source>
         <translation>Tuodaan %1 · valmis %2 osaa · jonossa %3</translation>
     </message>
@@ -1312,22 +1354,22 @@ Yöajan kattavuus </translation>
         <translation>Tuodaan Nightscoutista </translation>
     </message>
     <message>
-        <location filename="../src/importer.cpp" line="85"/>
+        <location filename="../src/importer.cpp" line="92"/>
         <source>Tuonti jäi osittaiseksi uudelleenyritysten jälkeen. Valmiit osat ja aiempi historia säilyivät. </source>
         <translation>Tuonti jäi osittaiseksi uudelleenyritysten jälkeen. Valmiit osat ja aiempi historia säilyivät. </translation>
     </message>
     <message>
-        <location filename="../src/importer.cpp" line="57"/>
+        <location filename="../src/importer.cpp" line="63"/>
         <source>Tuonti valmis: %1 varmennettua osaa. Historia on käytettävissä ilman puhelinta.</source>
         <translation>Tuonti valmis: %1 varmennettua osaa. Historia on käytettävissä ilman puhelinta.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="402"/>
+        <location filename="../src/store.cpp" line="413"/>
         <source>Tuontiarkiston luominen epäonnistui.</source>
         <translation>Tuontiarkiston luominen epäonnistui.</translation>
     </message>
     <message>
-        <location filename="../src/importer.cpp" line="33"/>
+        <location filename="../src/importer.cpp" line="38"/>
         <source>Tuontierän aloittaminen epäonnistui.</source>
         <translation>Tuontierän aloittaminen epäonnistui.</translation>
     </message>
@@ -1337,7 +1379,17 @@ Yöajan kattavuus </translation>
         <translation>Tuontitapa</translation>
     </message>
     <message>
-        <location filename="../qml/GlucoseChart.qml" line="214"/>
+        <location filename="../qml/GlucoseChart.qml" line="51"/>
+        <source>Luokittelematon</source>
+        <translation>Luokittelematon</translation>
+    </message>
+    <message>
+        <location filename="../qml/GlucoseChart.qml" line="226"/>
+        <source>paikallinen</source>
+        <translation>paikallinen</translation>
+    </message>
+    <message>
+        <location filename="../qml/GlucoseChart.qml" line="232"/>
         <source>Tällä aikavälillä ei ole mittauksia</source>
         <translation>Tällä aikavälillä ei ole mittauksia</translation>
     </message>
@@ -1352,12 +1404,12 @@ Yöajan kattavuus </translation>
         <translation>Tänään</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="73"/>
+        <location filename="../src/transportcore.cpp" line="74"/>
         <source>USB-lähde ei palauttanut HTTP-vastausta.</source>
         <translation>USB-lähde ei palauttanut HTTP-vastausta.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="68"/>
+        <location filename="../src/transportcore.cpp" line="69"/>
         <source>USB-siirto epäonnistui tai aikakatkaistiin. Tarkista yhteys.</source>
         <translation>USB-siirto epäonnistui tai aikakatkaistiin. Tarkista yhteys.</translation>
     </message>
@@ -1407,11 +1459,6 @@ Yöajan kattavuus </translation>
         <translation>Valitse valmistunut kalenteripäivä muodossa vvvv-kk-pp.</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="901"/>
-        <source>Valitse, mitä kukin Jugglucon merkintänimi tarkoittaa. Insuliinimerkinnälle tarvitaan myös valmisteen nimi.</source>
-        <translation>Valitse, mitä kukin Jugglucon merkintänimi tarkoittaa. Insuliinimerkinnälle tarvitaan myös valmisteen nimi.</translation>
-    </message>
-    <message>
         <location filename="../qml/Main.qml" line="767"/>
         <source>Valittu päivä</source>
         <translation>Valittu päivä</translation>
@@ -1432,9 +1479,9 @@ Yöajan kattavuus </translation>
         <translation>Valitun lähteen paikallisen aineiston avaaminen epäonnistui.</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="923"/>
-        <source>Valmiste</source>
-        <translation>Valmiste</translation>
+        <location filename="../qml/Main.qml" line="972"/>
+        <source>Valmiste (vapaaehtoinen)</source>
+        <translation>Valmiste (vapaaehtoinen)</translation>
     </message>
     <message>
         <location filename="../src/backend.cpp" line="222"/>
@@ -1447,14 +1494,14 @@ Yöajan kattavuus </translation>
         <translation>Varmuuskopioi</translation>
     </message>
     <message>
+        <location filename="../src/main.cpp" line="110"/>
         <location filename="../src/backend.cpp" line="154"/>
-        <location filename="../src/main.cpp" line="115"/>
         <source>Valitse palautettava tietokanta</source>
         <translation>Valitse palautettava tietokanta</translation>
     </message>
     <message>
+        <location filename="../src/main.cpp" line="112"/>
         <location filename="../src/backend.cpp" line="155"/>
-        <location filename="../src/main.cpp" line="117"/>
         <source>SQLite-tietokanta (*.sqlite3 *.db);;Kaikki tiedostot (*)</source>
         <translation>SQLite-tietokanta (*.sqlite3 *.db);;Kaikki tiedostot (*)</translation>
     </message>
@@ -1520,12 +1567,12 @@ Yöajan kattavuus </translation>
         <translation>Historia päivitetty.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="182"/>
+        <location filename="../src/transportcore.cpp" line="183"/>
         <source>Vastaus on vajaa tai sen kehystys ei ole tuettu.</source>
         <translation>Vastaus on vajaa tai sen kehystys ei ole tuettu.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="208"/>
+        <location filename="../src/transportcore.cpp" line="209"/>
         <source>Vastaus ylittää kokorajan.</source>
         <translation>Vastaus ylittää kokorajan.</translation>
     </message>
@@ -1535,12 +1582,12 @@ Yöajan kattavuus </translation>
         <translation>Verkko / WireGuard (vaaditaan)</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="220"/>
+        <location filename="../src/transportcore.cpp" line="221"/>
         <source>Verkkohaku aikakatkaistiin.</source>
         <translation>Verkkohaku aikakatkaistiin.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="216"/>
+        <location filename="../src/transportcore.cpp" line="217"/>
         <source>Verkkohaku epäonnistui. Tarkista vaadittu yhteys, palvelin ja tunnistautuminen.</source>
         <translation>Verkkohaku epäonnistui. Tarkista vaadittu yhteys, palvelin ja tunnistautuminen.</translation>
     </message>
@@ -1550,7 +1597,7 @@ Yöajan kattavuus </translation>
         <translation>Vientitiedoston lukeminen epäonnistui tai se on liian suuri.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="99"/>
+        <location filename="../src/transportcore.cpp" line="100"/>
         <source>Vientivastaus on vajaa tai sen kehystys ei ole tuettu.</source>
         <translation>Vientivastaus on vajaa tai sen kehystys ei ole tuettu.</translation>
     </message>
@@ -1580,14 +1627,14 @@ Yöajan kattavuus </translation>
         <translation>Virheellinen aikavyöhyke tai päivä.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="168"/>
+        <location filename="../src/main.cpp" line="163"/>
         <source>Virheellinen avauspyyntö.
 </source>
         <translation>Virheellinen avauspyyntö.
 </translation>
     </message>
     <message>
-        <location filename="../src/domain.cpp" line="45"/>
+        <location filename="../src/domain.cpp" line="47"/>
         <source>Virheellinen merkintä.</source>
         <translation>Virheellinen merkintä.</translation>
     </message>
@@ -1597,18 +1644,18 @@ Yöajan kattavuus </translation>
         <translation>Virheellinen mittaus tai aikaleima.</translation>
     </message>
     <message>
-        <location filename="../src/store.cpp" line="237"/>
+        <location filename="../src/store.cpp" line="239"/>
         <source>Virheellinen tuontijakso.</source>
         <translation>Virheellinen tuontijakso.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="23"/>
+        <location filename="../src/transportcore.cpp" line="24"/>
         <source>Virheellinen vientipolku.</source>
         <translation>Virheellinen vientipolku.</translation>
     </message>
     <message>
-        <location filename="../qml/DailyAnalysis.qml" line="23"/>
         <location filename="../qml/Main.qml" line="202"/>
+        <location filename="../qml/DailyAnalysis.qml" line="23"/>
         <source>Vuorokausianalyysi</source>
         <translation>Vuorokausianalyysi</translation>
     </message>
@@ -1639,7 +1686,7 @@ Yöajan kattavuus </translation>
         <translation>WireGuard-verkkohaku vaatii Linuxin liittymäsidonnan.</translation>
     </message>
     <message>
-        <location filename="../src/transportcore.cpp" line="130"/>
+        <location filename="../src/transportcore.cpp" line="131"/>
         <source>WireGuard-yhteys tarvitsee puhelimen numeerisen tunneliosoitteen.</source>
         <translation>WireGuard-yhteys tarvitsee puhelimen numeerisen tunneliosoitteen.</translation>
     </message>
@@ -1776,6 +1823,16 @@ Yöajan kattavuus </translation>
         <location filename="../qml/ConnectionEditor.qml" line="96"/>
         <source>Ei tunnistautumista</source>
         <translation>Ei tunnistautumista</translation>
+    </message>
+    <message>
+        <location filename="../src/domain.cpp" line="75"/>
+        <source>Jugglucon luokkatietoja ei voitu yhdistää merkintöihin. Päivitä tiedot uudelleen; aiempi historia säilyi.</source>
+        <translation>Jugglucon luokkatietoja ei voitu yhdistää merkintöihin. Päivitä tiedot uudelleen; aiempi historia säilyi.</translation>
+    </message>
+    <message>
+        <location filename="../src/importer.cpp" line="103"/>
+        <source>Jugglucon luokkavienti on liian suuri. Aiempi historia säilyi.</source>
+        <translation>Jugglucon luokkavienti on liian suuri. Aiempi historia säilyi.</translation>
     </message>
 </context>
 </TS>

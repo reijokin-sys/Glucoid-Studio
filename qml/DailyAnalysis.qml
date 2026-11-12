@@ -140,7 +140,7 @@ ScrollView {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
                                 font.pixelSize: 10
-                                text: qsTranslate("Studio", "Kaikkien päivien kirjaukset: HH ") + root.n(card.modelData.carbs) + " g · pikainsuliini " + root.n(card.modelData.units) + qsTranslate("Studio", " U. Mukana ovat ateria- ja korjausannokset, eivät perusinsuliinit.")
+                                text: qsTranslate("Studio", "Kaikkien päivien kirjaukset: HH ") + root.n(card.modelData.carbs) + " g · pikainsuliini " + root.n(card.modelData.units) + qsTranslate("Studio", " U. Perusinsuliini ei sisälly määrään.")
                             }
                             Label {
                                 Layout.fillWidth: true
@@ -170,7 +170,7 @@ ScrollView {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             font.pixelSize: 11
-            text: qsTranslate("Studio", "Aineistossa on luokittelemattomia kirjauksia. Tarkista tietolähteen kirjausluokat asetuksissa.")
+            text: qsTranslate("Studio", "Aineistossa on luokittelemattomia kirjauksia: Juggluco ei välittänyt niille tunnistettavaa luokkaa. Ne näkyvät käyrillä, mutta eivät ole mukana hiilihydraatti- eikä insuliinisummissa. Tarkista merkinnän vientiasetus Jugglucossa vain, jos kirjaus on tehty väärin.")
         }
     }
 }

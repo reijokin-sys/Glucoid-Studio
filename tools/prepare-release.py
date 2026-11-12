@@ -40,6 +40,8 @@ for directory, names in application_files.items():
 for directory, suffixes in [('tests',{'.cpp','.h','.py','.tsv'}),('packaging',{'.desktop','.md'})]:
     for p in sorted((root/directory).rglob('*')):
         if p.is_file() and p.suffix in suffixes and '__pycache__' not in p.parts:
+            # Store listing drafts are not part of the published product source.
+            if p.relative_to(root/directory).parts[0]=='snap':continue
             selected[str(p.relative_to(root))] = p
 for p in sorted((root/'packaging/licenses').glob('*')):
     if p.is_file(): selected[str(p.relative_to(root))] = p
