@@ -158,7 +158,7 @@ ScrollView {
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
                                 font.pixelSize: 10
-                                text: qsTranslate("Studio", "Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo. Stream on ensisijainen, history täydentää aukot (") + root.n(card.modelData.historyFraction * 100) + qsTranslate("Studio", " % katetusta ajasta). Puuttuva mittaus ei ole nolla. Myös matalat ja korkeat arvot ovat mukana; ateria- ja insuliinikirjaukset eivät rajaa glukoosikeskiarvoa.")
+                                text: qsTranslate("Studio", "Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo käyttää sensorin 5 minuutin historiaa. Streamia ei sekoiteta raporttiin. Puuttuva mittaus ei ole nolla. Myös matalat ja korkeat arvot ovat mukana; ateria- ja insuliinikirjaukset eivät rajaa glukoosikeskiarvoa.")
                             }
                         }
                     }

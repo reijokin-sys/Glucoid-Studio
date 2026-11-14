@@ -21,7 +21,7 @@ struct Amounts {
     bool hasCarbs = false, hasInsulin = false;
 };
 struct Group {
-    double glucoseSum = 0, ratioSum = 0, carbs = 0, units = 0, covered = 0, expected = 0, history = 0;
+    double glucoseSum = 0, ratioSum = 0, carbs = 0, units = 0, covered = 0, expected = 0;
     int glucoseDays = 0, ratioDays = 0, onlyCarbs = 0, onlyInsulin = 0;
     QJsonArray days;
 };
@@ -29,7 +29,7 @@ QString clock(int minutes) {
     return QString("%1:%2").arg(minutes / 60, 2, 10, QChar('0')).arg(minutes % 60, 2, 10, QChar('0'));
 }
 } // namespace
-QJsonObject dailyPeriodAnalysis(QList<Reading> stream, QList<Reading> history, const QJsonArray& amounts, const QTimeZone& zone, QDate last) {
+QJsonObject dailyPeriodAnalysis(QList<Reading> history, const QJsonArray& amounts, const QTimeZone& zone, QDate last) {
     if (!zone.isValid() || !last.isValid()) return {{"status", "error"}, {"message", QCoreApplication::translate("Studio", "Virheellinen aikavyöhyke tai päivä.")}};
     const qint64 stop = QDateTime(last.addDays(1), QTime(0, 0), zone).toMSecsSinceEpoch();
     QDate first;
@@ -43,7 +43,6 @@ QJsonObject dailyPeriodAnalysis(QList<Reading> stream, QList<Reading> history, c
         std::sort(rows.begin(), rows.end(), [](const Reading& a, const Reading& b) { return a.time == b.time ? a.key < b.key : a.time < b.time; });
         if (!rows.isEmpty()) include(rows.first().time);
     };
-    prepare(stream);
     prepare(history);
     QMap<QDate, std::array<Amounts, 7>> entries;
     int unknown = 0;
@@ -79,25 +78,23 @@ QJsonObject dailyPeriodAnalysis(QList<Reading> stream, QList<Reading> history, c
     for (auto day = first; day.isValid() && day <= last; day = day.addDays(1)) {
         const auto begin = QDateTime(day, QTime(0, 0), zone).toMSecsSinceEpoch();
         const auto end = QDateTime(day.addDays(1), QTime(0, 0), zone).toMSecsSinceEpoch();
-        const auto dayIntervals = selectSeries(window(stream, begin, end), window(history, begin, end), begin, end, true, 1200);
+        const auto dayIntervals = selectSeries({}, window(history, begin, end), begin, end, true, 1200);
         const auto logged = entries.value(day);
         for (int i = 0; i < 7; ++i) {
             const auto a = QDateTime(day, QTime(starts[i] / 60, starts[i] % 60), zone).toMSecsSinceEpoch();
             const auto b = ends[i] == 1440 ? end : QDateTime(day, QTime(ends[i] / 60, ends[i] % 60), zone).toMSecsSinceEpoch();
-            double duration = 0, sum = 0, secondary = 0;
+            double duration = 0, sum = 0;
             for (auto it = std::lower_bound(dayIntervals.cbegin(), dayIntervals.cend(), a, [](const Interval& v, qint64 t) { return v.to <= t; });
                  it != dayIntervals.cend() && it->from < b; ++it) {
                 const auto d = std::min(b, it->to) - std::max(a, it->from);
                 if (d <= 0) continue;
                 duration += d;
                 sum += d * it->value;
-                if (it->kind == "history") secondary += d;
             }
             auto& g = groups[i];
             const auto& e = logged[i];
             g.covered += duration / 1000;
             g.expected += (b - a) / 1000.0;
-            g.history += secondary / 1000;
             g.carbs += e.carbs;
             g.units += e.units;
             QJsonObject detail{
@@ -132,15 +129,13 @@ QJsonObject dailyPeriodAnalysis(QList<Reading> stream, QList<Reading> history, c
                         {"onlyCarbDays", g.onlyCarbs},
                         {"onlyInsulinDays", g.onlyInsulin},
                         {"coverage", g.expected > 0 ? g.covered / g.expected : 0},
-                        {"historySeconds", g.history},
-                        {"historyFraction", g.covered > 0 ? g.history / g.covered : 0},
                         {"days", g.days}};
         if (g.glucoseDays) row["glucoseMean"] = g.glucoseSum / g.glucoseDays;
         if (g.ratioDays) row["ratioPer10g"] = g.ratioSum / g.ratioDays;
         rows << row;
     }
     return {{"status", "ready"},
-            {"method", "daily-clock-means-v1"},
+            {"method", "daily-clock-means-history-v1"},
             {"firstDate", first.toString(Qt::ISODate)},
             {"lastDate", last.toString(Qt::ISODate)},
             {"timezone", QString::fromUtf8(zone.id())},
@@ -154,10 +149,10 @@ QJsonObject dailyPeriodSnapshot(const QString& database, const QTimeZone& zone, 
     const auto revision = db.revision();
     const auto last = QDateTime::fromMSecsSinceEpoch(now, zone).date().addDays(-1);
     const auto stop = QDateTime(last.addDays(1), QTime(0, 0), zone).toMSecsSinceEpoch();
-    const auto stream = db.readings(0, stop), history = db.readings(0, stop, "history");
+    const auto history = db.readings(0, stop, "history");
     const auto amounts = db.amounts(0, stop);
     if (!db.good() || !db.run("COMMIT")) return {{"status", "error"}, {"message", QCoreApplication::translate("Studio", "Aineiston lukeminen ei onnistunut.")}};
-    auto result = dailyPeriodAnalysis(stream, history, amounts, zone, last);
+    auto result = dailyPeriodAnalysis(history, amounts, zone, last);
     result["sourceRevision"] = revision;
     return result;
 }

@@ -463,7 +463,7 @@ Kirigami.ApplicationWindow {
                             objectName: "summarySources"
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
-                            text: window.studio.analysis.coveredSeconds > 0 ? qsTranslate("Studio", "Stream ensisijainen; sensorihistoria täydentää vain aukot. History-täydennys ") + window.n(window.studio.analysis.historyFraction * 100) + qsTranslate("Studio", " % katetusta ajasta (") + window.n(window.studio.analysis.historySeconds / 3600) + " h)." : qsTranslate("Studio", "Stream ensisijainen; sensorihistoria täydentää vain aukot. Ei mittauksia valitulla jaksolla.")
+                            text: window.studio.analysis.coveredSeconds > 0 ? qsTranslate("Studio", "Raportointi käyttää sensorin 5 minuutin historiaa. Nykyinen lukema valitsee uusimman stream- tai history-pisteen; kuluvan päivän käyrä käyttää streamia.") : qsTranslate("Studio", "Raportoinnissa ei ole sensorihistoriaa valitulla jaksolla. Nykyinen lukema ja kuluvan päivän käyrä voivat silti käyttää streamia.")
                         }
                         Label {
                             Layout.fillWidth: true

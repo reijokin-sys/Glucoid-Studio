@@ -383,8 +383,8 @@ Yöajan kattavuus </translation>
     </message>
     <message>
         <location filename="../qml/DailyAnalysis.qml" line="161"/>
-        <source>Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo. Stream on ensisijainen, history täydentää aukot (</source>
-        <translation>Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo. Stream on ensisijainen, history täydentää aukot (</translation>
+        <source>Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo käyttää sensorin 5 minuutin historiaa. Streamia ei sekoiteta raporttiin. Puuttuva mittaus ei ole nolla. Myös matalat ja korkeat arvot ovat mukana; ateria- ja insuliinikirjaukset eivät rajaa glukoosikeskiarvoa.</source>
+        <translation>Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo käyttää sensorin 5 minuutin historiaa. Streamia ei sekoiteta raporttiin. Puuttuva mittaus ei ole nolla. Myös matalat ja korkeat arvot ovat mukana; ateria- ja insuliinikirjaukset eivät rajaa glukoosikeskiarvoa.</translation>
     </message>
     <message>
         <location filename="../src/glucose.cpp" line="54"/>
@@ -1077,13 +1077,13 @@ Yöajan kattavuus </translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="466"/>
-        <source>Stream ensisijainen; sensorihistoria täydentää vain aukot. Ei mittauksia valitulla jaksolla.</source>
-        <translation>Stream ensisijainen; sensorihistoria täydentää vain aukot. Ei mittauksia valitulla jaksolla.</translation>
+        <source>Raportoinnissa ei ole sensorihistoriaa valitulla jaksolla. Nykyinen lukema ja kuluvan päivän käyrä voivat silti käyttää streamia.</source>
+        <translation>Raportoinnissa ei ole sensorihistoriaa valitulla jaksolla. Nykyinen lukema ja kuluvan päivän käyrä voivat silti käyttää streamia.</translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="466"/>
-        <source>Stream ensisijainen; sensorihistoria täydentää vain aukot. History-täydennys </source>
-        <translation>Stream ensisijainen; sensorihistoria täydentää vain aukot. History-täydennys </translation>
+        <source>Raportointi käyttää sensorin 5 minuutin historiaa. Nykyinen lukema valitsee uusimman stream- tai history-pisteen; kuluvan päivän käyrä käyttää streamia.</source>
+        <translation>Raportointi käyttää sensorin 5 minuutin historiaa. Nykyinen lukema valitsee uusimman stream- tai history-pisteen; kuluvan päivän käyrä käyttää streamia.</translation>
     </message>
     <message>
         <location filename="../qml/DailyAnalysis.qml" line="149"/>

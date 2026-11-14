@@ -73,7 +73,7 @@ QJsonObject analyse(const QList<Interval>& data, QDate first, int days, const QT
     };
     QMap<QString, QMap<int, Bin>> daily;
     QList<double> expected(96, 0);
-    double duration = 0, sum = 0, sq = 0, below = 0, above = 0, historyMs = 0;
+    double duration = 0, sum = 0, sq = 0, below = 0, above = 0;
     QList<QPair<double, double>> weighted;
     double nightSum = 0, nightDuration = 0;
     for (qint64 t = from; t < to;) {
@@ -90,7 +90,6 @@ QJsonObject analyse(const QList<Interval>& data, QDate first, int days, const QT
         sum += v.value * d;
         sq += v.value * v.value * d;
         weighted << qMakePair(v.value, d);
-        if (v.kind == "history") historyMs += d;
         if (v.value < low) below += d;
         if (v.value > high) above += d;
         for (qint64 t = a; t < b;) {
@@ -115,7 +114,6 @@ QJsonObject analyse(const QList<Interval>& data, QDate first, int days, const QT
                     {"coverage", to > from ? duration / (to - from) : 0},
                     {"coveredSeconds", duration / 1000},
                     {"targetsSet", targets},
-                    {"historySeconds", historyMs / 1000},
                     {"observedDays", daily.size()}};
     // The same selected intervals and local calendar days as the daytime metrics.
     // Expected duration includes DST changes; missing time never becomes zero glucose.
@@ -179,8 +177,7 @@ QJsonObject analyse(const QList<Interval>& data, QDate first, int days, const QT
     out["high"] = targets ? QJsonValue(high) : QJsonValue();
     return out;
 }
-QJsonObject summaryAnalysis(const QList<Reading>& stream, const QList<Reading>& history, QDate first, int days, const QTimeZone& zone, double low,
-                            double high) {
+QJsonObject summaryAnalysis(const QList<Reading>& history, QDate first, int days, const QTimeZone& zone, double low, double high) {
     const auto from = QDateTime(first, QTime(0, 0), zone).toMSecsSinceEpoch();
     const auto to = QDateTime(first.addDays(days), QTime(0, 0), zone).toMSecsSinceEpoch();
     auto window = [&](const QList<Reading>& rows) {
@@ -189,11 +186,7 @@ QJsonObject summaryAnalysis(const QList<Reading>& stream, const QList<Reading>& 
             if (row.time >= from - summaryPreRollMs && row.time < to) out << row;
         return out;
     };
-    auto out = analyse(selectSeries(window(stream), window(history), from, to, true, summaryMaxGapSeconds), first, days, zone, low, high);
-    out["fillHistory"] = true;
-    const auto covered = out["coveredSeconds"].toDouble();
-    out["historyFraction"] = covered > 0 ? out["historySeconds"].toDouble() / covered : 0;
-    return out;
+    return analyse(selectSeries({}, window(history), from, to, true, summaryMaxGapSeconds), first, days, zone, low, high);
 }
 QJsonObject currentGlucose(QList<Reading> stream, QList<Reading> history, qint64 now, const QTimeZone& zone, double low, double high, double criticalLow) {
     QJsonObject out{{"hasData", false},

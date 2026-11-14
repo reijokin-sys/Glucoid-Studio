@@ -145,7 +145,7 @@ private slots:
         QVERIFY(minimumFrom>=expected && minimumFrom<=expected+10000);
         QCOMPARE(amountsFrom,1000LL);
     }
-    void standardSummaryIgnoresResearchSwitchesAndRetainsData(){
+    void summaryUsesHistoryOnlyAndRetainsData(){
         const GlucoidFixture::SummaryPolicy f;
         QTemporaryDir dir;FixtureStore db(dir.path()+"/studio.sqlite3");
         const QJsonObject settings{{"timezone","UTC"},{"low",4},{"high",8},
@@ -157,12 +157,12 @@ private slots:
         for(int days:{7,14,28}){
             backend.setAnalysisWindow(days,f.first.addDays(days-1).toString(Qt::ISODate));
             const auto r=backend.analysis();
-            QVERIFY(qAbs(r["mean"].toDouble()-9.6)<1e-10);
+            QVERIFY(qAbs(r["mean"].toDouble()-10.0)<1e-10);
             QCOMPARE(r["coveredSeconds"].toDouble(),600.0);
-            QCOMPARE(r["historySeconds"].toDouble(),540.0);
-            QCOMPARE(r["historyFraction"].toDouble(),0.9);
-            QVERIFY(r["fillHistory"].toBool());
-            QVERIFY(qAbs(r["inRange"].toDouble()-.1)<1e-10);
+            QVERIFY(!r.contains("historySeconds"));
+            QVERIFY(!r.contains("historyFraction"));
+            QVERIFY(!r.contains("fillHistory"));
+            QVERIFY(qAbs(r["inRange"].toDouble())<1e-10);
             QCOMPARE(r["nightMean"].toDouble(),r["mean"].toDouble());
             QCOMPARE(r["coverage"].toDouble(),600.0/(days*86400));
         }

@@ -24,7 +24,7 @@ private slots:
         auto excluded=amount(day,100,"rapid");excluded["analysisExcluded"]=true;events<<excluded;
         auto deleted=amount(day,100,"carbs");deleted["deleted"]=true;events<<deleted;
         auto inactive=amount(day,100,"rapid");inactive["active"]=false;events<<inactive;
-        const auto result=dailyPeriodAnalysis({},{},events,zone,day.addDays(3));
+        const auto result=dailyPeriodAnalysis({},events,zone,day.addDays(3));
         const auto row=result["groups"].toArray()[0].toObject();
         QCOMPARE(row["ratioPer10g"].toDouble(),.75);
         QCOMPARE(row["ratioDays"].toInt(),2);QCOMPARE(row["carbs"].toDouble(),110.0);
@@ -32,32 +32,34 @@ private slots:
         QVERIFY(!row.contains("glucoseMean"));
     }
     void glucoseDaysAreEquallyWeightedAndIndependentOfLogs(){
-        QList<Reading> stream;
-        for(int m=0;m<180;++m)stream<<reading(at(day)+m*60000,6);
-        stream<<reading(at(day.addDays(1)),10);
-        auto result=dailyPeriodAnalysis(stream,{},QJsonArray{amount(day.addDays(2),20,"carbs")},zone,day.addDays(2));
+        QList<Reading> history;
+        for(int m=0;m<180;++m)history<<reading(at(day)+m*60000,6,"history");
+        history<<reading(at(day.addDays(1)),10,"history");
+        auto result=dailyPeriodAnalysis(history,QJsonArray{amount(day.addDays(2),20,"carbs")},zone,day.addDays(2));
         auto row=result["groups"].toArray()[0].toObject();
         QCOMPARE(row["glucoseMean"].toDouble(),8.0);QCOMPARE(row["glucoseDays"].toInt(),2);
         QCOMPARE(row["ratioDays"].toInt(),0);QVERIFY(!row.contains("ratioPer10g"));
-        QVERIFY(qAbs(row["coverage"].toDouble()-181.0/540)<1e-10);
+        QVERIFY(qAbs(row["coverage"].toDouble()-(10800.0+300.0)/32400.0)<1e-10);
     }
     void clockBoundariesAndIncompleteToday(){
         QJsonArray events;
         for(int h:{0,6,9,12,15,18,21})events<<amount(day,10,"carbs",h)<<amount(day,1,"rapid",h);
         events<<amount(day.addDays(1),100,"carbs",0)<<amount(day.addDays(1),100,"rapid",0);
-        const auto rows=dailyPeriodAnalysis({},{},events,zone,day)["groups"].toArray();
+        const auto rows=dailyPeriodAnalysis({},events,zone,day)["groups"].toArray();
         QCOMPARE(rows.size(),7);
         for(auto value:rows){const auto r=value.toObject();QCOMPARE(r["ratioDays"].toInt(),1);QCOMPARE(r["ratioPer10g"].toDouble(),1.0);QCOMPARE(r["carbs"].toDouble(),10.0);}
         QCOMPARE(rows[0].toObject()["label"].toString(),QString::fromUtf8("06:00–09:00"));
         QCOMPARE(rows[5].toObject()["label"].toString(),QString::fromUtf8("21:00–00:00"));
         QCOMPARE(rows[6].toObject()["label"].toString(),QString::fromUtf8("00:00–06:00"));
     }
-    void historyFillsOnlyUncoveredTime(){
+    void reportUsesHistoryWithoutStreamMixing(){
         const auto start=at(day);
-        const auto row=dailyPeriodAnalysis({reading(start,6)},
+        const auto row=dailyPeriodAnalysis(
             {reading(start,10,"history"),reading(start+300000,10,"history")},{},zone,day)["groups"].toArray()[0].toObject();
-        QCOMPARE(row["glucoseMean"].toDouble(),9.6);QCOMPARE(row["historySeconds"].toDouble(),540.0);
-        QCOMPARE(row["historyFraction"].toDouble(),.9);
+        QCOMPARE(row["glucoseMean"].toDouble(),10.0);
+        QCOMPARE(row["coverage"].toDouble(),600.0/10800);
+        QVERIFY(!row.contains("historySeconds"));
+        QVERIFY(!row.contains("historyFraction"));
     }
     void dstAndNoData(){
         const QTimeZone helsinki("Europe/Helsinki");
@@ -65,10 +67,10 @@ private slots:
             QList<Reading> rows;
             const auto a=QDateTime(date,QTime(0,0),helsinki).toMSecsSinceEpoch(),b=QDateTime(date,QTime(6,0),helsinki).toMSecsSinceEpoch();
             for(auto t=a;t<b;t+=60000)rows<<reading(t,7);
-            const auto r=dailyPeriodAnalysis(rows,{},{},helsinki,date)["groups"].toArray()[6].toObject();
+            const auto r=dailyPeriodAnalysis(rows,{},helsinki,date)["groups"].toArray()[6].toObject();
             QCOMPARE(r["coverage"].toDouble(),1.0);QCOMPARE(r["glucoseMean"].toDouble(),7.0);
         }
-        const auto empty=dailyPeriodAnalysis({},{},{},zone,day);
+        const auto empty=dailyPeriodAnalysis({}, {},zone,day);
         QCOMPARE(empty["groups"].toArray().size(),7);QCOMPARE(empty["calendarDays"].toInt(),0);
         for(auto v:empty["groups"].toArray()){QVERIFY(!v.toObject().contains("glucoseMean"));QVERIFY(!v.toObject().contains("ratioPer10g"));}
     }

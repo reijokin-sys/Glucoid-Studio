@@ -383,8 +383,8 @@ Night coverage </translation>
     </message>
     <message>
         <location filename="../qml/DailyAnalysis.qml" line="161"/>
-        <source>Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo. Stream on ensisijainen, history täydentää aukot (</source>
-        <translation>Glucose: average of time-weighted daily averages. Stream is primary; history fills gaps (</translation>
+        <source>Glukoosi: päivän aikapainotettujen keskiarvojen keskiarvo käyttää sensorin 5 minuutin historiaa. Streamia ei sekoiteta raporttiin. Puuttuva mittaus ei ole nolla. Myös matalat ja korkeat arvot ovat mukana; ateria- ja insuliinikirjaukset eivät rajaa glukoosikeskiarvoa.</source>
+        <translation>Glucose: the average of time-weighted daily averages uses the sensor's 5-minute history. Stream data is not mixed into the report. Missing measurements are not treated as zero. Low and high values are included; meal and insulin records do not restrict the glucose average.</translation>
     </message>
     <message>
         <location filename="../src/glucose.cpp" line="54"/>
@@ -1077,13 +1077,13 @@ Night coverage </translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="466"/>
-        <source>Stream ensisijainen; sensorihistoria täydentää vain aukot. Ei mittauksia valitulla jaksolla.</source>
-        <translation>Stream primary; sensor history only fills gaps. No measurements in the selected period.</translation>
+        <source>Raportoinnissa ei ole sensorihistoriaa valitulla jaksolla. Nykyinen lukema ja kuluvan päivän käyrä voivat silti käyttää streamia.</source>
+        <translation>The selected period has no sensor history for reporting. The current reading and current-day chart may still use stream data.</translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="466"/>
-        <source>Stream ensisijainen; sensorihistoria täydentää vain aukot. History-täydennys </source>
-        <translation>Stream primary; sensor history only fills gaps. History supplement </translation>
+        <source>Raportointi käyttää sensorin 5 minuutin historiaa. Nykyinen lukema valitsee uusimman stream- tai history-pisteen; kuluvan päivän käyrä käyttää streamia.</source>
+        <translation>Reporting uses the sensor's 5-minute history. The current reading selects the newest stream or history point; the current-day chart uses stream data.</translation>
     </message>
     <message>
         <location filename="../qml/DailyAnalysis.qml" line="149"/>

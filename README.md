@@ -18,7 +18,14 @@ Juggluco network access requires a working Linux WireGuard interface and the pho
 
 The application describes recorded data; it cannot guarantee that source data is correct. GMI is an estimate derived from sensor readings, not a laboratory HbA1c measurement. Its reference color is also shown for a one-week period; short or incomplete periods remain marked as indicative. The application contains no treatment recommendations, dose calculator or research mode. Existing local history and backups are retained.
 
-#### Version 4.1.0
+#### Version 4.1.1
+
+Historical reports now use the sensor's five-minute `history` series only.
+The `stream` series is no longer mixed into Summary, Daily analysis,
+historical current-day totals or the four-day comparison, and it is not used
+as a fallback for those reports. The current reading still selects the newest
+stream or history point, and the current-day chart may use stream data.
+Missing history lowers coverage; it is not treated as zero glucose.
 
 Entry categories are read from Juggluco's amounts export, so the same entries
 do not have to be classified twice in Studio. The insulin product name is
@@ -82,7 +89,7 @@ settings file. A real Nightscout server and the network-dependent
 The `.deb` targets **Ubuntu/Kubuntu 26.04 amd64**, Qt 6.10 and KDE/Kirigami 6. It uses distribution-provided libraries rather than bundled copies.
 
 ```sh
-sudo apt install ./glucoid-studio_4.1.0_amd64.deb
+sudo apt install ./glucoid-studio_4.1.1_amd64.deb
 glucoid-studio
 ```
 
@@ -123,7 +130,7 @@ Daily analysis excludes basal insulin from its insulin-to-carbohydrate ratio and
 
 #### Calculation policy
 
-Glucose is weighted by measured duration. Stream data takes priority; sensor history fills only gaps, without double counting overlapping time. Missing time is not treated as zero, and the last reading is not extended across a long gap. The technical maximum gap is 20 minutes; covered time is also limited by the series' observed sampling interval.
+Historical glucose summaries are weighted by measured duration and use sensor history only. Stream readings are reserved for the current reading and the current-day chart. Missing time is not treated as zero, and the last reading is not extended across a long gap. The technical maximum gap is 20 minutes; covered time is also limited by the history series' observed sampling interval.
 
 Daily analysis first calculates a time-weighted mean for each day's time period, then averages those daily means with equal weight for each measured day. Front-page means weight all covered time in the selected reporting period. Low or high readings and carbohydrate/insulin entries do not exclude nights or days from descriptive glucose analysis. The 00–06 interval is a clock-time window, not verified sleep time.
 

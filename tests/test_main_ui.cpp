@@ -162,7 +162,7 @@ private slots:
     QFETCH(int,width);QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");const QDate anchor(2026,11,8);const QTimeZone zone("Europe/Helsinki");
     QVERIFY(store.setMeta("analysisSettings",QString::fromUtf8(QJsonDocument(QJsonObject{{"timezone","Europe/Helsinki"},{"low",4},{"high",10}}).toJson())));
     QList<Reading> rows;
-    for(int offset=0;offset<4;++offset)for(int i=0;i<4;++i){Reading r;r.key=QString("chart-%1-%2").arg(offset).arg(i);r.sensor="synthetic";r.time=anchor.addDays(-offset).startOfDay(zone).toMSecsSinceEpoch()+i*300000;r.mmol=i==0?2:i==2?12:6;rows<<r;}
+    for(int offset=0;offset<4;++offset)for(int i=0;i<4;++i){Reading r;r.key=QString("chart-%1-%2").arg(offset).arg(i);r.sensor="synthetic";r.seriesKind="history";r.time=anchor.addDays(-offset).startOfDay(zone).toMSecsSinceEpoch()+i*300000;r.mmol=i==0?2:i==2?12:6;rows<<r;}
     QVERIFY(store.ingest(rows,{},rows.last().time-86400000,rows.first().time+86400000,false));
     Backend b(dir.path());QQmlApplicationEngine engine;load(engine,b,width);QVERIFY(!engine.rootObjects().isEmpty());auto *window=qobject_cast<QQuickWindow*>(engine.rootObjects().first());QVERIFY(window);
     b.setWindow(anchor.toString(Qt::ISODate),1);QMetaObject::invokeMethod(window,"showView",Q_ARG(QVariant,2));
@@ -332,7 +332,7 @@ private slots:
     QTemporaryDir dir;FixtureStore store(dir.path()+"/studio.sqlite3");
     const QDate day(2026,11,8);const QTimeZone zone("UTC");
     const auto from=day.startOfDay(zone).toMSecsSinceEpoch();
-    Reading point;point.key="synthetic-single";point.sensor="synthetic";point.time=from+3600000;point.mmol=12;point.original=12;point.originalUnit="mmol/L";
+    Reading point;point.key="synthetic-single";point.sensor="synthetic";point.seriesKind="history";point.time=from+3600000;point.mmol=12;point.original=12;point.originalUnit="mmol/L";
     QVERIFY(store.ingest({point},{},from,from+86400000,false));
     QVERIFY(store.setMeta("analysisSettings",QString::fromUtf8(QJsonDocument(QJsonObject{{"timezone","UTC"},{"low",4},{"high",10}}).toJson())));
     Backend b(dir.path());QQmlApplicationEngine engine;load(engine,b);

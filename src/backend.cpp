@@ -672,13 +672,15 @@ void Backend::refreshAnalysis() {
     if (!last.isValid() || last >= today) last = today.addDays(-1);
     const auto first = last.addDays(1 - analysisDays), previous = first.addDays(-analysisDays);
     const qint64 from = QDateTime(previous, QTime(0, 0), zone).toMSecsSinceEpoch(), to = QDateTime(last.addDays(1), QTime(0, 0), zone).toMSecsSinceEpoch();
-    const auto stream = db.readings(from, to, "stream"), history = db.readings(from, to, "history");
+    const auto history = db.readings(from, to, "history");
     const int gap = qRound(number(settings, "maxGapMinutes") * 60);
-    auto data = selectSeries(stream, history, from, to, settings["fillHistory"].toBool(), gap);
-    // Standard glucose summaries are independent of the research-only switches.
-    const auto summaryStream = db.readings(from - 1200000, to, "stream"), summaryHistory = db.readings(from - 1200000, to, "history");
-    auto result = summaryAnalysis(summaryStream, summaryHistory, first, analysisDays, zone, number(settings, "low"), number(settings, "high"));
-    result["previous"] = summaryAnalysis(summaryStream, summaryHistory, previous, analysisDays, zone, number(settings, "low"), number(settings, "high"));
+    // Reporting uses the retrospective 5-minute history only. Stream contains
+    // current-display values and transient sensor errors and remains reserved
+    // for the live reading and current-day chart.
+    auto data = selectSeries({}, history, from, to, true, gap);
+    const auto summaryHistory = db.readings(from - 1200000, to, "history");
+    auto result = summaryAnalysis(summaryHistory, first, analysisDays, zone, number(settings, "low"), number(settings, "high"));
+    result["previous"] = summaryAnalysis(summaryHistory, previous, analysisDays, zone, number(settings, "low"), number(settings, "high"));
     // GMI is an estimate of HbA1c from the same time-weighted mean. The 14-day
     // and 70% coverage rule marks whether the estimate has a conventional basis.
     if (result.contains("mean")) {
@@ -708,8 +710,8 @@ void Backend::refreshAnalysis() {
     if (!latestAmount.isEmpty()) result["lastAmount"] = latestAmount[0].toObject()["t"];
     // Short current-day report is separate from complete-day aggregates.
     const qint64 dayStart = QDateTime(today, QTime(0, 0), zone).toMSecsSinceEpoch(), now = QDateTime::currentMSecsSinceEpoch();
-    result["today"] = summaryAnalysis(db.readings(dayStart - 1200000, now), db.readings(dayStart - 1200000, now, "history"), today, 1, zone,
-                                      number(settings, "low"), number(settings, "high"));
+    result["today"] = summaryAnalysis(db.readings(dayStart - 1200000, now, "history"), today, 1, zone, number(settings, "low"),
+                                      number(settings, "high"));
     // Front page: the current local calendar day, stream first with history gaps.
     const qint64 dayEnd = QDateTime(today.addDays(1), QTime(0, 0), zone).toMSecsSinceEpoch();
     m_currentDayChart =
@@ -725,19 +727,18 @@ void Backend::refreshAnalysis() {
 // Previous local calendar day with its own time axis. Research chart switches
 // remain independent of the standard summary policy.
 
-// Four local days, standard stream/history policy and the front-page pre-roll.
+// Four report days from the retrospective history series.
 QVariantList Backend::buildDayComparisonCharts(const QJsonObject& settings, const QTimeZone& zone, const QDate& today) const {
     const auto comparisonDay = QDate::fromString(dateWindow, Qt::ISODate);
     const auto anchor = comparisonDay.isValid() ? comparisonDay : today;
     const auto comparisonFrom = anchor.addDays(-3).startOfDay(zone).toMSecsSinceEpoch();
     const auto comparisonTo = anchor.addDays(1).startOfDay(zone).toMSecsSinceEpoch();
-    const auto comparisonStream = db.readings(comparisonFrom - summaryPreRollMs, comparisonTo, "stream");
     const auto comparisonHistory = db.readings(comparisonFrom - summaryPreRollMs, comparisonTo, "history");
     const auto comparisonAmounts = db.amounts(comparisonFrom, comparisonTo);
     QVariantList charts;
     for (int offset = 0; offset < 4; ++offset) {
         auto dayChart =
-            currentDayChartData(comparisonStream, comparisonHistory, anchor.addDays(-offset), zone, number(settings, "low"), number(settings, "high"));
+            currentDayChartData({}, comparisonHistory, anchor.addDays(-offset), zone, number(settings, "low"), number(settings, "high"));
         dayChart["dateLabel"] = studioLocale(language()).toString(anchor.addDays(-offset), "ddd d.M.yyyy");
         QJsonArray markers;
         const auto from = qint64(dayChart["from"].toDouble()), to = qint64(dayChart["to"].toDouble());
